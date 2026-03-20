@@ -135,6 +135,24 @@ export const update = mutation({
   },
 });
 
+export const updateMenaRegistrations = mutation({
+  args: {
+    id: v.id("drugs"),
+    menaRegistrations: v.array(v.object({
+      country: v.string(),
+      status: v.union(v.literal("registered"), v.literal("not_found"), v.literal("unverified")),
+      registrationNumber: v.optional(v.string()),
+      source: v.string(),
+      url: v.optional(v.string()),
+      verifiedAt: v.number(),
+    })),
+    menaRegistrationCount: v.optional(v.number()),
+  },
+  handler: async (ctx, { id, menaRegistrations, menaRegistrationCount }) => {
+    await ctx.db.patch(id, { menaRegistrations, menaRegistrationCount });
+  },
+});
+
 export const listWithPatentUrgency = query({
   args: { limit: v.optional(v.number()) },
   handler: async (ctx, { limit }) => {

@@ -49,6 +49,21 @@ export default defineSchema({
     linkedinUrl: v.optional(v.string()),
     bdNotes: v.optional(v.string()),
     bdScoredAt: v.optional(v.number()),
+    bdEvidenceItems: v.optional(v.array(v.object({
+      claim: v.string(),
+      source: v.string(),
+      url: v.optional(v.string()),
+    }))),
+    keyContacts: v.optional(v.array(v.object({
+      name: v.string(),
+      title: v.string(),
+      email: v.optional(v.string()),
+      linkedinUrl: v.optional(v.string()),
+      confidence: v.union(v.literal("confirmed"), v.literal("likely"), v.literal("inferred")),
+      source: v.optional(v.string()),
+    }))),
+    researchedAt: v.optional(v.number()),
+    linkedinCompanyUrl: v.optional(v.string()),
   })
     .index("by_name", ["name"])
     .index("by_country", ["country"])
@@ -78,6 +93,14 @@ export default defineSchema({
     emaApprovalDate: v.optional(v.string()),
     menaRegistrationCount: v.optional(v.number()),
     patentUrgencyScore: v.optional(v.number()),
+    menaRegistrations: v.optional(v.array(v.object({
+      country: v.string(),
+      status: v.union(v.literal("registered"), v.literal("not_found"), v.literal("unverified")),
+      registrationNumber: v.optional(v.string()),
+      source: v.string(),
+      url: v.optional(v.string()),
+      verifiedAt: v.number(),
+    }))),
   })
     .index("by_company", ["companyId"])
     .index("by_therapeutic_area", ["therapeuticArea"]),
@@ -141,6 +164,7 @@ export default defineSchema({
       v.literal("bd_scoring"),
       v.literal("gap_analysis"),
       v.literal("demand_signals"),
+      v.literal("prospect_research"),
     ),
     status: v.union(
       v.literal("running"),

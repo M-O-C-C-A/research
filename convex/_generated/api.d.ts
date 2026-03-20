@@ -22,6 +22,7 @@ import type * as gapOpportunities from "../gapOpportunities.js";
 import type * as openaiResearch from "../openaiResearch.js";
 import type * as opportunities from "../opportunities.js";
 import type * as reports from "../reports.js";
+import type * as research from "../research.js";
 import type * as researchInputs from "../researchInputs.js";
 
 import type {
@@ -45,6 +46,7 @@ declare const fullApi: ApiFromModules<{
   openaiResearch: typeof openaiResearch;
   opportunities: typeof opportunities;
   reports: typeof reports;
+  research: typeof research;
   researchInputs: typeof researchInputs;
 }>;
 

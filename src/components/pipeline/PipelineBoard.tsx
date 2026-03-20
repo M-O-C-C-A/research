@@ -101,6 +101,8 @@ function CompanyRow({
   company,
   onStageChange,
   onNoteAdded,
+  onEnrich,
+  isEnriching,
 }: {
   company: {
     _id: Id<"companies">;
@@ -112,9 +114,12 @@ function CompanyRow({
     menaPresence?: string;
     contactName?: string;
     therapeuticAreas: string[];
+    researchedAt?: number;
   };
   onStageChange: (id: Id<"companies">, status: BdStatus) => void;
   onNoteAdded: (id: Id<"companies">, note: string) => void;
+  onEnrich: (id: Id<"companies">) => void;
+  isEnriching: boolean;
 }) {
   const [showNote, setShowNote] = useState(false);
   const drugs = useQuery(api.drugs.listByCompany, { companyId: company._id });

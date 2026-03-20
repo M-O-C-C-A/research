@@ -94,6 +94,21 @@ export const update = mutation({
     linkedinUrl: v.optional(v.string()),
     bdNotes: v.optional(v.string()),
     bdScoredAt: v.optional(v.number()),
+    linkedinCompanyUrl: v.optional(v.string()),
+    researchedAt: v.optional(v.number()),
+    bdEvidenceItems: v.optional(v.array(v.object({
+      claim: v.string(),
+      source: v.string(),
+      url: v.optional(v.string()),
+    }))),
+    keyContacts: v.optional(v.array(v.object({
+      name: v.string(),
+      title: v.string(),
+      email: v.optional(v.string()),
+      linkedinUrl: v.optional(v.string()),
+      confidence: v.union(v.literal("confirmed"), v.literal("likely"), v.literal("inferred")),
+      source: v.optional(v.string()),
+    }))),
   },
   handler: async (ctx, { id, ...patch }) => {
     await ctx.db.patch(id, patch);

@@ -3,6 +3,8 @@ import { RecentDrugs } from "@/components/dashboard/RecentDrugs";
 import { RecentJobs } from "@/components/dashboard/RecentJobs";
 import { TopGapsWidget } from "@/components/dashboard/TopGapsWidget";
 import { BDPipelineWidget } from "@/components/dashboard/BDPipelineWidget";
+import { PriorityMatchesWidget } from "@/components/dashboard/PriorityMatchesWidget";
+import { ActionQueueWidget } from "@/components/dashboard/ActionQueueWidget";
 import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompaniesButton";
 import Link from "next/link";
 import { Building2, Pill, ArrowRight, Radar, Target, GitBranch } from "lucide-react";
@@ -25,6 +27,13 @@ export default function DashboardPage() {
       </div>
 
       <StatsBar />
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="lg:col-span-2">
+          <PriorityMatchesWidget />
+        </div>
+        <ActionQueueWidget />
+      </div>
 
       {/* BD Cockpit widgets */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">

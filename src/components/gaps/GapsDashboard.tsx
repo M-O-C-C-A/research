@@ -667,7 +667,7 @@ export function GapsDashboard() {
         <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 mb-6 flex flex-wrap gap-3 items-end">
           <div className="flex-1 min-w-[180px]">
             <label className="block text-xs text-zinc-500 mb-1.5">Therapeutic Area</label>
-            <Select value={selectedTA} onValueChange={setSelectedTA}>
+            <Select value={selectedTA} onValueChange={(v) => setSelectedTA(v ?? "")}>
               <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
                 <SelectValue placeholder="All areas" />
               </SelectTrigger>
@@ -682,7 +682,7 @@ export function GapsDashboard() {
 
           <div className="flex-1 min-w-[160px]">
             <label className="block text-xs text-zinc-500 mb-1.5">Country</label>
-            <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+            <Select value={selectedCountry} onValueChange={(v) => setSelectedCountry(v ?? "")}>
               <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
                 <SelectValue placeholder="All MENA" />
               </SelectTrigger>
@@ -707,7 +707,7 @@ export function GapsDashboard() {
           <div className="flex gap-2 items-end">
             <div className="min-w-[180px]">
               <label className="block text-xs text-zinc-500 mb-1.5">Run Analysis For</label>
-              <Select value={runningTA} onValueChange={setRunningTA}>
+              <Select value={runningTA} onValueChange={(v) => setRunningTA(v ?? "")}>
                 <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
                   <SelectValue placeholder="Select area…" />
                 </SelectTrigger>

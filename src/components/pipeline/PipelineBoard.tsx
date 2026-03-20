@@ -207,6 +207,19 @@ function CompanyRow({
 
         {/* Actions */}
         <div className="flex items-center gap-1 shrink-0">
+          {!company.researchedAt && (
+            <button
+              onClick={() => onEnrich(company._id)}
+              disabled={isEnriching}
+              className="p-1.5 text-amber-600 hover:text-amber-400 transition-colors rounded"
+              title="Build full prospect dossier"
+            >
+              {isEnriching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="text-xs">⚡</span>}
+            </button>
+          )}
+          {company.researchedAt && (
+            <span className="text-xs text-emerald-600" title={`Researched ${new Date(company.researchedAt).toLocaleDateString()}`}>✓</span>
+          )}
           <button
             onClick={() => setShowNote((v) => !v)}
             className="p-1.5 text-zinc-700 hover:text-zinc-400 transition-colors rounded"
@@ -250,6 +263,20 @@ export function PipelineBoard() {
   const moveStage = useMutation(api.companies.moveStage);
   const addNote = useMutation(api.bdActivities.create);
   const scoreCompany = useAction(api.discovery.scoreCompanyForBD);
+  const buildDossier = useAction(api.research.buildProspectDossier);
+  const runQueue = useAction(api.research.runProspectResearchQueue);
+  const [enrichingId, setEnrichingId] = useState<Id<"companies"> | null>(null);
+  const [isQueueRunning, setIsQueueRunning] = useState(false);
+
+  async function handleEnrichCompany(id: Id<"companies">) {
+    setEnrichingId(id);
+    try { await buildDossier({ companyId: id }); } finally { setEnrichingId(null); }
+  }
+
+  async function handleRunQueue() {
+    setIsQueueRunning(true);
+    try { await runQueue({ limit: 3 }); } finally { setIsQueueRunning(false); }
+  }
 
   async function handleStageChange(id: Id<"companies">, newStatus: BdStatus) {
     await moveStage({ id, newStatus });
@@ -308,20 +335,13 @@ export function PipelineBoard() {
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {unscoredCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="border-zinc-700 hover:bg-zinc-800 text-xs"
-              onClick={handleScoreAll}
-              disabled={scoringId != null}
-            >
-              {scoringId != null ? (
-                <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Scoring…</>
-              ) : (
-                <>Score {Math.min(unscoredCount, 5)} unscored</>
-              )}
+            <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800 text-xs" onClick={handleScoreAll} disabled={scoringId != null}>
+              {scoringId != null ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Scoring…</> : <>Score {Math.min(unscoredCount, 5)} unscored</>}
             </Button>
           )}
+          <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800 text-xs" onClick={handleRunQueue} disabled={isQueueRunning}>
+            {isQueueRunning ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Enriching…</> : <>⚡ Enrich 3 prospects</>}
+          </Button>
           <Link href="/companies">
             <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800 text-xs">
               <Building2 className="h-3.5 w-3.5 mr-1.5" />
@@ -417,6 +437,8 @@ export function PipelineBoard() {
               company={company}
               onStageChange={handleStageChange}
               onNoteAdded={handleNoteAdded}
+              onEnrich={(id) => handleEnrichCompany(id)}
+              isEnriching={enrichingId === company._id}
             />
           ))
         )}

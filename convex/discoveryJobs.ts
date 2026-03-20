@@ -46,6 +46,7 @@ export const create = mutation({
       v.literal("bd_scoring"),
       v.literal("gap_analysis"),
       v.literal("demand_signals"),
+      v.literal("prospect_research"),
     ),
     companyId: v.optional(v.id("companies")),
     companyName: v.optional(v.string()),

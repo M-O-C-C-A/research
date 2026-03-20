@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FileText, ImagePlus, Loader2, Trash2, Upload } from "lucide-react";
 import { uploadFileToConvex } from "@/lib/convexUpload";
+import { extractPdfPreviewText } from "@/lib/pdfClient";
 
 interface ResearchInputPanelProps {
   drugId: string;
@@ -84,6 +85,10 @@ export function ResearchInputPanel({ drugId }: ResearchInputPanelProps) {
       }
 
       const { storageId } = await uploadFileToConvex(file, generateUploadUrl);
+      const extractedText =
+        sourceType === "pdf"
+          ? await extractPdfPreviewText(file, { maxPages: 6, maxChars: 8000 })
+          : undefined;
       await processResearchInputUpload({
         drugId: drugId as Id<"drugs">,
         title: file.name,
@@ -91,6 +96,7 @@ export function ResearchInputPanel({ drugId }: ResearchInputPanelProps) {
         storageId: storageId as Id<"_storage">,
         fileName: file.name,
         contentType: file.type || undefined,
+        extractedText,
       });
     } catch (error) {
       setUploadError(

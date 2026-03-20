@@ -1,6 +1,5 @@
 "use node";
 
-import { toFile } from "openai";
 import { action, ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
@@ -324,56 +323,27 @@ async function extractCompanyDiscoveryImageInput(
 }
 
 async function extractCompanyDiscoveryPdfInput(
-  blob: Blob,
+  extractedText: string,
   title: string
 ): Promise<CompanyDiscoveryImageExtraction> {
   const client = createResearchClient(process.env.OPENAI_API_KEY!);
-  const openaiFile = await client.files.create({
-    file: await toFile(
-      Buffer.from(await blob.arrayBuffer()),
-      title,
-      { type: blob.type || "application/pdf" }
-    ),
-    purpose: "user_data",
-  });
 
-  try {
-    await client.files.waitForProcessing(openaiFile.id, {
-      pollInterval: 1000,
-      maxWait: 30000,
-    });
+  const extraction = await createStructuredResponse<CompanyDiscoveryImageExtraction>(
+    client,
+    {
+      instructions:
+        `You extract company discovery leads from uploaded business PDFs. Focus on company names, distributor names, product names, market-entry clues, and search terms relevant to KEMEDICA's MENA pharma expansion model. The provided PDF text is truncated to the most useful early pages, so prioritize extracting concrete names and phrases that can seed deeper internet research. ${KEMEDICA_CONTEXT}`,
+      input: `PDF title: ${title}
 
-    const extraction = await createStructuredResponse<CompanyDiscoveryImageExtraction>(
-      client,
-      {
-        instructions:
-          `You extract company discovery leads from uploaded business PDFs. Focus on company names, distributor names, product names, market-entry clues, and search terms relevant to KEMEDICA's MENA pharma expansion model. ${KEMEDICA_CONTEXT}`,
-        input: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: "Read this PDF and extract company-discovery search leads. Summarize what matters for deeper internet research and identify likely company names and search terms.",
-              },
-              {
-                type: "input_file",
-                filename: title,
-                file_id: openaiFile.id,
-              },
-            ],
-          },
-        ],
-        formatName: "company_discovery_pdf_input",
-        schema: COMPANY_DISCOVERY_IMAGE_SCHEMA,
-        maxOutputTokens: 1400,
-      }
-    );
+Extracted preview text:
+${extractedText}`,
+      formatName: "company_discovery_pdf_input",
+      schema: COMPANY_DISCOVERY_IMAGE_SCHEMA,
+      maxOutputTokens: 900,
+    }
+  );
 
-    return extraction.data;
-  } finally {
-    await client.files.delete(openaiFile.id).catch(() => null);
-  }
+  return extraction.data;
 }
 
 export const processCompanyDiscoveryUpload = action({
@@ -381,6 +351,7 @@ export const processCompanyDiscoveryUpload = action({
     title: v.string(),
     sourceType: v.union(v.literal("pdf"), v.literal("image")),
     storageId: v.id("_storage"),
+    extractedText: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const blob = await ctx.storage.get(args.storageId);
@@ -390,7 +361,21 @@ export const processCompanyDiscoveryUpload = action({
 
     try {
       if (args.sourceType === "pdf") {
-        const result = await extractCompanyDiscoveryPdfInput(blob, args.title);
+        const extractedText = args.extractedText?.trim();
+        if (!extractedText) {
+          return {
+            title: args.title,
+            sourceType: "pdf" as const,
+            content:
+              "Uploaded PDF received, but no text could be extracted from the preview. Add a note or try a text-based PDF for better search seeding.",
+            seedTerms: extractSeedTerms(args.title),
+          };
+        }
+
+        const result = await extractCompanyDiscoveryPdfInput(
+          extractedText.slice(0, 8000),
+          args.title
+        );
         return {
           title: result.title || args.title,
           sourceType: "pdf" as const,

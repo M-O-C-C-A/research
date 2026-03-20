@@ -1,6 +1,5 @@
 "use node";
 
-import { toFile } from "openai";
 import { action, ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
@@ -505,58 +504,28 @@ async function extractImageResearchInput(
 }
 
 async function extractPdfResearchInput(
-  blob: Blob,
+  extractedText: string,
   title: string
 ): Promise<ImageResearchExtraction> {
   const client = createResearchClient(process.env.OPENAI_API_KEY!);
-  const openaiFile = await client.files.create({
-    file: await toFile(
-      Buffer.from(await blob.arrayBuffer()),
-      title,
-      { type: blob.type || "application/pdf" }
-    ),
-    purpose: "user_data",
-  });
+  const extraction = await createStructuredResponse<ImageResearchExtraction>(
+    client,
+    {
+      instructions:
+        `You extract research leads from uploaded business PDFs. Focus on company names, product names, market-entry clues, regulatory clues, and search seed terms relevant to KEMEDICA's MENA pharma expansion model. Return a concise summary that can be reused as search context. The PDF text is truncated to a small preview, so prioritize concrete facts and names over broad paraphrase. ${KEMEDICA_CONTEXT}`,
+      input: `PDF title: ${title}
 
-  try {
-    await client.files.waitForProcessing(openaiFile.id, {
-      pollInterval: 1000,
-      maxWait: 30000,
-    });
+Extracted preview text:
+${extractedText}`,
+      formatName: "pdf_research_extraction",
+      schema: IMAGE_RESEARCH_SCHEMA,
+      maxOutputTokens: 900,
+    }
+  );
 
-    const extraction = await createStructuredResponse<ImageResearchExtraction>(
-      client,
-      {
-        instructions:
-          `You extract research leads from uploaded business PDFs. Focus on company names, product names, market-entry clues, regulatory clues, and search seed terms relevant to KEMEDICA's MENA pharma expansion model. Return a concise summary that can be reused as search context. ${KEMEDICA_CONTEXT}`,
-        input: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "input_text",
-                text: "Read this PDF and extract the key research leads for deeper internet research. Identify company names, products, partner names, regulatory clues, and useful search terms.",
-              },
-              {
-                type: "input_file",
-                filename: title,
-                file_id: openaiFile.id,
-              },
-            ],
-          },
-        ],
-        formatName: "pdf_research_extraction",
-        schema: IMAGE_RESEARCH_SCHEMA,
-        maxOutputTokens: 1600,
-      }
-    );
-
-    return {
-      ...extraction.data,
-      title: extraction.data.title || title,
-    };
-  } finally {
-    await client.files.delete(openaiFile.id).catch(() => null);
+  return {
+    ...extraction.data,
+    title: extraction.data.title || title,
   };
 }
 
@@ -579,6 +548,7 @@ export const processResearchInputUpload = action({
     storageId: v.id("_storage"),
     fileName: v.optional(v.string()),
     contentType: v.optional(v.string()),
+    extractedText: v.optional(v.string()),
   },
   handler: async (
     ctx,
@@ -587,8 +557,15 @@ export const processResearchInputUpload = action({
     const blob = await getStoredFile(ctx, args.storageId);
 
     if (args.sourceType === "pdf") {
+      const extractedText = args.extractedText?.trim();
+      if (!extractedText) {
+        throw new Error(
+          "This PDF could not be reduced to usable preview text. Try a text-based PDF or paste the key pages as a note."
+        );
+      }
+
       const result = await extractPdfResearchInput(
-        blob,
+        extractedText.slice(0, 8000),
         args.title.trim() || args.fileName || "Uploaded PDF"
       );
       const seedTerms = [...new Set([

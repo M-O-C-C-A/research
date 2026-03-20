@@ -24,8 +24,8 @@ import {
   Trash2,
   Upload,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { uploadFileToConvex } from "@/lib/convexUpload";
+import { extractPdfPreviewText } from "@/lib/pdfClient";
 
 interface DiscoverCompaniesButtonProps {
   size?: "sm" | "default";
@@ -65,8 +65,8 @@ export function DiscoverCompaniesButton({
   const [noteText, setNoteText] = useState("");
   const [contextItems, setContextItems] = useState<DiscoveryContextItem[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [lastJobId, setLastJobId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const router = useRouter();
 
   const canSaveNote = useMemo(
     () => noteTitle.trim().length > 0 && noteText.trim().length > 0,
@@ -94,8 +94,8 @@ export function DiscoverCompaniesButton({
           : {}
       );
       onJobStarted?.(jobId);
+      setLastJobId(jobId);
       setOpen(false);
-      router.push(`/discovery?job=${jobId}`);
     } finally {
       setLoading(false);
     }
@@ -137,10 +137,15 @@ export function DiscoverCompaniesButton({
       }
 
       const { storageId } = await uploadFileToConvex(file, generateUploadUrl);
+      const extractedText =
+        sourceType === "pdf"
+          ? await extractPdfPreviewText(file, { maxPages: 6, maxChars: 8000 })
+          : undefined;
       const result = await processCompanyDiscoveryUpload({
         title: file.name,
         sourceType,
         storageId: storageId as Id<"_storage">,
+        extractedText,
       });
 
       setContextItems((current) => [
@@ -166,19 +171,29 @@ export function DiscoverCompaniesButton({
 
   return (
     <>
-      <Button
-        size={size}
-        variant={variant}
-        onClick={() => setOpen(true)}
-        disabled={loading}
-      >
-        {loading ? (
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-        ) : (
-          <Radar className="mr-2 h-4 w-4" />
+      <div className="flex flex-col items-end gap-2">
+        <Button
+          size={size}
+          variant={variant}
+          onClick={() => setOpen(true)}
+          disabled={loading}
+        >
+          {loading ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Radar className="mr-2 h-4 w-4" />
+          )}
+          {loading ? "Scanning..." : "Discover Companies"}
+        </Button>
+        {lastJobId && (
+          <a
+            href={`/discovery?job=${lastJobId}`}
+            className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+          >
+            View latest discovery job
+          </a>
         )}
-        {loading ? "Scanning..." : "Discover Companies"}
-      </Button>
+      </div>
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl border-zinc-800 bg-zinc-900 text-white">

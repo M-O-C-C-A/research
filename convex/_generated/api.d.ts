@@ -13,9 +13,12 @@ import type * as companies from "../companies.js";
 import type * as discovery from "../discovery.js";
 import type * as discoveryJobs from "../discoveryJobs.js";
 import type * as drugs from "../drugs.js";
+import type * as fileProcessing from "../fileProcessing.js";
+import type * as files from "../files.js";
 import type * as openaiResearch from "../openaiResearch.js";
 import type * as opportunities from "../opportunities.js";
 import type * as reports from "../reports.js";
+import type * as researchInputs from "../researchInputs.js";
 
 import type {
   ApiFromModules,
@@ -29,9 +32,12 @@ declare const fullApi: ApiFromModules<{
   discovery: typeof discovery;
   discoveryJobs: typeof discoveryJobs;
   drugs: typeof drugs;
+  fileProcessing: typeof fileProcessing;
+  files: typeof files;
   openaiResearch: typeof openaiResearch;
   opportunities: typeof opportunities;
   reports: typeof reports;
+  researchInputs: typeof researchInputs;
 }>;
 
 /**

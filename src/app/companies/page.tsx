@@ -1,7 +1,8 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { CompanyList } from "@/components/companies/CompanyList";
+import { BRAND_NAME } from "@/lib/brand";
 
-export const metadata = { title: "Companies | M-O-C-C-A" };
+export const metadata = { title: `Companies | ${BRAND_NAME}` };
 
 export default function CompaniesPage() {
   return (

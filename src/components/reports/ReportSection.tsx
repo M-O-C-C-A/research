@@ -6,8 +6,10 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ReportViewer } from "./ReportViewer";
+import { ResearchInputPanel } from "./ResearchInputPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, RefreshCw, AlertCircle, Loader2, ExternalLink } from "lucide-react";
+import { BRAND_NAME } from "@/lib/brand";
 
 interface ReportSectionProps {
   drugId: string;
@@ -42,27 +44,30 @@ export function ReportSection({ drugId }: ReportSectionProps) {
 
   if (!report) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-800 bg-zinc-950/50 px-6 py-16 text-center">
-        <Sparkles className="h-10 w-10 text-zinc-600 mb-4" />
-        <h3 className="text-base font-semibold text-zinc-300 mb-1.5">
-          No report generated yet
-        </h3>
-        <p className="text-sm text-zinc-500 max-w-md mb-2">
-          Generate an AI-powered market intelligence report. The AI will search live data from:
-        </p>
-        <ul className="text-xs text-zinc-600 mb-6 space-y-0.5">
-          <li>EMA, SFDA, UAE MOH, QCBS and other regulatory databases</li>
-          <li>WHO disease burden and essential medicines data</li>
-          <li>Published market research and clinical literature</li>
-        </ul>
-        <Button onClick={handleGenerate} disabled={triggering}>
-          {triggering ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <Sparkles className="h-4 w-4 mr-2" />
-          )}
-          Generate Report
-        </Button>
+      <div>
+        <ResearchInputPanel drugId={drugId} />
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-800 bg-zinc-950/50 px-6 py-16 text-center">
+          <Sparkles className="h-10 w-10 text-zinc-600 mb-4" />
+          <h3 className="text-base font-semibold text-zinc-300 mb-1.5">
+            No report generated yet
+          </h3>
+          <p className="text-sm text-zinc-500 max-w-md mb-2">
+            Generate a {BRAND_NAME}-tailored market intelligence report. The AI will combine uploaded research inputs with live internet research from:
+          </p>
+          <ul className="text-xs text-zinc-600 mb-6 space-y-0.5">
+            <li>EMA, SFDA, UAE MOH, QCBS and other regulatory databases</li>
+            <li>WHO disease burden and essential medicines data</li>
+            <li>Published market research, company clues, and uploaded source material</li>
+          </ul>
+          <Button onClick={handleGenerate} disabled={triggering}>
+            {triggering ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4 mr-2" />
+            )}
+            Generate Report
+          </Button>
+        </div>
       </div>
     );
   }
@@ -108,6 +113,7 @@ export function ReportSection({ drugId }: ReportSectionProps) {
   // Ready
   return (
     <div>
+      <ResearchInputPanel drugId={drugId} />
       <div className="flex items-center justify-between mb-6">
         <p className="text-xs text-zinc-600">
           Generated{" "}

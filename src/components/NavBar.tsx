@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 const NAV_LINKS = [
   { label: "Dashboard", href: "/" },
@@ -21,7 +22,7 @@ export function NavBar() {
           <div className="flex items-center gap-8">
             <Link href="/" className="flex items-center gap-2 transition-opacity hover:opacity-80">
               <div className="h-8 w-8 rounded bg-gradient-to-br from-white to-zinc-500 shadow-[0_0_15px_rgba(255,255,255,0.1)]" />
-              <span className="text-lg font-bold tracking-tight text-white uppercase">M-O-C-C-A</span>
+              <span className="text-lg font-bold tracking-tight text-white uppercase">{BRAND_NAME}</span>
             </Link>
             <div className="hidden md:flex items-center gap-1">
               {NAV_LINKS.map((item) => {
@@ -47,7 +48,7 @@ export function NavBar() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-600 hidden sm:block">Research Intelligence Platform</span>
+            <span className="text-xs text-zinc-600 hidden sm:block">{BRAND_TAGLINE}</span>
           </div>
         </div>
       </div>

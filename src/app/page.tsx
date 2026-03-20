@@ -4,6 +4,7 @@ import { RecentJobs } from "@/components/dashboard/RecentJobs";
 import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompaniesButton";
 import Link from "next/link";
 import { Building2, Pill, ArrowRight, Radar } from "lucide-react";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 export default function DashboardPage() {
   return (
@@ -12,10 +13,10 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            Market Intelligence Dashboard
+            {BRAND_NAME} Intelligence Dashboard
           </h1>
           <p className="mt-1 text-sm text-zinc-400">
-            European pharma → MENA market opportunities
+            {BRAND_TAGLINE}
           </p>
         </div>
         <DiscoverCompaniesButton />
@@ -112,8 +113,9 @@ export default function DashboardPage() {
               {[
                 "Run Discover Companies to auto-populate registry",
                 "For each company, run Find Drugs to load their portfolio",
+                "Attach PDFs, screenshots, and notes as research inputs",
                 "Score MENA market opportunities per country",
-                "Generate AI market intelligence reports",
+                "Generate AI market intelligence reports tailored to KEMEDICA",
                 "Prioritise outreach and start sales cycles",
               ].map((step, i) => (
                 <li

@@ -1,7 +1,8 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DrugList } from "@/components/drugs/DrugList";
+import { BRAND_NAME } from "@/lib/brand";
 
-export const metadata = { title: "Drugs | M-O-C-C-A" };
+export const metadata = { title: `Drugs | ${BRAND_NAME}` };
 
 export default function DrugsPage() {
   return (

@@ -1,14 +1,21 @@
 "use node";
 
+import { toFile } from "openai";
 import { action, ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import {
+  blobToDataUrl,
+  extractSeedTerms,
+} from "./fileProcessing";
+import {
   createResearchClient,
+  createStructuredResponse,
   createStructuredWebSearchResponse,
   RESEARCH_MODEL,
 } from "./openaiResearch";
+import { KEMEDICA_CONTEXT } from "../src/lib/brand";
 
 interface CompanyCandidate {
   name: string;
@@ -32,6 +39,13 @@ interface ExtractedDrug {
   approvalDate?: string | null;
   category?: string | null;
   sourceUrls?: string[];
+}
+
+interface CompanyDiscoveryImageExtraction {
+  title: string;
+  summary: string;
+  searchTerms: string[];
+  companyNames: string[];
 }
 
 const VALID_THERAPEUTIC_AREAS = [
@@ -158,6 +172,26 @@ const DRUG_BATCH_SCHEMA = {
   required: ["drugs"],
 } as const;
 
+const COMPANY_DISCOVERY_IMAGE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    title: { type: "string" },
+    summary: { type: "string" },
+    searchTerms: {
+      type: "array",
+      items: { type: "string" },
+      maxItems: 12,
+    },
+    companyNames: {
+      type: "array",
+      items: { type: "string" },
+      maxItems: 12,
+    },
+  },
+  required: ["title", "summary", "searchTerms", "companyNames"],
+} as const;
+
 function sanitizeTherapeuticArea(area: string): string {
   const match = VALID_THERAPEUTIC_AREAS.find(
     (value) => value.toLowerCase() === area.toLowerCase()
@@ -255,9 +289,144 @@ async function recordTelemetry(
   });
 }
 
+async function extractCompanyDiscoveryImageInput(
+  imageDataUrl: string
+): Promise<CompanyDiscoveryImageExtraction> {
+  const client = createResearchClient(process.env.OPENAI_API_KEY!);
+
+  const extraction = await createStructuredResponse<CompanyDiscoveryImageExtraction>(
+    client,
+    {
+      instructions:
+        `You extract company discovery leads from uploaded business documents and screenshots. Focus on company names, distributor names, product names, market-entry clues, and search terms relevant to KEMEDICA's MENA pharma expansion model. ${KEMEDICA_CONTEXT}`,
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: "Extract company-discovery search leads from this image. Summarize what matters for deeper internet research and identify likely company names and search terms.",
+            },
+            {
+              type: "input_image",
+              image_url: imageDataUrl,
+            },
+          ],
+        },
+      ],
+      formatName: "company_discovery_image_input",
+      schema: COMPANY_DISCOVERY_IMAGE_SCHEMA,
+      maxOutputTokens: 1200,
+    }
+  );
+
+  return extraction.data;
+}
+
+async function extractCompanyDiscoveryPdfInput(
+  blob: Blob,
+  title: string
+): Promise<CompanyDiscoveryImageExtraction> {
+  const client = createResearchClient(process.env.OPENAI_API_KEY!);
+  const openaiFile = await client.files.create({
+    file: await toFile(
+      Buffer.from(await blob.arrayBuffer()),
+      title,
+      { type: blob.type || "application/pdf" }
+    ),
+    purpose: "user_data",
+  });
+
+  try {
+    await client.files.waitForProcessing(openaiFile.id, {
+      pollInterval: 1000,
+      maxWait: 30000,
+    });
+
+    const extraction = await createStructuredResponse<CompanyDiscoveryImageExtraction>(
+      client,
+      {
+        instructions:
+          `You extract company discovery leads from uploaded business PDFs. Focus on company names, distributor names, product names, market-entry clues, and search terms relevant to KEMEDICA's MENA pharma expansion model. ${KEMEDICA_CONTEXT}`,
+        input: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: "Read this PDF and extract company-discovery search leads. Summarize what matters for deeper internet research and identify likely company names and search terms.",
+              },
+              {
+                type: "input_file",
+                filename: title,
+                file_id: openaiFile.id,
+              },
+            ],
+          },
+        ],
+        formatName: "company_discovery_pdf_input",
+        schema: COMPANY_DISCOVERY_IMAGE_SCHEMA,
+        maxOutputTokens: 1400,
+      }
+    );
+
+    return extraction.data;
+  } finally {
+    await client.files.delete(openaiFile.id).catch(() => null);
+  }
+}
+
+export const processCompanyDiscoveryUpload = action({
+  args: {
+    title: v.string(),
+    sourceType: v.union(v.literal("pdf"), v.literal("image")),
+    storageId: v.id("_storage"),
+  },
+  handler: async (ctx, args) => {
+    const blob = await ctx.storage.get(args.storageId);
+    if (!blob) {
+      throw new Error("Uploaded discovery file could not be found");
+    }
+
+    try {
+      if (args.sourceType === "pdf") {
+        const result = await extractCompanyDiscoveryPdfInput(blob, args.title);
+        return {
+          title: result.title || args.title,
+          sourceType: "pdf" as const,
+          content: result.summary,
+          seedTerms:
+            result.searchTerms.length > 0
+              ? [...new Set([...result.searchTerms, ...result.companyNames])].slice(0, 20)
+              : extractSeedTerms(result.summary),
+        };
+      }
+
+      const result = await extractCompanyDiscoveryImageInput(
+        await blobToDataUrl(blob)
+      );
+
+      return {
+        title: result.title || args.title,
+        sourceType: "image" as const,
+        content: result.summary,
+        seedTerms: [...new Set([...result.searchTerms, ...result.companyNames])].slice(
+          0,
+          20
+        ),
+      };
+    } finally {
+      await ctx.storage.delete(args.storageId);
+    }
+  },
+});
+
 export const findCompanies = action({
-  args: {},
-  handler: async (ctx): Promise<Id<"discoveryJobs">> => {
+  args: {
+    researchContext: v.optional(v.string()),
+    seedTerms: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args): Promise<Id<"discoveryJobs">> => {
     const jobId = await ctx.runMutation(api.discoveryJobs.create, {
       type: "companies",
     });
@@ -277,15 +446,26 @@ export const findCompanies = action({
       const openaiKey = process.env.OPENAI_API_KEY!;
       const client = createResearchClient(openaiKey);
       let warningCount = 0;
+      const seedTerms = [...new Set((args.seedTerms ?? []).map((term) => term.trim()).filter(Boolean))].slice(0, 20);
+      const researchContext = args.researchContext?.trim();
 
       await log("Starting European pharma company discovery...");
+      if (researchContext || seedTerms.length > 0) {
+        await log("Using uploaded discovery context and search seeds...");
+      }
 
       const candidateResponse = await createStructuredWebSearchResponse<{
         companies: CompanyCandidate[];
       }>(client, {
         instructions:
-          "You are a pharmaceutical industry analyst. Discover European pharma and biotech companies using web search. Return only real companies headquartered in Europe. Exclude distributors, CROs, generics-only companies, and device-only companies.",
-        input: `Find up to 15 distinct European pharmaceutical or biotech companies with real marketed medicines or meaningful commercial presence. For each company, return only the official company name, HQ country, official website if known, and 1-3 source URLs.`,
+          `You are a pharmaceutical industry analyst. Discover European pharma and biotech companies using web search. Return only real companies headquartered in Europe. Exclude distributors, CROs, generics-only companies, and device-only companies. ${KEMEDICA_CONTEXT}`,
+        input: `Find up to 15 distinct European pharmaceutical or biotech companies with real marketed medicines or meaningful commercial presence. For each company, return only the official company name, HQ country, official website if known, and 1-3 source URLs.
+
+Additional search seeds from uploaded files/notes:
+${seedTerms.length > 0 ? seedTerms.join(", ") : "None provided"}
+
+Supporting discovery context:
+${researchContext ?? "None provided"}`,
         formatName: "company_candidates",
         schema: COMPANY_CANDIDATE_SCHEMA,
         maxOutputTokens: 1400,
@@ -327,7 +507,7 @@ export const findCompanies = action({
           const enrichmentResponse = await createStructuredWebSearchResponse<{
             companies: ExtractedCompany[];
           }>(client, {
-            instructions: `You are a pharmaceutical industry analyst. Validate and enrich the listed companies using web search. Only return the companies provided in the input. Use 1-2 sentences for description. therapeuticAreas must come only from: ${VALID_THERAPEUTIC_AREAS.join(", ")}.`,
+            instructions: `You are a pharmaceutical industry analyst. Validate and enrich the listed companies using web search. Only return the companies provided in the input. Use 1-2 sentences for description. therapeuticAreas must come only from: ${VALID_THERAPEUTIC_AREAS.join(", ")}. ${KEMEDICA_CONTEXT}`,
             input: `Enrich this company batch and confirm each company is a European pharma/biotech company:\n${JSON.stringify(batch, null, 2)}`,
             formatName: "company_enrichment",
             schema: COMPANY_ENRICHMENT_SCHEMA,
@@ -467,7 +647,7 @@ export const findDrugsForCompany = action({
           const response = await createStructuredWebSearchResponse<{
             drugs: ExtractedDrug[];
           }>(client, {
-            instructions: `You are a pharmaceutical portfolio analyst. Use web search to identify real medicines associated with ${company.name}. Focus on marketed or approved drugs, but include clearly late-stage pending products when materially relevant. therapeuticArea must come from: ${VALID_THERAPEUTIC_AREAS.join(", ")}. category must come from: ${VALID_CATEGORIES.join(", ")} when known.`,
+            instructions: `You are a pharmaceutical portfolio analyst. Use web search to identify real medicines associated with ${company.name}. Focus on marketed or approved drugs, but include clearly late-stage pending products when materially relevant. therapeuticArea must come from: ${VALID_THERAPEUTIC_AREAS.join(", ")}. category must come from: ${VALID_CATEGORIES.join(", ")} when known. ${KEMEDICA_CONTEXT}`,
             input: `Find up to 8 ${family} for ${company.name}. Return only products genuinely manufactured, licensed, or marketed by ${company.name} in Europe or globally. Include 1-4 source URLs for each drug.`,
             formatName: "drug_batch",
             schema: DRUG_BATCH_SCHEMA,

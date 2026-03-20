@@ -20,7 +20,7 @@ export interface ResearchResponse<T> {
 
 interface BaseResponseOptions {
   instructions: string;
-  input: string;
+  input: unknown;
   maxOutputTokens: number;
   maxRetries?: number;
   onRetry?: (attempt: number, delayMs: number, error: unknown) => Promise<void>;
@@ -107,6 +107,27 @@ export async function createTextResponse(
   };
 }
 
+export async function createStructuredResponse<T>(
+  client: OpenAI,
+  options: Omit<StructuredResponseOptions, "searchContextSize" | "allowedDomains" | "maxToolCalls">
+): Promise<ResearchResponse<T>> {
+  const { response, retryCount } = await createWithRetry(
+    client,
+    options,
+    true,
+    false
+  );
+  const text = getOutputText(response);
+
+  return {
+    data: JSON.parse(text) as T,
+    requestId: response._request_id,
+    retryCount,
+    sources: [],
+    text,
+  };
+}
+
 function buildWebSearchTool(
   options: Pick<TextResponseOptions, "searchContextSize" | "allowedDomains">
 ) {
@@ -141,7 +162,7 @@ async function createWithRetry(
       const response = await client.responses.create({
         model: RESEARCH_MODEL,
         instructions: options.instructions,
-        input: options.input,
+        input: options.input as never,
         max_output_tokens: options.maxOutputTokens,
         ...(withWebSearch
           ? {

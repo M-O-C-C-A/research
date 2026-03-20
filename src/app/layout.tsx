@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "M-O-C-C-A | Pharma Market Intelligence",
-  description: "MENA pharmaceutical market intelligence platform",
+  title: `${BRAND_NAME} | Pharma Market Intelligence`,
+  description: BRAND_TAGLINE,
 };
 
 import ConvexClientProvider from "@/components/ConvexClientProvider";
@@ -36,7 +37,7 @@ export default function RootLayout({
           <NavBar />
           <div className="flex-1 mt-16">{children}</div>
           <footer className="border-t border-zinc-800 bg-zinc-950 py-8 px-6 text-center text-sm text-zinc-500">
-            © 2026 M-O-C-C-A Research. Built with Convex + Next.js.
+            © 2026 {BRAND_NAME}. {BRAND_TAGLINE}
           </footer>
         </ConvexClientProvider>
       </body>

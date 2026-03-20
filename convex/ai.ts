@@ -1,13 +1,20 @@
 "use node";
 
-import { action } from "./_generated/server";
+import { toFile } from "openai";
+import { action, ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
 import { v } from "convex/values";
+import { Id } from "./_generated/dataModel";
 import {
   createResearchClient,
+  createStructuredResponse,
   createStructuredWebSearchResponse,
   createTextResponse,
 } from "./openaiResearch";
+import {
+  blobToDataUrl,
+} from "./fileProcessing";
+import { KEMEDICA_CONTEXT } from "../src/lib/brand";
 
 const MENA_COUNTRIES = [
   "Saudi Arabia",
@@ -90,6 +97,23 @@ interface ReportBrief {
     mitigation: string;
   }>;
   citations: Citation[];
+}
+
+interface ImageResearchExtraction {
+  title: string;
+  summary: string;
+  searchTerms: string[];
+  companyNames: string[];
+  productNames: string[];
+}
+
+interface ProcessedResearchInputUpload {
+  id: Id<"researchInputs">;
+  title: string;
+  sourceType: "pdf" | "image";
+  content: string;
+  seedTerms: string[];
+  extraction?: ImageResearchExtraction;
 }
 
 const REPORT_BRIEF_SCHEMA = {
@@ -275,6 +299,31 @@ const REPORT_BRIEF_SCHEMA = {
   ],
 } as const;
 
+const IMAGE_RESEARCH_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    title: { type: "string" },
+    summary: { type: "string" },
+    searchTerms: {
+      type: "array",
+      items: { type: "string" },
+      maxItems: 12,
+    },
+    companyNames: {
+      type: "array",
+      items: { type: "string" },
+      maxItems: 12,
+    },
+    productNames: {
+      type: "array",
+      items: { type: "string" },
+      maxItems: 12,
+    },
+  },
+  required: ["title", "summary", "searchTerms", "companyNames", "productNames"],
+} as const;
+
 function buildOpportunitySummary(
   opportunities: Array<{
     country: string;
@@ -322,6 +371,290 @@ function dedupeSources(brief: ReportBrief): Citation[] {
   return [...byUrl.values()].slice(0, 30);
 }
 
+function toOpportunityScore(level: CountryFinding["marketOpportunity"]): number {
+  switch (level) {
+    case "High":
+      return 8;
+    case "Medium":
+      return 5;
+    case "Low":
+      return 2;
+  }
+}
+
+function toRegulatoryStatus(status: string): string | undefined {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("reimburs")) return "reimbursed";
+  if (
+    normalized.includes("pending") ||
+    normalized.includes("under review") ||
+    normalized.includes("submitted")
+  ) {
+    return "pending_registration";
+  }
+  if (
+    normalized.includes("registered") ||
+    normalized.includes("approved") ||
+    normalized.includes("listed")
+  ) {
+    return "registered";
+  }
+  if (
+    normalized.includes("not registered") ||
+    normalized.includes("unregistered") ||
+    normalized.includes("not listed")
+  ) {
+    return "not_registered";
+  }
+  return undefined;
+}
+
+function toCompetitorPresence(value: string): string | undefined {
+  const normalized = value.toLowerCase();
+  if (
+    normalized.includes("none") ||
+    normalized.includes("no competitor") ||
+    normalized.includes("no comparable")
+  ) {
+    return "none";
+  }
+  if (normalized.includes("high")) return "high";
+  if (normalized.includes("medium") || normalized.includes("moderate")) {
+    return "medium";
+  }
+  if (
+    normalized.includes("low") ||
+    normalized.includes("limited") ||
+    normalized.includes("single competitor")
+  ) {
+    return "low";
+  }
+  return undefined;
+}
+
+function buildOpportunityNotes(finding: CountryFinding): string {
+  return [
+    `Opportunity: ${finding.marketOpportunity}`,
+    `Priority: ${finding.marketEntryPriority}`,
+    `Rationale: ${finding.rationale}`,
+    `Timeline: ${finding.registrationTimeline}`,
+    `Regulator: ${finding.keyRegulatoryBody}`,
+  ].join("\n");
+}
+
+function buildResearchInputContext(
+  inputs: Array<{
+    title: string;
+    sourceType: string;
+    content: string;
+    seedTerms?: string[];
+  }>
+): string {
+  if (inputs.length === 0) return "No uploaded supporting documents.";
+
+  return inputs
+    .map((input, index) => {
+      const seeds = (input.seedTerms ?? []).filter(Boolean).join(", ");
+      return [
+        `Document ${index + 1}: ${input.title} (${input.sourceType})`,
+        seeds ? `Seed terms: ${seeds}` : null,
+        `Extracted context: ${input.content.slice(0, 5000)}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    })
+    .join("\n\n---\n\n");
+}
+
+async function extractImageResearchInput(
+  imageDataUrl: string,
+  title: string
+): Promise<ImageResearchExtraction> {
+  const client = createResearchClient(process.env.OPENAI_API_KEY!);
+
+  const extraction = await createStructuredResponse<ImageResearchExtraction>(
+    client,
+    {
+      instructions:
+        `You extract research leads from uploaded business documents and screenshots. Focus on company names, product names, market-entry clues, regulatory clues, and search seed terms relevant to KEMEDICA's MENA pharma expansion model. ${KEMEDICA_CONTEXT}`,
+      input: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "input_text",
+              text: "Extract the key research leads from this image. Summarize what matters for deeper internet research and identify company names, products, and useful search terms.",
+            },
+            {
+              type: "input_image",
+              image_url: imageDataUrl,
+            },
+          ],
+        },
+      ],
+      formatName: "image_research_extraction",
+      schema: IMAGE_RESEARCH_SCHEMA,
+      maxOutputTokens: 1400,
+    }
+  );
+
+  return {
+    ...extraction.data,
+    title: extraction.data.title || title,
+  };
+}
+
+async function extractPdfResearchInput(
+  blob: Blob,
+  title: string
+): Promise<ImageResearchExtraction> {
+  const client = createResearchClient(process.env.OPENAI_API_KEY!);
+  const openaiFile = await client.files.create({
+    file: await toFile(
+      Buffer.from(await blob.arrayBuffer()),
+      title,
+      { type: blob.type || "application/pdf" }
+    ),
+    purpose: "user_data",
+  });
+
+  try {
+    await client.files.waitForProcessing(openaiFile.id, {
+      pollInterval: 1000,
+      maxWait: 30000,
+    });
+
+    const extraction = await createStructuredResponse<ImageResearchExtraction>(
+      client,
+      {
+        instructions:
+          `You extract research leads from uploaded business PDFs. Focus on company names, product names, market-entry clues, regulatory clues, and search seed terms relevant to KEMEDICA's MENA pharma expansion model. Return a concise summary that can be reused as search context. ${KEMEDICA_CONTEXT}`,
+        input: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "input_text",
+                text: "Read this PDF and extract the key research leads for deeper internet research. Identify company names, products, partner names, regulatory clues, and useful search terms.",
+              },
+              {
+                type: "input_file",
+                filename: title,
+                file_id: openaiFile.id,
+              },
+            ],
+          },
+        ],
+        formatName: "pdf_research_extraction",
+        schema: IMAGE_RESEARCH_SCHEMA,
+        maxOutputTokens: 1600,
+      }
+    );
+
+    return {
+      ...extraction.data,
+      title: extraction.data.title || title,
+    };
+  } finally {
+    await client.files.delete(openaiFile.id).catch(() => null);
+  };
+}
+
+async function getStoredFile(
+  ctx: ActionCtx,
+  storageId: Id<"_storage">
+) {
+  const blob = await ctx.storage.get(storageId);
+  if (!blob) {
+    throw new Error("Uploaded file could not be found in Convex storage");
+  }
+  return blob;
+}
+
+export const processResearchInputUpload = action({
+  args: {
+    drugId: v.id("drugs"),
+    title: v.string(),
+    sourceType: v.union(v.literal("pdf"), v.literal("image")),
+    storageId: v.id("_storage"),
+    fileName: v.optional(v.string()),
+    contentType: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<ProcessedResearchInputUpload> => {
+    const blob = await getStoredFile(ctx, args.storageId);
+
+    if (args.sourceType === "pdf") {
+      const result = await extractPdfResearchInput(
+        blob,
+        args.title.trim() || args.fileName || "Uploaded PDF"
+      );
+      const seedTerms = [...new Set([
+        ...result.searchTerms,
+        ...result.companyNames,
+        ...result.productNames,
+      ])].slice(0, 20);
+      const content = result.summary;
+
+      const id: Id<"researchInputs"> = await ctx.runMutation(
+        api.researchInputs.add,
+        {
+          drugId: args.drugId,
+          title: result.title,
+          sourceType: "pdf",
+          content,
+          seedTerms,
+          storageId: args.storageId,
+          fileName: args.fileName,
+          contentType: args.contentType,
+        }
+      );
+
+      return {
+        id,
+        title: result.title,
+        sourceType: "pdf" as const,
+        content,
+        seedTerms,
+        extraction: result,
+      };
+    }
+
+    const dataUrl = await blobToDataUrl(blob);
+    const result = await extractImageResearchInput(dataUrl, args.title);
+    const seedTerms = [...new Set([
+      ...result.searchTerms,
+      ...result.companyNames,
+      ...result.productNames,
+    ])].slice(0, 20);
+
+    const id: Id<"researchInputs"> = await ctx.runMutation(
+      api.researchInputs.add,
+      {
+        drugId: args.drugId,
+        title: result.title,
+        sourceType: "image",
+        content: result.summary,
+        seedTerms,
+        storageId: args.storageId,
+        fileName: args.fileName,
+        contentType: args.contentType,
+      }
+    );
+
+    return {
+      id,
+      title: result.title,
+      sourceType: "image" as const,
+      content: result.summary,
+      seedTerms,
+      extraction: result,
+    };
+  },
+});
+
 export const generateReport = action({
   args: { drugId: v.id("drugs") },
   handler: async (ctx, { drugId }) => {
@@ -345,15 +678,19 @@ export const generateReport = action({
       const opportunities = await ctx.runQuery(api.opportunities.listByDrug, {
         drugId,
       });
+      const researchInputs = await ctx.runQuery(api.researchInputs.listByDrug, {
+        drugId,
+      });
 
       const opportunitySummary = buildOpportunitySummary(opportunities);
+      const researchInputContext = buildResearchInputContext(researchInputs);
       const client = createResearchClient(process.env.OPENAI_API_KEY!);
 
       const briefResponse = await createStructuredWebSearchResponse<ReportBrief>(
         client,
         {
           instructions:
-            "You are a senior pharmaceutical market intelligence analyst focused on European drug commercialization into MENA markets. Use web search and return a compact but evidence-backed JSON brief. If a fact is uncertain, say so explicitly. Cover all 15 requested MENA countries exactly once in countryFindings.",
+            `You are a senior pharmaceutical market intelligence analyst focused on European drug commercialization into MENA markets. Use web search and return a compact but evidence-backed JSON brief. If a fact is uncertain, say so explicitly. Cover all 15 requested MENA countries exactly once in countryFindings. ${KEMEDICA_CONTEXT}`,
           input: `Research this drug for MENA commercialization.
 
 Drug profile
@@ -369,11 +706,15 @@ Drug profile
 Existing internal opportunity data
 ${opportunitySummary}
 
+Supporting uploaded document context
+${researchInputContext}
+
 Research requirements
 - Countries: ${MENA_COUNTRIES.join(", ")}
 - Prioritize official regulator sites, WHO, PubMed, and credible market sources.
 - For each country finding, include 1-4 source URLs.
-- Keep each section concise but specific enough to support a written market report.`,
+- Use the uploaded document context as search seed material when relevant, especially for company names, partner names, products, and expansion clues.
+- Keep each section concise but specific enough to support a written market report for KEMEDICA.`,
           formatName: "mena_report_brief",
           schema: REPORT_BRIEF_SCHEMA,
           maxOutputTokens: 4200,
@@ -385,9 +726,21 @@ Research requirements
       const brief = briefResponse.data;
       const sources = dedupeSources(brief);
 
+      for (const finding of brief.countryFindings) {
+        await ctx.runMutation(api.opportunities.upsert, {
+          drugId,
+          country: finding.country,
+          opportunityScore: toOpportunityScore(finding.marketOpportunity),
+          regulatoryStatus: toRegulatoryStatus(finding.registrationStatus),
+          competitorPresence: toCompetitorPresence(finding.competitorPresence),
+          marketSizeEstimate: finding.patientPopulationEstimate || undefined,
+          notes: buildOpportunityNotes(finding),
+        });
+      }
+
       const markdownResponse = await createTextResponse(client, {
         instructions:
-          "You are a senior pharmaceutical market intelligence analyst. Convert the supplied JSON brief into a professional markdown report. Use only the supplied brief, do not perform any additional research, and clearly note uncertainty where present.",
+          "You are a senior pharmaceutical market intelligence analyst. Convert the supplied JSON brief into a professional markdown report for KEMEDICA. Use only the supplied brief, do not perform any additional research, and clearly note uncertainty where present.",
         input: `Write a markdown report with these sections and no extra top-level sections:
 
 # Market Intelligence Report: ${drug.name} (${drug.genericName})

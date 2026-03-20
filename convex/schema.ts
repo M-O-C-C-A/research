@@ -75,6 +75,23 @@ export default defineSchema({
     ),
   }).index("by_drug", ["drugId"]),
 
+  researchInputs: defineTable({
+    drugId: v.id("drugs"),
+    title: v.string(),
+    sourceType: v.union(
+      v.literal("pdf"),
+      v.literal("image"),
+      v.literal("text")
+    ),
+    content: v.string(),
+    seedTerms: v.array(v.string()),
+    storageId: v.optional(v.id("_storage")),
+    fileName: v.optional(v.string()),
+    contentType: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_drug", ["drugId"]),
+
   discoveryJobs: defineTable({
     // "companies" = find new European pharma companies
     // "drugs" = find drugs for a specific company

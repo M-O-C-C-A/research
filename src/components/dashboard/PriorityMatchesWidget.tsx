@@ -35,10 +35,10 @@ export function PriorityMatchesWidget() {
           </div>
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
-              Europe to MENA Matches
+              Gap-First Export Matches
             </h2>
             <p className="text-xs text-zinc-500">
-              Best current links between EU drugs, demand gaps, and BD targets
+              Best current links between MENA gaps, EU drugs, and smaller manufacturer targets
             </p>
           </div>
         </div>
@@ -50,7 +50,7 @@ export function PriorityMatchesWidget() {
         <div className="rounded-lg border border-dashed border-zinc-800 px-4 py-10 text-center">
           <Pill className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
           <p className="text-sm text-zinc-500">
-            No strong Europe-to-MENA matches yet. Generate more reports or run gap analysis.
+            No strong gap-first matches yet. Run gap analysis or source manufacturers for a gap.
           </p>
         </div>
       ) : (

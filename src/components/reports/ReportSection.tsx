@@ -49,10 +49,10 @@ export function ReportSection({ drugId }: ReportSectionProps) {
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-800 bg-zinc-950/50 px-6 py-16 text-center">
           <Sparkles className="h-10 w-10 text-zinc-600 mb-4" />
           <h3 className="text-base font-semibold text-zinc-300 mb-1.5">
-            No report generated yet
+            No pursuit brief generated yet
           </h3>
           <p className="text-sm text-zinc-500 max-w-md mb-2">
-            Generate a {BRAND_NAME}-tailored market intelligence report. The AI will combine uploaded research inputs with live internet research from:
+            Generate a {BRAND_NAME}-tailored deal pursuit brief. The AI will combine uploaded research inputs with live internet research from:
           </p>
           <ul className="text-xs text-zinc-600 mb-6 space-y-0.5">
             <li>EMA, SFDA, UAE MOH, QCBS and other regulatory databases</li>
@@ -65,7 +65,7 @@ export function ReportSection({ drugId }: ReportSectionProps) {
             ) : (
               <Sparkles className="h-4 w-4 mr-2" />
             )}
-            Generate Report
+            Generate Brief
           </Button>
         </div>
       </div>
@@ -77,7 +77,7 @@ export function ReportSection({ drugId }: ReportSectionProps) {
       <div className="flex flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-16 text-center">
         <Loader2 className="h-8 w-8 text-zinc-400 animate-spin mb-4" />
         <h3 className="text-base font-semibold text-zinc-300 mb-1.5">
-          Searching & generating market intelligence report...
+          Building distributor pursuit brief...
         </h3>
         <p className="text-sm text-zinc-500 max-w-sm">
           The AI is querying regulatory databases, market data, and clinical sources across all 15 MENA countries. This typically takes 30–60 seconds.
@@ -91,7 +91,7 @@ export function ReportSection({ drugId }: ReportSectionProps) {
       <div className="flex flex-col items-center justify-center rounded-lg border border-red-900/40 bg-red-950/20 px-6 py-12 text-center">
         <AlertCircle className="h-8 w-8 text-red-500 mb-4" />
         <h3 className="text-base font-semibold text-zinc-300 mb-1.5">
-          Report generation failed
+          Brief generation failed
         </h3>
         {report.errorMessage && (
           <p className="text-sm text-red-400 mb-4 font-mono max-w-md">
@@ -139,7 +139,7 @@ export function ReportSection({ drugId }: ReportSectionProps) {
           ) : (
             <RefreshCw className="h-4 w-4 mr-2" />
           )}
-          Regenerate
+          Regenerate Brief
         </Button>
       </div>
 

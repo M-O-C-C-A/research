@@ -43,7 +43,7 @@ export function DrugDetailTabs({ drugId }: DrugDetailTabsProps) {
           MENA Opportunities
         </TabsTrigger>
         <TabsTrigger value="report" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-400">
-          AI Market Report
+          Deal Pursuit Brief
         </TabsTrigger>
       </TabsList>
       <TabsContent value="opportunities">

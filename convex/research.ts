@@ -9,6 +9,11 @@ import {
   createStructuredWebSearchResponse,
 } from "./openaiResearch";
 import { KEMEDICA_CONTEXT } from "../src/lib/brand";
+import {
+  buildDisqualifierReasons,
+  buildDistributorFitRationale,
+  normalizePipelineStage,
+} from "./distributorFit";
 
 // ── APIFY LinkedIn helper ─────────────────────────────────────────────────────
 // Finds BD-relevant employees from a LinkedIn company page if APIFY_TOKEN is set.
@@ -78,6 +83,13 @@ const COMPANY_INTELLIGENCE_SCHEMA = {
     "rationale",
     "evidenceItems",
     "linkedinCompanyUrl",
+    "entityRoles",
+    "commercialControlLevel",
+    "existingMenaPartners",
+    "menaPartnershipStrength",
+    "approachTargetRecommendation",
+    "approachTargetReason",
+    "notApproachableReason",
     "topDrugCandidates",
   ],
   additionalProperties: false,
@@ -109,6 +121,73 @@ const COMPANY_INTELLIGENCE_SCHEMA = {
         },
       },
     },
+    entityRoles: {
+      type: "array",
+      maxItems: 4,
+      items: {
+        type: "string",
+        enum: [
+          "manufacturer",
+          "market_authorization_holder",
+          "licensor",
+          "regional_partner",
+          "distributor",
+        ],
+      },
+    },
+    commercialControlLevel: {
+      type: "string",
+      enum: ["full", "shared", "limited", "unknown"],
+    },
+    existingMenaPartners: {
+      type: "array",
+      maxItems: 8,
+      items: {
+        type: "object",
+        required: ["name", "role", "geographies", "confidence", "source", "url"],
+        additionalProperties: false,
+        properties: {
+          name: { type: "string" },
+          role: {
+            type: "string",
+            enum: [
+              "affiliate",
+              "distributor",
+              "local_mah_partner",
+              "licensee",
+              "co_marketing_partner",
+              "tender_partner",
+              "other",
+            ],
+          },
+          geographies: {
+            type: "array",
+            items: { type: "string" },
+            maxItems: 10,
+          },
+          exclusivity: {
+            type: ["string", "null"],
+            enum: ["exclusive", "non_exclusive", "unknown", null],
+          },
+          confidence: {
+            type: "string",
+            enum: ["confirmed", "likely", "inferred"],
+          },
+          source: { type: ["string", "null"] },
+          url: { type: ["string", "null"] },
+        },
+      },
+    },
+    menaPartnershipStrength: {
+      type: "string",
+      enum: ["none", "limited", "moderate", "entrenched"],
+    },
+    approachTargetRecommendation: {
+      type: "string",
+      enum: ["approach", "watch", "deprioritize"],
+    },
+    approachTargetReason: { type: "string" },
+    notApproachableReason: { type: ["string", "null"] },
     topDrugCandidates: {
       type: "array",
       maxItems: 5,
@@ -186,6 +265,34 @@ interface CompanyIntelResult {
   rationale: string;
   linkedinCompanyUrl: string | null;
   evidenceItems: Array<{ claim: string; source: string; url?: string | null }>;
+  entityRoles: Array<
+    | "manufacturer"
+    | "market_authorization_holder"
+    | "licensor"
+    | "regional_partner"
+    | "distributor"
+  >;
+  commercialControlLevel: "full" | "shared" | "limited" | "unknown";
+  existingMenaPartners: Array<{
+    name: string;
+    role:
+      | "affiliate"
+      | "distributor"
+      | "local_mah_partner"
+      | "licensee"
+      | "co_marketing_partner"
+      | "tender_partner"
+      | "other";
+    geographies: string[];
+    exclusivity?: "exclusive" | "non_exclusive" | "unknown" | null;
+    confidence: "confirmed" | "likely" | "inferred";
+    source: string | null;
+    url: string | null;
+  }>;
+  menaPartnershipStrength: "none" | "limited" | "moderate" | "entrenched";
+  approachTargetRecommendation: "approach" | "watch" | "deprioritize";
+  approachTargetReason: string;
+  notApproachableReason: string | null;
   topDrugCandidates: string[];
 }
 
@@ -215,7 +322,7 @@ interface ContactResult {
 
 /**
  * buildProspectDossier — 3-stage deep research on a prospect company:
- *   1. Company intelligence: BD score, MENA presence, revenue, evidence items
+ *   1. Company intelligence: distributor fit, MENA presence, revenue, evidence items
  *   2. Drug MENA registration: per-drug check across SFDA, UAE, Egypt, Jordan, GCC
  *   3. Contact research: find BD/international decision-makers via LinkedIn + web
  *
@@ -257,7 +364,7 @@ export const buildProspectDossier = action({
       const intel = await createStructuredWebSearchResponse<CompanyIntelResult>(
         client,
         {
-          instructions: `You are a pharmaceutical BD analyst for KEMEDICA. Research this EU pharma company to determine its suitability as a MENA distribution partner. ${KEMEDICA_CONTEXT} Always cite specific source URLs for factual claims. If something cannot be verified, say "not found" rather than guessing.`,
+          instructions: `You are a pharmaceutical distributor-target analyst for KEMEDICA. Research this EU pharma company to determine its suitability as a MENA distribution partner. ${KEMEDICA_CONTEXT} Always cite specific source URLs for factual claims. If something cannot be verified, say "not found" rather than guessing.`,
           input: `Research ${company.name} (${company.country}, website: ${company.website ?? "unknown"}).
 Drug portfolio: ${drugSummary || "None discovered yet"}
 
@@ -267,9 +374,12 @@ Find and document with REAL SOURCES AND URLS:
 3. BD signals: out-licensing deals, CPHI/BIO attendance, partnering press releases
 4. LinkedIn company page URL (linkedin.com/company/...)
 5. Patent cliff: which of their drugs face expiry in the next 6 years
+6. Whether this entity is a manufacturer, MAH/commercial owner, both, or another role
+7. Known MENA partner entities by type: affiliate, distributor, local MAH partner, licensee, co-marketing, tender
+8. Whether this entity should be approached directly, watched, or deprioritized
 
-Scoring guide (0–10): 10 = SME/mid, zero MENA presence, EMA drugs near patent expiry, active BD team.
-Deduct points for: large multinational, established MENA distribution, no BD history.`,
+Scoring guide (0–10): 10 = SME/mid, zero MENA presence, strong export/partnering signals, EMA drugs near patent expiry, active BD team.
+Deduct points for: large multinational, established MENA distribution, no visible partnering appetite.`,
           formatName: "company_intelligence",
           schema: COMPANY_INTELLIGENCE_SCHEMA,
           maxOutputTokens: 2000,
@@ -280,7 +390,7 @@ Deduct points for: large multinational, established MENA distribution, no BD his
 
       const score = Math.min(10, Math.max(0, intel.data.bdScore));
       await log(
-        `BD score ${score}/10 · ${intel.data.menaPresence} MENA presence · ${intel.data.companySize} size · ${intel.data.evidenceItems?.length ?? 0} evidence items`,
+        `Distributor fit ${score}/10 · ${intel.data.menaPresence} MENA presence · ${intel.data.companySize} size · ${intel.data.evidenceItems?.length ?? 0} evidence items`,
         "success"
       );
 
@@ -363,7 +473,14 @@ Check Saudi Arabia, UAE, Egypt, Jordan, Qatar at minimum for each drug.`,
         for (const [drugId, regs] of byDrug) {
           await ctx.runMutation(api.drugs.updateMenaRegistrations, {
             id: drugId,
-            menaRegistrations: regs.map(({ drugId: _id, ...r }) => r),
+            menaRegistrations: regs.map((reg) => ({
+              country: reg.country,
+              status: reg.status,
+              registrationNumber: reg.registrationNumber,
+              source: reg.source,
+              url: reg.url,
+              verifiedAt: reg.verifiedAt,
+            })),
             menaRegistrationCount: regs.filter((r) => r.status === "registered").length,
           });
         }
@@ -443,6 +560,9 @@ confidence levels: "confirmed" = official company website/PR, "likely" = LinkedI
       const contacts = contactRes.data.contacts ?? [];
       const confirmed = contacts.filter((c) => c.confidence === "confirmed").length;
       const withEmail = contacts.filter((c) => c.email).length;
+      const registeredInMena = menaRegistrations.filter(
+        (r) => r.status === "registered"
+      ).length;
       await log(
         `${contacts.length} contacts found · ${confirmed} confirmed · ${withEmail} with email`,
         contacts.length > 0 ? "success" : "warning"
@@ -453,8 +573,71 @@ confidence levels: "confirmed" = official company website/PR, "likely" = LinkedI
         id: companyId,
         bdScore: score,
         bdScoreRationale: intel.data.rationale,
+        distributorFitScore: score,
+        distributorFitRationale: buildDistributorFitRationale({
+          companyName: company.name,
+          companySize: intel.data.companySize,
+          menaPresence: intel.data.menaPresence,
+          portfolioFit:
+            intel.data.topDrugCandidates.length > 0
+              ? `top molecules: ${intel.data.topDrugCandidates.slice(0, 3).join(", ")}`
+              : "portfolio fit still based on company-level evidence",
+          hasPartneringSignals: intel.data.evidenceItems.some((item) =>
+            /partner|licens|distribution|export|commercial/i.test(item.claim)
+          ),
+          hasExportSignals: intel.data.evidenceItems.some((item) =>
+            /international|export|market entry/i.test(item.claim)
+          ),
+          menaRegistrationCount: registeredInMena,
+        }),
         menaPresence: intel.data.menaPresence,
         companySize: intel.data.companySize,
+        targetSegment: intel.data.companySize,
+        menaChannelStatus: intel.data.menaPresence,
+        exportReadiness:
+          intel.data.evidenceItems.some((item) =>
+            /export|distribution|licens|commercial/i.test(item.claim)
+          )
+            ? "high"
+            : "medium",
+        dealModelFit: "distributor",
+        priorityTier:
+          score >= 8
+            ? "tier_1"
+            : score >= 6
+              ? "tier_2"
+              : score >= 4
+                ? "tier_3"
+                : "deprioritized",
+        partnerabilitySignals: intel.data.evidenceItems
+          .map((item) => item.claim)
+          .filter((claim) =>
+            /partner|licens|distribution|conference|international|export/i.test(claim)
+          )
+          .slice(0, 6),
+        disqualifierReasons: buildDisqualifierReasons({
+          companySize: intel.data.companySize,
+          menaPresence: intel.data.menaPresence,
+          menaRegistrationCount: registeredInMena,
+          hasPartneringSignals: intel.data.evidenceItems.some((item) =>
+            /partner|licens|distribution|conference|international|export/i.test(item.claim)
+          ),
+        }),
+        entityRoles: intel.data.entityRoles,
+        commercialControlLevel: intel.data.commercialControlLevel,
+        existingMenaPartners: intel.data.existingMenaPartners.map((partner) => ({
+          name: partner.name,
+          role: partner.role,
+          geographies: partner.geographies,
+          exclusivity: partner.exclusivity ?? undefined,
+          confidence: partner.confidence,
+          source: partner.source ?? undefined,
+          url: partner.url ?? undefined,
+        })),
+        menaPartnershipStrength: intel.data.menaPartnershipStrength,
+        approachTargetRecommendation: intel.data.approachTargetRecommendation,
+        approachTargetReason: intel.data.approachTargetReason,
+        notApproachableReason: intel.data.notApproachableReason ?? undefined,
         revenueEstimate: intel.data.revenueEstimate ?? undefined,
         employeeCount: intel.data.employeeCount ?? undefined,
         linkedinCompanyUrl: intel.data.linkedinCompanyUrl ?? undefined,
@@ -480,11 +663,8 @@ confidence levels: "confirmed" = official company website/PR, "likely" = LinkedI
         linkedinUrl: contacts[0]?.linkedinUrl ?? undefined,
       });
 
-      const registeredInMena = menaRegistrations.filter(
-        (r) => r.status === "registered"
-      ).length;
       const summaryNote = [
-        `Full dossier built. BD score: ${score}/10.`,
+        `Full dossier built. Distributor fit: ${score}/10.`,
         `${contacts.length} contacts found${withEmail > 0 ? ` (${withEmail} with email)` : ""}.`,
         registeredInMena > 0
           ? `${registeredInMena} drug/country registrations found in MENA — verify before approaching.`
@@ -527,7 +707,7 @@ export const runProspectResearchQueue = action({
       .filter(
         (c) =>
           !c.researchedAt &&
-          c.bdStatus !== "disqualified" &&
+          normalizePipelineStage(c.bdStatus) !== "lost" &&
           c.status === "active"
       )
       .sort((a, b) => (b.bdScore ?? 0) - (a.bdScore ?? 0))

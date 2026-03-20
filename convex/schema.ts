@@ -12,6 +12,32 @@ const logEntry = v.object({
   ),
 });
 
+const menaPartner = v.object({
+  name: v.string(),
+  role: v.union(
+    v.literal("affiliate"),
+    v.literal("distributor"),
+    v.literal("local_mah_partner"),
+    v.literal("licensee"),
+    v.literal("co_marketing_partner"),
+    v.literal("tender_partner"),
+    v.literal("other")
+  ),
+  geographies: v.array(v.string()),
+  exclusivity: v.optional(v.union(
+    v.literal("exclusive"),
+    v.literal("non_exclusive"),
+    v.literal("unknown")
+  )),
+  confidence: v.union(
+    v.literal("confirmed"),
+    v.literal("likely"),
+    v.literal("inferred")
+  ),
+  source: v.optional(v.string()),
+  url: v.optional(v.string()),
+});
+
 export default defineSchema({
   companies: defineTable({
     name: v.string(),
@@ -22,10 +48,17 @@ export default defineSchema({
     status: v.union(v.literal("active"), v.literal("inactive")),
     // BD qualification fields
     bdStatus: v.optional(v.union(
+      v.literal("screened"),
+      v.literal("qualified"),
       v.literal("prospect"),
       v.literal("contacted"),
+      v.literal("intro_call"),
+      v.literal("data_shared"),
+      v.literal("partner_discussion"),
       v.literal("engaged"),
       v.literal("negotiating"),
+      v.literal("won"),
+      v.literal("lost"),
       v.literal("contracted"),
       v.literal("disqualified"),
     )),
@@ -64,6 +97,64 @@ export default defineSchema({
     }))),
     researchedAt: v.optional(v.number()),
     linkedinCompanyUrl: v.optional(v.string()),
+    distributorFitScore: v.optional(v.number()),
+    distributorFitRationale: v.optional(v.string()),
+    targetSegment: v.optional(v.union(
+      v.literal("sme"),
+      v.literal("mid"),
+      v.literal("large"),
+    )),
+    menaChannelStatus: v.optional(v.union(
+      v.literal("none"),
+      v.literal("limited"),
+      v.literal("established"),
+    )),
+    exportReadiness: v.optional(v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+    )),
+    dealModelFit: v.optional(v.union(v.literal("distributor"))),
+    priorityTier: v.optional(v.union(
+      v.literal("tier_1"),
+      v.literal("tier_2"),
+      v.literal("tier_3"),
+      v.literal("deprioritized"),
+    )),
+    partnerabilitySignals: v.optional(v.array(v.string())),
+    disqualifierReasons: v.optional(v.array(v.string())),
+    ownershipType: v.optional(v.string()),
+    exportMarketsKnown: v.optional(v.array(v.string())),
+    partneringHistory: v.optional(v.string()),
+    manufacturingFootprint: v.optional(v.string()),
+    primaryCommercialModel: v.optional(v.string()),
+    entityRoles: v.optional(v.array(v.union(
+      v.literal("manufacturer"),
+      v.literal("market_authorization_holder"),
+      v.literal("licensor"),
+      v.literal("regional_partner"),
+      v.literal("distributor")
+    ))),
+    commercialControlLevel: v.optional(v.union(
+      v.literal("full"),
+      v.literal("shared"),
+      v.literal("limited"),
+      v.literal("unknown")
+    )),
+    existingMenaPartners: v.optional(v.array(menaPartner)),
+    menaPartnershipStrength: v.optional(v.union(
+      v.literal("none"),
+      v.literal("limited"),
+      v.literal("moderate"),
+      v.literal("entrenched")
+    )),
+    approachTargetRecommendation: v.optional(v.union(
+      v.literal("approach"),
+      v.literal("watch"),
+      v.literal("deprioritize")
+    )),
+    approachTargetReason: v.optional(v.string()),
+    notApproachableReason: v.optional(v.string()),
   })
     .index("by_name", ["name"])
     .index("by_country", ["country"])
@@ -74,6 +165,8 @@ export default defineSchema({
   drugs: defineTable({
     companyId: v.optional(v.id("companies")),
     manufacturerName: v.optional(v.string()),
+    primaryManufacturerName: v.optional(v.string()),
+    primaryMarketAuthorizationHolderName: v.optional(v.string()),
     name: v.string(),
     genericName: v.string(),
     therapeuticArea: v.string(),
@@ -104,6 +197,34 @@ export default defineSchema({
   })
     .index("by_company", ["companyId"])
     .index("by_therapeutic_area", ["therapeuticArea"]),
+
+  drugEntityLinks: defineTable({
+    drugId: v.id("drugs"),
+    companyId: v.optional(v.id("companies")),
+    entityName: v.optional(v.string()),
+    relationshipType: v.union(
+      v.literal("manufacturer"),
+      v.literal("market_authorization_holder"),
+      v.literal("licensor"),
+      v.literal("regional_partner"),
+      v.literal("distributor")
+    ),
+    jurisdiction: v.optional(v.string()),
+    isPrimary: v.boolean(),
+    notes: v.optional(v.string()),
+    source: v.optional(v.string()),
+    url: v.optional(v.string()),
+    confidence: v.union(
+      v.literal("confirmed"),
+      v.literal("likely"),
+      v.literal("inferred")
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_drug", ["drugId"])
+    .index("by_company", ["companyId"])
+    .index("by_drug_and_relationship_type", ["drugId", "relationshipType"]),
 
   opportunities: defineTable({
     drugId: v.id("drugs"),
@@ -208,11 +329,18 @@ export default defineSchema({
       v.literal("meeting"),
       v.literal("stage_change"),
       v.literal("deal_update"),
+      v.literal("outreach_update"),
+      v.literal("regulatory_follow_up"),
     ),
     content: v.string(),
     previousStage: v.optional(v.string()),
     newStage: v.optional(v.string()),
     dealValue: v.optional(v.number()),
+    outreachAngle: v.optional(v.string()),
+    countryInterest: v.optional(v.array(v.string())),
+    documentsRequested: v.optional(v.array(v.string())),
+    exclusivityInterest: v.optional(v.string()),
+    regulatoryFollowUp: v.optional(v.string()),
     createdAt: v.number(),
   })
     .index("by_company", ["companyId"])
@@ -245,4 +373,42 @@ export default defineSchema({
     .index("by_gap_score", ["gapScore"])
     .index("by_status", ["status"])
     .index("by_created", ["createdAt"]),
+
+  gapCompanyMatches: defineTable({
+    gapOpportunityId: v.id("gapOpportunities"),
+    companyId: v.id("companies"),
+    distributorFitScore: v.number(),
+    rationale: v.string(),
+    overlapSummary: v.optional(v.string()),
+    overlappingDrugClasses: v.optional(v.array(v.string())),
+    targetCountries: v.array(v.string()),
+    estimatedEaseOfEntry: v.optional(v.union(
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low"),
+    )),
+    competitiveWhitespace: v.optional(v.string()),
+    recommendedFirstOutreachAngle: v.optional(v.string()),
+    confidence: v.optional(v.union(
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low"),
+    )),
+    evidenceLinks: v.optional(v.array(v.object({
+      title: v.string(),
+      url: v.string(),
+    }))),
+    priorityTier: v.optional(v.union(
+      v.literal("tier_1"),
+      v.literal("tier_2"),
+      v.literal("tier_3"),
+      v.literal("deprioritized"),
+    )),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_gap_opportunity", ["gapOpportunityId"])
+    .index("by_company", ["companyId"])
+    .index("by_gap_opportunity_and_company", ["gapOpportunityId", "companyId"])
+    .index("by_distributor_fit_score", ["distributorFitScore"]),
 });

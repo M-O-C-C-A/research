@@ -11,7 +11,7 @@ const NAV_LINKS = [
   { label: "Dashboard", href: "/" },
   { label: "Gaps", href: "/gaps" },
   { label: "Pipeline", href: "/pipeline" },
-  { label: "Companies", href: "/companies" },
+  { label: "Manufacturers", href: "/companies" },
   { label: "Drugs", href: "/drugs" },
   { label: "Discovery", href: "/discovery" },
 ];
@@ -19,10 +19,6 @@ const NAV_LINKS = [
 export function NavBar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    setMobileOpen(false);
-  }, [pathname]);
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
@@ -56,6 +52,7 @@ export function NavBar() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setMobileOpen(false)}
                     className={cn(
                       "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                       active
@@ -102,6 +99,7 @@ export function NavBar() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  onClick={() => setMobileOpen(false)}
                   className={cn(
                     "rounded-lg px-4 py-3 text-sm font-medium transition-colors",
                     active

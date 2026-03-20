@@ -1,5 +1,6 @@
 import { query } from "./_generated/server";
 import { Doc, Id } from "./_generated/dataModel";
+import { normalizePipelineStage } from "./distributorFit";
 
 type MatchAction =
   | "generate_report"
@@ -21,11 +22,11 @@ function average(values: number[]): number {
 function toActionLabel(action: MatchAction | QueueAction): string {
   switch (action) {
     case "generate_report":
-      return "Generate report";
+      return "Generate brief";
     case "review_report":
-      return "Review report";
+      return "Review brief";
     case "open_company":
-      return "Open company";
+      return "Open manufacturer";
     case "review_gap":
       return "Review gap";
     case "advance_pipeline":
@@ -39,24 +40,26 @@ function buildMatchRationale(args: {
   highOpportunityMarkets: number;
   topCountries: string[];
   bestGap?: Doc<"gapOpportunities"> | null;
-  bdScore?: number;
-}): string {
+  distributorFitScore?: number | null;
+  priorityTier?: string | null;
+}) {
   const parts = [
-    `${args.highOpportunityMarkets} MENA market${
+    `${args.highOpportunityMarkets} high-opportunity MENA market${
       args.highOpportunityMarkets === 1 ? "" : "s"
-    } already score high`,
+    }`,
   ];
 
   if (args.topCountries.length > 0) {
-    parts.push(`strongest pull in ${args.topCountries.join(", ")}`);
+    parts.push(`launch focus ${args.topCountries.join(", ")}`);
   }
-
   if (args.bestGap?.indication) {
-    parts.push(`gap signal aligns with ${args.bestGap.indication}`);
+    parts.push(`gap fit ${args.bestGap.indication}`);
   }
-
-  if (args.bdScore !== undefined) {
-    parts.push(`BD score ${args.bdScore.toFixed(1)}/10`);
+  if (args.distributorFitScore != null) {
+    parts.push(`distributor fit ${args.distributorFitScore.toFixed(1)}/10`);
+  }
+  if (args.priorityTier) {
+    parts.push(args.priorityTier.replace("_", " "));
   }
 
   return parts.join(" · ");
@@ -65,16 +68,18 @@ function buildMatchRationale(args: {
 export const getCockpit = query({
   args: {},
   handler: async (ctx) => {
-    const [companies, drugs, opportunities, reports, gaps] = await Promise.all([
-      ctx.db.query("companies").collect(),
-      ctx.db.query("drugs").collect(),
-      ctx.db.query("opportunities").collect(),
-      ctx.db.query("reports").collect(),
-      ctx.db
-        .query("gapOpportunities")
-        .withIndex("by_status", (q) => q.eq("status", "active"))
-        .collect(),
-    ]);
+    const [companies, drugs, opportunities, reports, gaps, gapMatches] =
+      await Promise.all([
+        ctx.db.query("companies").collect(),
+        ctx.db.query("drugs").collect(),
+        ctx.db.query("opportunities").collect(),
+        ctx.db.query("reports").collect(),
+        ctx.db
+          .query("gapOpportunities")
+          .withIndex("by_status", (q) => q.eq("status", "active"))
+          .collect(),
+        ctx.db.query("gapCompanyMatches").collect(),
+      ]);
 
     const companyById = new Map<Id<"companies">, Doc<"companies">>(
       companies.map((company) => [company._id, company])
@@ -83,11 +88,18 @@ export const getCockpit = query({
       reports.map((report) => [report.drugId, report])
     );
     const opportunitiesByDrug = new Map<Id<"drugs">, Doc<"opportunities">[]>();
+    const matchesByCompany = new Map<Id<"companies">, Doc<"gapCompanyMatches">[]>();
 
     for (const opportunity of opportunities) {
       const bucket = opportunitiesByDrug.get(opportunity.drugId) ?? [];
       bucket.push(opportunity);
       opportunitiesByDrug.set(opportunity.drugId, bucket);
+    }
+
+    for (const match of gapMatches) {
+      const bucket = matchesByCompany.get(match.companyId) ?? [];
+      bucket.push(match);
+      matchesByCompany.set(match.companyId, bucket);
     }
 
     const matches = drugs
@@ -96,9 +108,7 @@ export const getCockpit = query({
         const drugOpportunities =
           opportunitiesByDrug
             .get(drug._id)
-            ?.filter(
-              (opportunity) => opportunity.opportunityScore !== undefined
-            )
+            ?.filter((opportunity) => opportunity.opportunityScore !== undefined)
             .sort(
               (left, right) =>
                 (right.opportunityScore ?? 0) - (left.opportunityScore ?? 0)
@@ -115,42 +125,41 @@ export const getCockpit = query({
         );
         const report = reportByDrugId.get(drug._id) ?? null;
 
-        const bestGap =
-          gaps
-            .map((gap) => {
-              const overlapCount = gap.targetCountries.filter((country) =>
-                topCountries.includes(country)
-              ).length;
-              const sameTherapeuticArea =
-                gap.therapeuticArea === drug.therapeuticArea ? 1 : 0;
-              const linkedDrug =
-                gap.linkedDrugIds?.includes(drug._id) === true ? 1 : 0;
-              const linkedCompany =
-                company && gap.linkedCompanyIds?.includes(company._id) === true
-                  ? 1
-                  : 0;
-              const fitScore =
-                gap.gapScore +
-                overlapCount * 1.5 +
-                sameTherapeuticArea * 2 +
-                linkedDrug * 4 +
-                linkedCompany * 3;
+        const persistedMatch = company
+          ? (matchesByCompany.get(company._id) ?? [])
+              .sort((left, right) => right.distributorFitScore - left.distributorFitScore)
+              .find((match) =>
+                match.targetCountries.some((country) => topCountries.includes(country))
+              ) ??
+            (matchesByCompany.get(company._id) ?? [])
+              .sort((left, right) => right.distributorFitScore - left.distributorFitScore)[0]
+          : null;
 
-              return {
-                gap,
-                fitScore,
-                overlapCount,
-              };
-            })
-            .filter(
-              (entry) =>
-                entry.overlapCount > 0 ||
-                entry.gap.therapeuticArea === drug.therapeuticArea ||
-                entry.gap.linkedDrugIds?.includes(drug._id) ||
-                (company &&
-                  entry.gap.linkedCompanyIds?.includes(company._id) === true)
-            )
-            .sort((left, right) => right.fitScore - left.fitScore)[0] ?? null;
+        const bestGap = persistedMatch
+          ? gaps.find((gap) => gap._id === persistedMatch.gapOpportunityId) ?? null
+          : gaps
+              .map((gap) => {
+                const overlapCount = gap.targetCountries.filter((country) =>
+                  topCountries.includes(country)
+                ).length;
+                const sameTherapeuticArea =
+                  gap.therapeuticArea === drug.therapeuticArea ? 1 : 0;
+                const linkedDrug = gap.linkedDrugIds?.includes(drug._id) ? 1 : 0;
+                const linkedCompany =
+                  company && gap.linkedCompanyIds?.includes(company._id) ? 1 : 0;
+
+                return {
+                  gap,
+                  fitScore:
+                    gap.gapScore +
+                    overlapCount * 1.5 +
+                    sameTherapeuticArea * 2 +
+                    linkedDrug * 4 +
+                    linkedCompany * 3,
+                };
+              })
+              .filter((entry) => entry.fitScore > 0)
+              .sort((left, right) => right.fitScore - left.fitScore)[0]?.gap ?? null;
 
         let nextAction: MatchAction = "view_drug";
         let nextHref = `/drugs/${drug._id}`;
@@ -160,7 +169,9 @@ export const getCockpit = query({
           nextHref = `/drugs/${drug._id}?tab=report`;
         } else if (
           company &&
-          (!company.bdStatus || company.bdStatus === "prospect" || company.bdStatus === "contacted")
+          ["screened", "qualified", "contacted"].includes(
+            normalizePipelineStage(company.bdStatus)
+          )
         ) {
           nextAction = "open_company";
           nextHref = `/companies/${company._id}`;
@@ -169,11 +180,33 @@ export const getCockpit = query({
           nextHref = "/gaps";
         }
 
+        const distributorFitScore =
+          company?.distributorFitScore ?? company?.bdScore ?? persistedMatch?.distributorFitScore ?? 0;
+        const controlModifier =
+          company?.commercialControlLevel === "full"
+            ? 1.2
+            : company?.commercialControlLevel === "shared"
+              ? 0.6
+              : company?.commercialControlLevel === "limited"
+                ? -1
+                : 0;
+        const partnerModifier =
+          company?.menaPartnershipStrength === "none"
+            ? 1
+            : company?.menaPartnershipStrength === "limited"
+              ? 0.3
+              : company?.menaPartnershipStrength === "moderate"
+                ? -0.6
+                : company?.menaPartnershipStrength === "entrenched"
+                  ? -1.5
+                  : 0;
         const compositeScore =
-          avgOpportunityScore * 2 +
-          highOpportunityMarkets * 1.5 +
-          (bestGap?.gap.gapScore ?? 0) * 0.8 +
-          (company?.bdScore ?? 0) * 0.4;
+          (bestGap?.gapScore ?? 0) * 1.8 +
+          distributorFitScore * 1.5 +
+          avgOpportunityScore * 1.2 +
+          highOpportunityMarkets +
+          controlModifier +
+          partnerModifier;
 
         return {
           drugId: drug._id,
@@ -181,22 +214,23 @@ export const getCockpit = query({
           genericName: drug.genericName,
           therapeuticArea: drug.therapeuticArea,
           companyId: company?._id ?? null,
-          companyName:
-            company?.name ?? drug.manufacturerName ?? "Unknown manufacturer",
+          companyName: company?.name ?? drug.manufacturerName ?? "Unknown manufacturer",
           reportStatus: report?.status ?? "missing",
           avgOpportunityScore: Number(avgOpportunityScore.toFixed(1)),
           highOpportunityMarkets,
           topCountries,
           bdStatus: company?.bdStatus ?? null,
-          bdScore: company?.bdScore ?? null,
-          gapId: bestGap?.gap._id ?? null,
-          gapIndication: bestGap?.gap.indication ?? null,
-          gapScore: bestGap ? Number(bestGap.gap.gapScore.toFixed(1)) : null,
+          bdScore: distributorFitScore,
+          gapId: bestGap?._id ?? null,
+          gapIndication: bestGap?.indication ?? null,
+          gapScore: bestGap ? Number(bestGap.gapScore.toFixed(1)) : null,
+          priorityTier: company?.priorityTier ?? persistedMatch?.priorityTier ?? null,
           rationale: buildMatchRationale({
             highOpportunityMarkets,
             topCountries,
-            bestGap: bestGap?.gap,
-            bdScore: company?.bdScore,
+            bestGap,
+            distributorFitScore,
+            priorityTier: company?.priorityTier ?? persistedMatch?.priorityTier ?? null,
           }),
           nextAction,
           nextActionLabel: toActionLabel(nextAction),
@@ -205,34 +239,12 @@ export const getCockpit = query({
         };
       })
       .filter(
-        (
-          match
-        ): match is NonNullable<typeof match> =>
+        (match): match is NonNullable<typeof match> =>
           match !== null && match.highOpportunityMarkets > 0
       )
       .sort((left, right) => right.compositeScore - left.compositeScore);
 
-    const priorityMatches = matches.slice(0, 4).map((match) => ({
-      drugId: match.drugId,
-      drugName: match.drugName,
-      genericName: match.genericName,
-      therapeuticArea: match.therapeuticArea,
-      companyId: match.companyId,
-      companyName: match.companyName,
-      reportStatus: match.reportStatus,
-      avgOpportunityScore: match.avgOpportunityScore,
-      highOpportunityMarkets: match.highOpportunityMarkets,
-      topCountries: match.topCountries,
-      bdStatus: match.bdStatus,
-      bdScore: match.bdScore,
-      gapId: match.gapId,
-      gapIndication: match.gapIndication,
-      gapScore: match.gapScore,
-      rationale: match.rationale,
-      nextAction: match.nextAction,
-      nextActionLabel: match.nextActionLabel,
-      nextHref: match.nextHref,
-    }));
+    const priorityMatches = matches.slice(0, 4);
 
     const actionQueue = [
       ...matches
@@ -240,10 +252,10 @@ export const getCockpit = query({
         .slice(0, 2)
         .map((match) => ({
           id: `report-${match.drugId}`,
-          title: `Generate MENA report for ${match.drugName}`,
+          title: `Generate pursuit brief for ${match.drugName}`,
           description: `${match.highOpportunityMarkets} high-potential market${
             match.highOpportunityMarkets === 1 ? "" : "s"
-          } identified across ${match.topCountries.join(", ")}.`,
+          } and ${match.bdScore.toFixed(1)}/10 distributor fit.`,
           action: "generate_report" as const,
           actionLabel: toActionLabel("generate_report"),
           href: `/drugs/${match.drugId}?tab=report`,
@@ -252,17 +264,17 @@ export const getCockpit = query({
         .filter(
           (match) =>
             match.companyId &&
-            (!match.bdStatus ||
-              match.bdStatus === "prospect" ||
-              match.bdStatus === "contacted")
+            ["screened", "qualified", "contacted"].includes(
+              normalizePipelineStage(match.bdStatus)
+            )
         )
         .slice(0, 2)
         .map((match) => ({
           id: `pipeline-${match.companyId}`,
-          title: `Advance ${match.companyName} in BD pipeline`,
-          description: `${match.drugName} already shows demand pull in ${match.topCountries.join(
+          title: `Qualify ${match.companyName} for MENA outreach`,
+          description: `${match.drugName} already maps to ${match.topCountries.join(
             ", "
-          )}.`,
+          )} with strong gap-first pull.`,
           action: "advance_pipeline" as const,
           actionLabel: toActionLabel("advance_pipeline"),
           href: `/companies/${match.companyId}`,
@@ -271,15 +283,13 @@ export const getCockpit = query({
         .filter(
           (gap) =>
             gap.gapScore >= 7 &&
-            (!gap.linkedDrugIds || gap.linkedDrugIds.length === 0)
+            (!gap.linkedCompanyIds || gap.linkedCompanyIds.length === 0)
         )
         .slice(0, 2)
         .map((gap) => ({
           id: `gap-${gap._id}`,
-          title: `Review unlinked gap in ${gap.therapeuticArea}`,
-          description: `${gap.indication} across ${gap.targetCountries
-            .slice(0, 3)
-            .join(", ")} still has no linked EU drug.`,
+          title: `Source manufacturers for ${gap.indication}`,
+          description: `${gap.targetCountries.slice(0, 3).join(", ")} still lack shortlisted EU suppliers.`,
           action: "review_gap" as const,
           actionLabel: toActionLabel("review_gap"),
           href: "/gaps",
@@ -298,7 +308,7 @@ export const getCockpit = query({
         unlinkedHighValueGaps: gaps.filter(
           (gap) =>
             gap.gapScore >= 7 &&
-            (!gap.linkedDrugIds || gap.linkedDrugIds.length === 0)
+            (!gap.linkedCompanyIds || gap.linkedCompanyIds.length === 0)
         ).length,
       },
     };

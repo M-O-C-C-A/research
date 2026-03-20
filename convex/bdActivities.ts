@@ -27,11 +27,18 @@ export const create = mutation({
       v.literal("meeting"),
       v.literal("stage_change"),
       v.literal("deal_update"),
+      v.literal("outreach_update"),
+      v.literal("regulatory_follow_up"),
     ),
     content: v.string(),
     previousStage: v.optional(v.string()),
     newStage: v.optional(v.string()),
     dealValue: v.optional(v.number()),
+    outreachAngle: v.optional(v.string()),
+    countryInterest: v.optional(v.array(v.string())),
+    documentsRequested: v.optional(v.array(v.string())),
+    exclusivityInterest: v.optional(v.string()),
+    regulatoryFollowUp: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     return await ctx.db.insert("bdActivities", {

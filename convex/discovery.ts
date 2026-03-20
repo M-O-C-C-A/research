@@ -15,6 +15,11 @@ import {
   RESEARCH_MODEL,
 } from "./openaiResearch";
 import { KEMEDICA_CONTEXT } from "../src/lib/brand";
+import {
+  buildDisqualifierReasons,
+  buildDistributorFitRationale,
+  computeDistributorFitMetrics,
+} from "./distributorFit";
 
 interface CompanyCandidate {
   name: string;
@@ -31,6 +36,12 @@ interface ExtractedCompany extends CompanyCandidate {
   revenueEstimate?: string | null;
   employeeCount?: string | null;
   bdSuitabilityRationale?: string | null;
+  ownershipType?: string | null;
+  exportMarketsKnown?: string[];
+  partneringHistory?: string | null;
+  manufacturingFootprint?: string | null;
+  primaryCommercialModel?: string | null;
+  partnerabilitySignals?: string[];
 }
 
 interface ExtractedDrug {
@@ -46,6 +57,9 @@ interface ExtractedDrug {
   patentExpiryYear?: number | null;
   emaApprovalDate?: string | null;
   menaRegistrations?: string[];
+  relationshipToCompany?: "manufacturer" | "market_authorization_holder" | "both" | "licensor" | null;
+  marketAuthorizationHolderName?: string | null;
+  manufacturerEntityName?: string | null;
 }
 
 interface CompanyDiscoveryImageExtraction {
@@ -130,6 +144,20 @@ const COMPANY_ENRICHMENT_SCHEMA = {
           revenueEstimate: { type: ["string", "null"] },
           employeeCount: { type: ["string", "null"] },
           bdSuitabilityRationale: { type: ["string", "null"] },
+          ownershipType: { type: ["string", "null"] },
+          exportMarketsKnown: {
+            type: "array",
+            items: { type: "string" },
+            maxItems: 8,
+          },
+          partneringHistory: { type: ["string", "null"] },
+          manufacturingFootprint: { type: ["string", "null"] },
+          primaryCommercialModel: { type: ["string", "null"] },
+          partnerabilitySignals: {
+            type: "array",
+            items: { type: "string" },
+            maxItems: 6,
+          },
         },
         required: [
           "name",
@@ -140,6 +168,12 @@ const COMPANY_ENRICHMENT_SCHEMA = {
           "sourceUrls",
           "menaPresence",
           "companySize",
+          "ownershipType",
+          "exportMarketsKnown",
+          "partneringHistory",
+          "manufacturingFootprint",
+          "primaryCommercialModel",
+          "partnerabilitySignals",
         ],
       },
     },
@@ -181,6 +215,12 @@ const DRUG_BATCH_SCHEMA = {
             items: { type: "string" },
             maxItems: 15,
           },
+          relationshipToCompany: {
+            type: ["string", "null"],
+            enum: ["manufacturer", "market_authorization_holder", "both", "licensor", null],
+          },
+          marketAuthorizationHolderName: { type: ["string", "null"] },
+          manufacturerEntityName: { type: ["string", "null"] },
         },
         required: [
           "name",
@@ -195,6 +235,9 @@ const DRUG_BATCH_SCHEMA = {
           "patentExpiryYear",
           "emaApprovalDate",
           "menaRegistrations",
+          "relationshipToCompany",
+          "marketAuthorizationHolderName",
+          "manufacturerEntityName",
         ],
       },
     },
@@ -222,17 +265,25 @@ const COMPANY_DISCOVERY_IMAGE_SCHEMA = {
   required: ["title", "summary", "searchTerms", "companyNames"],
 } as const;
 
-function computeInitialBdScore(company: ExtractedCompany): number {
-  const sizePts =
-    company.companySize === "sme" ? 3 : company.companySize === "mid" ? 2 : 0;
-  const menaPts =
-    company.menaPresence === "none"
-      ? 4
-      : company.menaPresence === "limited"
-        ? 2
-        : 0;
-  const taPts = Math.min(company.therapeuticAreas.length, 3);
-  return Math.min(10, sizePts + menaPts + taPts);
+function computeInitialDistributorFit(company: ExtractedCompany) {
+  const partnerabilitySignals = company.partnerabilitySignals ?? [];
+  const hasPartneringSignals =
+    partnerabilitySignals.length > 0 || !!company.partneringHistory;
+  const hasExportSignals =
+    (company.exportMarketsKnown?.length ?? 0) > 0 ||
+    /export|licens|partner|distribution/i.test(
+      `${company.primaryCommercialModel ?? ""} ${company.bdSuitabilityRationale ?? ""}`
+    );
+  const hasRegulatoryReadiness = true;
+
+  return computeDistributorFitMetrics({
+    companySize: company.companySize ?? null,
+    menaPresence: company.menaPresence ?? null,
+    portfolioBreadth: company.therapeuticAreas.length,
+    hasPartneringSignals,
+    hasExportSignals,
+    hasRegulatoryReadiness,
+  });
 }
 
 function computePatentUrgencyScore(patentExpiryYear: number | null): number {
@@ -301,6 +352,12 @@ function normalizeExtractedCompany(company: ExtractedCompany): ExtractedCompany 
     ...candidate,
     description: company.description?.trim() || undefined,
     therapeuticAreas: sanitizeTherapeuticAreas(company.therapeuticAreas),
+    ownershipType: company.ownershipType?.trim() || undefined,
+    exportMarketsKnown: (company.exportMarketsKnown ?? []).map((value) => value.trim()).filter(Boolean),
+    partneringHistory: company.partneringHistory?.trim() || undefined,
+    manufacturingFootprint: company.manufacturingFootprint?.trim() || undefined,
+    primaryCommercialModel: company.primaryCommercialModel?.trim() || undefined,
+    partnerabilitySignals: (company.partnerabilitySignals ?? []).map((value) => value.trim()).filter(Boolean),
   };
 }
 
@@ -320,6 +377,17 @@ function normalizeExtractedDrug(drug: ExtractedDrug): ExtractedDrug | null {
     approvalDate: drug.approvalDate?.trim() || undefined,
     category: sanitizeCategory(drug.category ?? undefined),
     sourceUrls: dedupeUrls(drug.sourceUrls),
+    relationshipToCompany:
+      drug.relationshipToCompany === "manufacturer" ||
+      drug.relationshipToCompany === "market_authorization_holder" ||
+      drug.relationshipToCompany === "both" ||
+      drug.relationshipToCompany === "licensor"
+        ? drug.relationshipToCompany
+        : undefined,
+    marketAuthorizationHolderName:
+      drug.marketAuthorizationHolderName?.trim() || undefined,
+    manufacturerEntityName:
+      drug.manufacturerEntityName?.trim() || undefined,
   };
 }
 
@@ -546,8 +614,8 @@ ${researchContext ?? "None provided"}`,
           const enrichmentResponse = await createStructuredWebSearchResponse<{
             companies: ExtractedCompany[];
           }>(client, {
-            instructions: `You are a pharmaceutical industry analyst. Validate and enrich the listed companies using web search. Only return the companies provided in the input. Use 1-2 sentences for description. therapeuticAreas must come only from: ${VALID_THERAPEUTIC_AREAS.join(", ")}. Additionally assess: (1) company revenue/size — classify as sme (<$100M), mid ($100M-$1B), or large (>$1B) based on public filings or news; (2) MENA presence — none = no known MENA distribution, limited = some distributor arrangements but not dominant, established = own affiliate or exclusive partner in MENA; (3) write 1-sentence bdSuitabilityRationale. Prefer SME/mid companies with no or limited MENA presence as best BD targets for KEMEDICA. ${KEMEDICA_CONTEXT}`,
-            input: `Enrich this company batch and confirm each company is a European pharma/biotech company. Include BD qualification fields (menaPresence, companySize, revenueEstimate, employeeCount, bdSuitabilityRationale):\n${JSON.stringify(batch, null, 2)}`,
+            instructions: `You are a pharmaceutical industry analyst. Validate and enrich the listed companies using web search. Only return the companies provided in the input. Use 1-2 sentences for description. therapeuticAreas must come only from: ${VALID_THERAPEUTIC_AREAS.join(", ")}. Additionally assess: (1) company revenue/size — classify as sme (<$100M), mid ($100M-$1B), or large (>$1B) based on public filings or news; (2) MENA presence — none = no known MENA distribution, limited = some distributor arrangements but not dominant, established = own affiliate or exclusive partner in MENA; (3) ownership type if inferable; (4) known export markets; (5) partnering history; (6) manufacturing footprint; (7) primary commercial model; (8) 2-6 partnerability signals; (9) write 1-sentence bdSuitabilityRationale. Prefer lesser-known SME/mid European specialty manufacturers with no or limited MENA presence as best distributor targets for KEMEDICA. Exclude or strongly demote big pharma, CROs, distributors, and device-only businesses. ${KEMEDICA_CONTEXT}`,
+            input: `Enrich this company batch and confirm each company is a European pharma/biotech company. Include distributor-target qualification fields (menaPresence, companySize, revenueEstimate, employeeCount, ownershipType, exportMarketsKnown, partneringHistory, manufacturingFootprint, primaryCommercialModel, partnerabilitySignals, bdSuitabilityRationale):\n${JSON.stringify(batch, null, 2)}`,
             formatName: "company_enrichment",
             schema: COMPANY_ENRICHMENT_SCHEMA,
             maxOutputTokens: 1800,
@@ -603,7 +671,7 @@ ${researchContext ?? "None provided"}`,
           continue;
         }
 
-        const bdScore = computeInitialBdScore(enriched);
+        const distributorFit = computeInitialDistributorFit(enriched);
         const menaPresence =
           enriched.menaPresence === "limited" || enriched.menaPresence === "established"
             ? enriched.menaPresence
@@ -612,6 +680,12 @@ ${researchContext ?? "None provided"}`,
           enriched.companySize === "mid" || enriched.companySize === "large"
             ? enriched.companySize
             : "sme";
+        const disqualifierReasons = buildDisqualifierReasons({
+          companySize,
+          menaPresence,
+          menaRegistrationCount: 0,
+          hasPartneringSignals: (enriched.partnerabilitySignals?.length ?? 0) > 0,
+        });
 
         await ctx.runMutation(api.companies.create, {
           name: enriched.name,
@@ -619,13 +693,52 @@ ${researchContext ?? "None provided"}`,
           website: enriched.website ?? undefined,
           description: enriched.description ?? undefined,
           therapeuticAreas: enriched.therapeuticAreas,
-          bdStatus: "prospect",
-          bdScore,
+          bdStatus: "screened",
+          bdScore: distributorFit.score,
           bdScoreRationale: enriched.bdSuitabilityRationale ?? undefined,
           companySize,
           menaPresence,
           revenueEstimate: enriched.revenueEstimate ?? undefined,
           employeeCount: enriched.employeeCount ?? undefined,
+          distributorFitScore: distributorFit.score,
+          distributorFitRationale:
+            enriched.bdSuitabilityRationale ??
+            buildDistributorFitRationale({
+              companyName: enriched.name,
+              companySize,
+              menaPresence,
+              portfolioFit: "initial discovery fit to European specialty portfolio",
+              hasPartneringSignals: (enriched.partnerabilitySignals?.length ?? 0) > 0,
+              hasExportSignals: (enriched.exportMarketsKnown?.length ?? 0) > 0,
+              menaRegistrationCount: 0,
+            }),
+          targetSegment: companySize,
+          menaChannelStatus: menaPresence,
+          exportReadiness: distributorFit.exportReadiness,
+          dealModelFit: "distributor",
+          priorityTier: distributorFit.priorityTier,
+          partnerabilitySignals: enriched.partnerabilitySignals ?? undefined,
+          disqualifierReasons:
+            disqualifierReasons.length > 0 ? disqualifierReasons : undefined,
+          ownershipType: enriched.ownershipType ?? undefined,
+          exportMarketsKnown: enriched.exportMarketsKnown ?? undefined,
+          partneringHistory: enriched.partneringHistory ?? undefined,
+          manufacturingFootprint: enriched.manufacturingFootprint ?? undefined,
+          primaryCommercialModel: enriched.primaryCommercialModel ?? undefined,
+          entityRoles: ["manufacturer"],
+          commercialControlLevel: "unknown",
+          menaPartnershipStrength:
+            menaPresence === "none"
+              ? "none"
+              : menaPresence === "limited"
+                ? "limited"
+                : "entrenched",
+          approachTargetRecommendation:
+            distributorFit.priorityTier === "deprioritized" ? "deprioritize" : "approach",
+          approachTargetReason:
+            distributorFit.priorityTier === "deprioritized"
+              ? "Entrenched channel footprint or weak partnerability signals reduce outreach attractiveness."
+              : "Smaller manufacturer profile with usable MENA whitespace merits outreach.",
         });
 
         existingNames.add(nameLower);
@@ -703,8 +816,8 @@ export const findDrugsForCompany = action({
           const response = await createStructuredWebSearchResponse<{
             drugs: ExtractedDrug[];
           }>(client, {
-            instructions: `You are a pharmaceutical portfolio analyst. Use web search to identify real medicines associated with ${company.name}. Focus on marketed or approved drugs, but include clearly late-stage pending products when materially relevant. therapeuticArea must come from: ${VALID_THERAPEUTIC_AREAS.join(", ")}. category must come from: ${VALID_CATEGORIES.join(", ")} when known. Also identify: (1) estimated patent expiry year from espacenet.com or published sources (null if unknown); (2) EMA first approval date in YYYY-MM-DD format; (3) which MENA countries the drug is already registered in — check official SFDA, UAE MOH, MOHAP, and other MENA regulators. ${KEMEDICA_CONTEXT}`,
-            input: `Find up to 8 ${family} for ${company.name}. Return only products genuinely manufactured, licensed, or marketed by ${company.name} in Europe or globally. Include patentExpiryYear, emaApprovalDate, menaRegistrations, and 1-4 source URLs for each drug.`,
+            instructions: `You are a pharmaceutical portfolio analyst. Use web search to identify real medicines associated with ${company.name}. Focus on marketed or approved drugs, but include clearly late-stage pending products when materially relevant. therapeuticArea must come from: ${VALID_THERAPEUTIC_AREAS.join(", ")}. category must come from: ${VALID_CATEGORIES.join(", ")} when known. Also identify: (1) estimated patent expiry year from espacenet.com or published sources (null if unknown); (2) EMA first approval date in YYYY-MM-DD format; (3) which MENA countries the drug is already registered in — check official SFDA, UAE MOH, MOHAP, and other MENA regulators; (4) whether ${company.name} is the manufacturer, the market authorization holder/commercial owner, both, or only a licensor for the product; (5) if a different MAH or manufacturer controls the product, name that entity explicitly. ${KEMEDICA_CONTEXT}`,
+            input: `Find up to 8 ${family} for ${company.name}. Return only products genuinely manufactured, licensed, or marketed by ${company.name} in Europe or globally. Include patentExpiryYear, emaApprovalDate, menaRegistrations, relationshipToCompany, marketAuthorizationHolderName, manufacturerEntityName, and 1-4 source URLs for each drug.`,
             formatName: "drug_batch",
             schema: DRUG_BATCH_SCHEMA,
             maxOutputTokens: 2200,
@@ -769,7 +882,7 @@ export const findDrugsForCompany = action({
         const menaCount = (drug.menaRegistrations ?? []).length;
         const patentUrgency = computePatentUrgencyScore(drug.patentExpiryYear ?? null);
 
-        await ctx.runMutation(api.drugs.create, {
+        const createdDrugId = await ctx.runMutation(api.drugs.create, {
           companyId,
           name: drug.name,
           genericName: drug.genericName,
@@ -779,16 +892,91 @@ export const findDrugsForCompany = action({
           approvalStatus: drug.approvalStatus,
           approvalDate: drug.approvalDate ?? undefined,
           category: drug.category ?? undefined,
+          primaryManufacturerName:
+            drug.manufacturerEntityName ?? company.name,
+          primaryMarketAuthorizationHolderName:
+            drug.marketAuthorizationHolderName ??
+            (drug.relationshipToCompany === "manufacturer" ? undefined : company.name),
           patentExpiryYear: drug.patentExpiryYear ?? undefined,
           emaApprovalDate: drug.emaApprovalDate ?? undefined,
           menaRegistrationCount: menaCount,
           patentUrgencyScore: patentUrgency,
         });
 
+        const linkEntries: Array<{
+          companyId?: Id<"companies">;
+          entityName?: string;
+          relationshipType: "manufacturer" | "market_authorization_holder" | "licensor";
+          isPrimary: boolean;
+          confidence: "likely";
+          notes?: string;
+        }> = [];
+
+        if (
+          drug.relationshipToCompany === "manufacturer" ||
+          drug.relationshipToCompany === "both" ||
+          !drug.relationshipToCompany
+        ) {
+          linkEntries.push({
+            companyId,
+            relationshipType: "manufacturer",
+            isPrimary: true,
+            confidence: "likely",
+          });
+        }
+        if (
+          drug.relationshipToCompany === "market_authorization_holder" ||
+          drug.relationshipToCompany === "both"
+        ) {
+          linkEntries.push({
+            companyId,
+            relationshipType: "market_authorization_holder",
+            isPrimary: true,
+            confidence: "likely",
+          });
+        }
+        if (drug.relationshipToCompany === "licensor") {
+          linkEntries.push({
+            companyId,
+            relationshipType: "licensor",
+            isPrimary: true,
+            confidence: "likely",
+          });
+        }
+        if (
+          drug.marketAuthorizationHolderName &&
+          drug.marketAuthorizationHolderName.toLowerCase() !== company.name.toLowerCase()
+        ) {
+          linkEntries.push({
+            entityName: drug.marketAuthorizationHolderName,
+            relationshipType: "market_authorization_holder",
+            isPrimary: true,
+            confidence: "likely",
+            notes: `${company.name} appears related to the product, but MAH/commercial control may sit with another entity.`,
+          });
+        }
+        if (
+          drug.manufacturerEntityName &&
+          drug.manufacturerEntityName.toLowerCase() !== company.name.toLowerCase()
+        ) {
+          linkEntries.push({
+            entityName: drug.manufacturerEntityName,
+            relationshipType: "manufacturer",
+            isPrimary: true,
+            confidence: "likely",
+            notes: `${company.name} appears related to the product, but manufacturing may sit with another entity.`,
+          });
+        }
+
+        await ctx.runMutation(api.drugEntityLinks.replaceForDrug, {
+          drugId: createdDrugId,
+          links: linkEntries,
+        });
+
         existingInn.add(innLower);
         newCount += 1;
         await log(
-          `Added: ${drug.name} (${drug.genericName}) — ${drug.therapeuticArea}`,
+          `Added: ${drug.name} (${drug.genericName}) — ${drug.therapeuticArea}${drug.relationshipToCompany ? ` · role ${drug.relationshipToCompany}` : ""}`,
           "success"
         );
       }
@@ -814,11 +1002,11 @@ export const findDrugsForCompany = action({
   },
 });
 
-const BD_SCORE_SCHEMA = {
+const DISTRIBUTOR_FIT_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    bdScore: { type: "number" },
+    distributorFitScore: { type: "number" },
     menaPresence: {
       type: "string",
       enum: ["none", "limited", "established"],
@@ -830,6 +1018,96 @@ const BD_SCORE_SCHEMA = {
     revenueEstimate: { type: ["string", "null"] },
     employeeCount: { type: ["string", "null"] },
     rationale: { type: "string" },
+    exportReadiness: {
+      type: "string",
+      enum: ["low", "medium", "high"],
+    },
+    partnerabilitySignals: {
+      type: "array",
+      items: { type: "string" },
+      maxItems: 6,
+    },
+    disqualifierReasons: {
+      type: "array",
+      items: { type: "string" },
+      maxItems: 5,
+    },
+    ownershipType: { type: ["string", "null"] },
+    exportMarketsKnown: {
+      type: "array",
+      items: { type: "string" },
+      maxItems: 8,
+    },
+    partneringHistory: { type: ["string", "null"] },
+    manufacturingFootprint: { type: ["string", "null"] },
+    primaryCommercialModel: { type: ["string", "null"] },
+    entityRoles: {
+      type: "array",
+      items: {
+        type: "string",
+        enum: [
+          "manufacturer",
+          "market_authorization_holder",
+          "licensor",
+          "regional_partner",
+          "distributor",
+        ],
+      },
+      maxItems: 4,
+    },
+    commercialControlLevel: {
+      type: "string",
+      enum: ["full", "shared", "limited", "unknown"],
+    },
+    existingMenaPartners: {
+      type: "array",
+      maxItems: 8,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          name: { type: "string" },
+          role: {
+            type: "string",
+            enum: [
+              "affiliate",
+              "distributor",
+              "local_mah_partner",
+              "licensee",
+              "co_marketing_partner",
+              "tender_partner",
+              "other",
+            ],
+          },
+          geographies: {
+            type: "array",
+            items: { type: "string" },
+            maxItems: 10,
+          },
+          exclusivity: {
+            type: ["string", "null"],
+            enum: ["exclusive", "non_exclusive", "unknown", null],
+          },
+          confidence: {
+            type: "string",
+            enum: ["confirmed", "likely", "inferred"],
+          },
+          source: { type: ["string", "null"] },
+          url: { type: ["string", "null"] },
+        },
+        required: ["name", "role", "geographies", "exclusivity", "confidence", "source", "url"],
+      },
+    },
+    menaPartnershipStrength: {
+      type: "string",
+      enum: ["none", "limited", "moderate", "entrenched"],
+    },
+    approachTargetRecommendation: {
+      type: "string",
+      enum: ["approach", "watch", "deprioritize"],
+    },
+    approachTargetReason: { type: "string" },
+    notApproachableReason: { type: ["string", "null"] },
     topDrugCandidates: {
       type: "array",
       items: { type: "string" },
@@ -852,22 +1130,73 @@ const BD_SCORE_SCHEMA = {
     },
   },
   required: [
-    "bdScore",
+    "distributorFitScore",
     "menaPresence",
     "companySize",
     "rationale",
+    "exportReadiness",
+    "partnerabilitySignals",
+    "disqualifierReasons",
+    "ownershipType",
+    "exportMarketsKnown",
+    "partneringHistory",
+    "manufacturingFootprint",
+    "primaryCommercialModel",
+    "entityRoles",
+    "commercialControlLevel",
+    "existingMenaPartners",
+    "menaPartnershipStrength",
+    "approachTargetRecommendation",
+    "approachTargetReason",
+    "notApproachableReason",
     "topDrugCandidates",
     "keyContacts",
   ],
 } as const;
 
-interface BdScoreResult {
-  bdScore: number;
+interface DistributorFitResult {
+  distributorFitScore: number;
   menaPresence: "none" | "limited" | "established";
   companySize: "sme" | "mid" | "large";
   revenueEstimate: string | null;
   employeeCount: string | null;
   rationale: string;
+  exportReadiness: "low" | "medium" | "high";
+  partnerabilitySignals: string[];
+  disqualifierReasons: string[];
+  ownershipType: string | null;
+  exportMarketsKnown: string[];
+  partneringHistory: string | null;
+  manufacturingFootprint: string | null;
+  primaryCommercialModel: string | null;
+  entityRoles: Array<
+    | "manufacturer"
+    | "market_authorization_holder"
+    | "licensor"
+    | "regional_partner"
+    | "distributor"
+  >;
+  commercialControlLevel: "full" | "shared" | "limited" | "unknown";
+  existingMenaPartners: Array<{
+    name: string;
+    role:
+      | "affiliate"
+      | "distributor"
+      | "local_mah_partner"
+      | "licensee"
+      | "co_marketing_partner"
+      | "tender_partner"
+      | "other";
+    geographies: string[];
+    exclusivity: "exclusive" | "non_exclusive" | "unknown" | null;
+    confidence: "confirmed" | "likely" | "inferred";
+    source: string | null;
+    url: string | null;
+  }>;
+  menaPartnershipStrength: "none" | "limited" | "moderate" | "entrenched";
+  approachTargetRecommendation: "approach" | "watch" | "deprioritize";
+  approachTargetReason: string;
+  notApproachableReason: string | null;
   topDrugCandidates: string[];
   keyContacts: Array<{
     name: string | null;
@@ -888,11 +1217,11 @@ export const scoreCompanyForBD = action({
 
     const client = createResearchClient(process.env.OPENAI_API_KEY!);
 
-    const response = await createStructuredWebSearchResponse<BdScoreResult>(
+    const response = await createStructuredWebSearchResponse<DistributorFitResult>(
       client,
       {
-        instructions: `You are a pharmaceutical business development analyst. Research a European pharma company to assess its suitability as a KEMEDICA partner. Score 0-10 where 10 is the ideal target: SME or mid-size European company, no MENA presence, EMA-approved drugs near patent expiry, no competing large pharma MENA relationships. ${KEMEDICA_CONTEXT}`,
-        input: `Research ${company.name} (${company.country}, website: ${company.website ?? "unknown"}) for KEMEDICA BD qualification.
+        instructions: `You are a pharmaceutical distributor-target analyst. Research a European pharma company to assess whether it is a realistic KEMEDICA distributor / in-market partner target for MENA. Score 0-10 where 10 is the ideal target: SME or mid-size European company, no or limited MENA channel footprint, export or partnering signals, portfolio whitespace in MENA, and signs KEMEDICA can accelerate entry. Penalize large pharma, entrenched MENA channels, and weak partnering appetite. Explicitly distinguish whether this entity is a manufacturer, a market authorization holder (MAH), both, or another role, and identify current MENA partner entities. ${KEMEDICA_CONTEXT}`,
+        input: `Research ${company.name} (${company.country}, website: ${company.website ?? "unknown"}) for KEMEDICA distributor-fit qualification.
 
 Known drug portfolio: ${drugList || "None discovered yet"}
 
@@ -900,13 +1229,17 @@ Assess:
 1. Revenue and headcount — classify size as sme (<$100M), mid ($100M-$1B), or large (>$1B)
 2. Existing MENA distribution partnerships or subsidiaries (search for MENA, Middle East, Gulf, GCC partnerships)
 3. Patent cliff signals in portfolio (drugs expiring within 4 years create urgency to find new markets)
-4. Public BD/licensing signals (press releases, partnering activity)
-5. Key decision-maker contacts (BD Director, VP BD, CEO for SMEs, Head of International) — name, title, email if public
+4. Public export / BD / licensing / partnering signals
+5. Ownership type, export markets, manufacturing footprint, and primary commercial model
+6. Whether this entity is the physical manufacturer, the MAH/commercial owner, both, or mainly another role
+7. Existing MENA affiliates, distributors, local MAH partners, licensees, or tender/procurement partners
+8. Whether this entity should actually be approached or deprioritized, and why
+9. Key decision-maker contacts (BD Director, VP BD, CEO for SMEs, Head of International) — name, title, email if public
 
-Return a bdScore (0-10), rationale, top 3-5 drug candidates for MENA expansion, and up to 3 key contacts.`,
-        formatName: "bd_score",
-        schema: BD_SCORE_SCHEMA,
-        maxOutputTokens: 1500,
+Return a distributorFitScore (0-10), rationale, exportReadiness, partnerabilitySignals, disqualifierReasons, entityRoles, commercialControlLevel, existingMenaPartners, menaPartnershipStrength, approachTargetRecommendation, approachTargetReason, notApproachableReason, top 3-5 drug candidates for MENA expansion, and up to 3 key contacts.`,
+        formatName: "distributor_fit_score",
+        schema: DISTRIBUTOR_FIT_SCHEMA,
+        maxOutputTokens: 1900,
         searchContextSize: "medium",
         maxToolCalls: 5,
       }
@@ -914,13 +1247,50 @@ Return a bdScore (0-10), rationale, top 3-5 drug candidates for MENA expansion, 
 
     const result = response.data;
     const contact = result.keyContacts?.[0];
+    const normalizedScore = Math.min(10, Math.max(0, result.distributorFitScore));
 
     await ctx.runMutation(api.companies.update, {
       id: companyId,
-      bdScore: Math.min(10, Math.max(0, result.bdScore)),
+      bdScore: normalizedScore,
       bdScoreRationale: result.rationale,
+      distributorFitScore: normalizedScore,
+      distributorFitRationale: result.rationale,
       menaPresence: result.menaPresence,
       companySize: result.companySize,
+      targetSegment: result.companySize,
+      menaChannelStatus: result.menaPresence,
+      exportReadiness: result.exportReadiness,
+      dealModelFit: "distributor",
+      priorityTier:
+        normalizedScore >= 8
+          ? "tier_1"
+          : normalizedScore >= 6
+            ? "tier_2"
+            : normalizedScore >= 4
+              ? "tier_3"
+              : "deprioritized",
+      partnerabilitySignals: result.partnerabilitySignals,
+      disqualifierReasons: result.disqualifierReasons,
+      ownershipType: result.ownershipType ?? undefined,
+      exportMarketsKnown: result.exportMarketsKnown,
+      partneringHistory: result.partneringHistory ?? undefined,
+      manufacturingFootprint: result.manufacturingFootprint ?? undefined,
+      primaryCommercialModel: result.primaryCommercialModel ?? undefined,
+      entityRoles: result.entityRoles,
+      commercialControlLevel: result.commercialControlLevel,
+      existingMenaPartners: result.existingMenaPartners.map((partner) => ({
+        name: partner.name,
+        role: partner.role,
+        geographies: partner.geographies,
+        exclusivity: partner.exclusivity ?? undefined,
+        confidence: partner.confidence,
+        source: partner.source ?? undefined,
+        url: partner.url ?? undefined,
+      })),
+      menaPartnershipStrength: result.menaPartnershipStrength,
+      approachTargetRecommendation: result.approachTargetRecommendation,
+      approachTargetReason: result.approachTargetReason,
+      notApproachableReason: result.notApproachableReason ?? undefined,
       revenueEstimate: result.revenueEstimate ?? undefined,
       employeeCount: result.employeeCount ?? undefined,
       contactName: contact?.name ?? undefined,
@@ -933,7 +1303,7 @@ Return a bdScore (0-10), rationale, top 3-5 drug candidates for MENA expansion, 
     await ctx.runMutation(api.bdActivities.create, {
       companyId,
       type: "note",
-      content: `BD score updated by AI: ${result.bdScore}/10 — ${result.rationale.slice(0, 200)}`,
+      content: `Distributor fit updated by AI: ${normalizedScore}/10 — ${result.rationale.slice(0, 220)}`,
     });
   },
 });
@@ -1038,8 +1408,8 @@ Return company name, EU HQ country, website if known, and 1-3 source URLs.`,
           const enrichmentResponse = await createStructuredWebSearchResponse<{
             companies: ExtractedCompany[];
           }>(client, {
-            instructions: `You are a pharmaceutical BD analyst. Validate and enrich these candidate EU pharma companies specifically for KEMEDICA's MENA expansion model. Confirm each company makes drugs relevant to: ${gap.indication} (${gap.therapeuticArea}). therapeuticAreas must come from: ${VALID_THERAPEUTIC_AREAS.join(", ")}. Assess: (1) company size — sme (<$100M), mid ($100M-$1B), or large (>$1B); (2) MENA presence — none = no known MENA distribution, limited = some distributor but not exclusive/dominant, established = own affiliate or exclusive partner; (3) write a 1-sentence bdSuitabilityRationale that explains why this company would or wouldn't be a good KEMEDICA BD target for ${gap.indication} in MENA. ${KEMEDICA_CONTEXT}`,
-            input: `Enrich these candidate EU pharma companies. Each should be relevant to: ${drugClasses} for ${gap.indication}:\n${JSON.stringify(batch, null, 2)}`,
+            instructions: `You are a pharmaceutical BD analyst. Validate and enrich these candidate EU pharma companies specifically for KEMEDICA's MENA distributor-entry model. Confirm each company makes drugs relevant to: ${gap.indication} (${gap.therapeuticArea}). therapeuticAreas must come from: ${VALID_THERAPEUTIC_AREAS.join(", ")}. Assess: (1) company size — sme (<$100M), mid ($100M-$1B), or large (>$1B); (2) MENA presence — none = no known MENA distribution, limited = some distributor but not exclusive/dominant, established = own affiliate or exclusive partner; (3) ownership type if inferable; (4) known export markets; (5) partnering history; (6) manufacturing footprint; (7) primary commercial model; (8) partnerability signals; (9) write a 1-sentence bdSuitabilityRationale that explains why this company would or wouldn't be a good KEMEDICA distributor target for ${gap.indication} in MENA. Strongly prefer lesser-known SME/mid companies and demote big pharma with entrenched regional distribution. ${KEMEDICA_CONTEXT}`,
+            input: `Enrich these candidate EU pharma companies. Each should be relevant to: ${drugClasses} for ${gap.indication}. Include ownershipType, exportMarketsKnown, partneringHistory, manufacturingFootprint, primaryCommercialModel, partnerabilitySignals, and bdSuitabilityRationale:\n${JSON.stringify(batch, null, 2)}`,
             formatName: "company_enrichment",
             schema: COMPANY_ENRICHMENT_SCHEMA,
             maxOutputTokens: 1800,
@@ -1107,7 +1477,7 @@ Return company name, EU HQ country, website if known, and 1-3 source URLs.`,
           continue;
         }
 
-        const bdScore = computeInitialBdScore(enriched);
+        const distributorFit = computeInitialDistributorFit(enriched);
         const menaPresence =
           enriched.menaPresence === "limited" || enriched.menaPresence === "established"
             ? enriched.menaPresence
@@ -1116,6 +1486,12 @@ Return company name, EU HQ country, website if known, and 1-3 source URLs.`,
           enriched.companySize === "mid" || enriched.companySize === "large"
             ? enriched.companySize
             : "sme";
+        const disqualifierReasons = buildDisqualifierReasons({
+          companySize,
+          menaPresence,
+          menaRegistrationCount: 0,
+          hasPartneringSignals: (enriched.partnerabilitySignals?.length ?? 0) > 0,
+        });
 
         const newCompanyId = await ctx.runMutation(api.companies.create, {
           name: enriched.name,
@@ -1123,13 +1499,52 @@ Return company name, EU HQ country, website if known, and 1-3 source URLs.`,
           website: enriched.website ?? undefined,
           description: enriched.description ?? undefined,
           therapeuticAreas: enriched.therapeuticAreas,
-          bdStatus: "prospect",
-          bdScore,
+          bdStatus: "screened",
+          bdScore: distributorFit.score,
           bdScoreRationale: enriched.bdSuitabilityRationale ?? undefined,
           companySize,
           menaPresence,
           revenueEstimate: enriched.revenueEstimate ?? undefined,
           employeeCount: enriched.employeeCount ?? undefined,
+          distributorFitScore: distributorFit.score,
+          distributorFitRationale:
+            enriched.bdSuitabilityRationale ??
+            buildDistributorFitRationale({
+              companyName: enriched.name,
+              companySize,
+              menaPresence,
+              portfolioFit: `relevant to ${gap.indication}`,
+              hasPartneringSignals: (enriched.partnerabilitySignals?.length ?? 0) > 0,
+              hasExportSignals: (enriched.exportMarketsKnown?.length ?? 0) > 0,
+              menaRegistrationCount: 0,
+            }),
+          targetSegment: companySize,
+          menaChannelStatus: menaPresence,
+          exportReadiness: distributorFit.exportReadiness,
+          dealModelFit: "distributor",
+          priorityTier: distributorFit.priorityTier,
+          partnerabilitySignals: enriched.partnerabilitySignals ?? undefined,
+          disqualifierReasons:
+            disqualifierReasons.length > 0 ? disqualifierReasons : undefined,
+          ownershipType: enriched.ownershipType ?? undefined,
+          exportMarketsKnown: enriched.exportMarketsKnown ?? undefined,
+          partneringHistory: enriched.partneringHistory ?? undefined,
+          manufacturingFootprint: enriched.manufacturingFootprint ?? undefined,
+          primaryCommercialModel: enriched.primaryCommercialModel ?? undefined,
+          entityRoles: ["manufacturer"],
+          commercialControlLevel: "unknown",
+          menaPartnershipStrength:
+            menaPresence === "none"
+              ? "none"
+              : menaPresence === "limited"
+                ? "limited"
+                : "entrenched",
+          approachTargetRecommendation:
+            distributorFit.priorityTier === "deprioritized" ? "deprioritize" : "approach",
+          approachTargetReason:
+            distributorFit.priorityTier === "deprioritized"
+              ? "Company already appears saturated in MENA or lacks clear partnerability."
+              : `Potentially approachable manufacturer for ${gap.indication}.`,
         });
 
         linkedCompanyIds.push(newCompanyId);
@@ -1142,7 +1557,7 @@ Return company name, EU HQ country, website if known, and 1-3 source URLs.`,
             ? "limited MENA presence"
             : "MENA established";
         await log(
-          `Added: ${enriched.name} (${enriched.country}, ${companySize}, ${presenceLabel}, BD score ${bdScore}/10)`,
+          `Added: ${enriched.name} (${enriched.country}, ${companySize}, ${presenceLabel}, distributor fit ${distributorFit.score}/10)`,
           "success"
         );
       }
@@ -1152,6 +1567,51 @@ Return company name, EU HQ country, website if known, and 1-3 source URLs.`,
         await ctx.runMutation(api.gapOpportunities.linkCompany, {
           id: gapOpportunityId,
           companyId,
+        });
+      }
+
+      for (const companyId of linkedCompanyIds) {
+        const company = await ctx.runQuery(api.companies.get, { id: companyId });
+        if (!company) continue;
+
+        await ctx.runMutation(api.gapCompanyMatches.upsert, {
+          gapOpportunityId,
+          companyId,
+          distributorFitScore:
+            company.distributorFitScore ?? company.bdScore ?? 0,
+          rationale:
+            company.distributorFitRationale ??
+            company.bdScoreRationale ??
+            `${company.name} matches ${gap.indication} and fits the distributor-target profile.`,
+          overlapSummary: `Therapeutic fit with ${gap.indication} in ${gap.therapeuticArea}`,
+          overlappingDrugClasses:
+            gap.suggestedDrugClasses.length > 0 ? gap.suggestedDrugClasses : undefined,
+          targetCountries: gap.targetCountries,
+          estimatedEaseOfEntry:
+            company.menaChannelStatus === "none"
+              ? "high"
+              : company.menaChannelStatus === "limited"
+                ? "medium"
+                : "low",
+          competitiveWhitespace:
+            company.menaChannelStatus === "none"
+              ? "No visible MENA channel footprint identified"
+              : company.menaChannelStatus === "limited"
+                ? "Some MENA channel activity but whitespace remains"
+                : "Existing regional channels reduce whitespace",
+          recommendedFirstOutreachAngle:
+            company.targetSegment === "large"
+              ? "Low-priority approach only if niche portfolio evidence is unusually strong"
+              : `Position KEMEDICA as the fastest route to ${gap.targetCountries
+                  .slice(0, 3)
+                  .join(", ")} for ${gap.indication}.`,
+          confidence:
+            company.priorityTier === "tier_1"
+              ? "high"
+              : company.priorityTier === "tier_2"
+                ? "medium"
+                : "low",
+          priorityTier: company.priorityTier,
         });
       }
 

@@ -17,7 +17,7 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            {BRAND_NAME} BD Cockpit
+            {BRAND_NAME} Gap-First Cockpit
           </h1>
           <p className="mt-1 text-sm text-zinc-400">
             {BRAND_TAGLINE}
@@ -68,7 +68,7 @@ export default function DashboardPage() {
           {/* Quick actions */}
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">
             <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-4">
-              Quick Actions
+              Gap-First Actions
             </h2>
             <div className="space-y-2">
               <Link
@@ -79,8 +79,8 @@ export default function DashboardPage() {
                   <Target className="h-4 w-4 text-cyan-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">Gap Analysis</p>
-                  <p className="text-xs text-zinc-500">Find MENA supply gaps</p>
+                  <p className="text-sm font-medium text-white">Analyze Gaps</p>
+                  <p className="text-xs text-zinc-500">Start from unmet MENA demand</p>
                 </div>
                 <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400" />
               </Link>
@@ -92,8 +92,8 @@ export default function DashboardPage() {
                   <GitBranch className="h-4 w-4 text-orange-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">BD Pipeline</p>
-                  <p className="text-xs text-zinc-500">Manage company outreach</p>
+                  <p className="text-sm font-medium text-white">Distributor Pipeline</p>
+                  <p className="text-xs text-zinc-500">Progress shortlisted manufacturers</p>
                 </div>
                 <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400" />
               </Link>
@@ -109,7 +109,7 @@ export default function DashboardPage() {
                     Discovery History
                   </p>
                   <p className="text-xs text-zinc-500">
-                    View all scan runs and logs
+                    Review sourcing runs and research logs
                   </p>
                 </div>
                 <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400" />
@@ -150,16 +150,16 @@ export default function DashboardPage() {
           {/* How it works */}
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">
             <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-3">
-              BD Workflow
+              Recommended Workflow
             </h2>
             <ol className="space-y-3">
               {[
-                "Run Gap Analysis to find MENA unmet demand",
-                "Discover EU companies that fill the gaps",
-                "AI scores BD suitability per company",
-                "Move companies through the BD pipeline",
-                "Generate market reports with BD fit assessment",
-                "Close partnership deals",
+                "Analyze a MENA demand gap",
+                "Source smaller EU manufacturers for that gap",
+                "Shortlist manufacturers by distributor fit",
+                "Move them through the distributor pipeline",
+                "Generate a deal pursuit brief",
+                "Advance partnership discussions",
               ].map((step, i) => (
                 <li
                   key={i}

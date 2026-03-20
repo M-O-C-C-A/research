@@ -21,7 +21,7 @@ export function ActionQueueWidget() {
               Next Best Actions
             </h2>
             <p className="text-xs text-zinc-500">
-              Smallest steps that move a Europe-to-MENA opportunity forward
+              Smallest steps that move a gap-first distributor opportunity forward
             </p>
           </div>
         </div>
@@ -33,7 +33,7 @@ export function ActionQueueWidget() {
         <div className="py-8 text-center">
           <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
           <p className="text-sm text-zinc-500">
-            No urgent follow-ups right now. Add more drugs, reports, or gap analyses.
+            No urgent follow-ups right now. Add more gap analyses, shortlisted manufacturers, or pursuit briefs.
           </p>
         </div>
       ) : (

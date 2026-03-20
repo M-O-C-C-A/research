@@ -68,6 +68,27 @@ export function CompanyList() {
                   {company.description}
                 </p>
               )}
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {(company.distributorFitScore ?? company.bdScore) != null && (
+                  <Badge className="border-0 bg-emerald-500/10 text-emerald-300">
+                    Fit {(company.distributorFitScore ?? company.bdScore)?.toFixed(1)}/10
+                  </Badge>
+                )}
+                {company.priorityTier && (
+                  <Badge className="border-0 bg-cyan-500/10 text-cyan-300">
+                    {company.priorityTier.replace("_", " ")}
+                  </Badge>
+                )}
+                {(company.menaChannelStatus ?? company.menaPresence) && (
+                  <Badge className="border-0 bg-zinc-800 text-zinc-300">
+                    {(company.menaChannelStatus ?? company.menaPresence) === "none"
+                      ? "No MENA channel"
+                      : (company.menaChannelStatus ?? company.menaPresence) === "limited"
+                        ? "Limited MENA"
+                        : "MENA established"}
+                  </Badge>
+                )}
+              </div>
               {company.therapeuticAreas.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {company.therapeuticAreas.slice(0, 3).map((area) => (

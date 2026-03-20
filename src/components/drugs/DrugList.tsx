@@ -91,7 +91,8 @@ export function DrugList() {
               <TableRow className="border-zinc-800 hover:bg-transparent">
                 <TableHead className="text-zinc-500">Drug Name</TableHead>
                 <TableHead className="text-zinc-500">Generic Name</TableHead>
-                <TableHead className="text-zinc-500">Company</TableHead>
+                <TableHead className="text-zinc-500">Manufacturer</TableHead>
+                <TableHead className="text-zinc-500">MAH / Owner</TableHead>
                 <TableHead className="text-zinc-500">Therapeutic Area</TableHead>
                 <TableHead className="text-zinc-500">Status</TableHead>
                 <TableHead className="w-8" />
@@ -115,7 +116,10 @@ export function DrugList() {
                     {drug.genericName}
                   </TableCell>
                   <TableCell className="text-zinc-400 text-sm">
-                    {drug.companyName}
+                    {drug.primaryManufacturerName}
+                  </TableCell>
+                  <TableCell className="text-zinc-400 text-sm">
+                    {drug.primaryMarketAuthorizationHolderName}
                   </TableCell>
                   <TableCell className="text-zinc-400 text-sm">
                     {drug.therapeuticArea}

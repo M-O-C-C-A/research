@@ -56,9 +56,46 @@ export const listEnriched = query({
     return Promise.all(
       filtered.map(async (d) => {
         const company = d.companyId ? await ctx.db.get(d.companyId) : null;
+        const entityLinks = await ctx.db
+          .query("drugEntityLinks")
+          .withIndex("by_drug", (q) => q.eq("drugId", d._id))
+          .collect();
+        const linkedCompanies = await Promise.all(
+          entityLinks.map(async (link) => ({
+            link,
+            company: link.companyId ? await ctx.db.get(link.companyId) : null,
+          }))
+        );
+        const primaryManufacturer =
+          linkedCompanies.find(
+            ({ link }) => link.relationshipType === "manufacturer" && link.isPrimary
+          ) ??
+          linkedCompanies.find(
+            ({ link }) => link.relationshipType === "manufacturer"
+          );
+        const primaryMah =
+          linkedCompanies.find(
+            ({ link }) =>
+              link.relationshipType === "market_authorization_holder" &&
+              link.isPrimary
+          ) ??
+          linkedCompanies.find(
+            ({ link }) => link.relationshipType === "market_authorization_holder"
+          );
         return {
           ...d,
           companyName: company?.name ?? d.manufacturerName ?? "—",
+          primaryManufacturerName:
+            primaryManufacturer?.company?.name ??
+            primaryManufacturer?.link.entityName ??
+            d.primaryManufacturerName ??
+            d.manufacturerName ??
+            "—",
+          primaryMarketAuthorizationHolderName:
+            primaryMah?.company?.name ??
+            primaryMah?.link.entityName ??
+            d.primaryMarketAuthorizationHolderName ??
+            "—",
         };
       })
     );
@@ -83,6 +120,8 @@ export const create = mutation({
   args: {
     companyId: v.optional(v.id("companies")),
     manufacturerName: v.optional(v.string()),
+    primaryManufacturerName: v.optional(v.string()),
+    primaryMarketAuthorizationHolderName: v.optional(v.string()),
     name: v.string(),
     genericName: v.string(),
     therapeuticArea: v.string(),
@@ -124,6 +163,8 @@ export const update = mutation({
     category: v.optional(v.string()),
     status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
     manufacturerName: v.optional(v.string()),
+    primaryManufacturerName: v.optional(v.string()),
+    primaryMarketAuthorizationHolderName: v.optional(v.string()),
     patentExpiryYear: v.optional(v.number()),
     patentExpirySource: v.optional(v.string()),
     emaApprovalDate: v.optional(v.string()),

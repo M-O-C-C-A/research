@@ -1,5 +1,29 @@
 import { query, mutation } from "./_generated/server";
 import { v } from "convex/values";
+import {
+  buildDisqualifierReasons,
+  normalizePipelineStage,
+} from "./distributorFit";
+
+const PIPELINE_STAGE_VALIDATOR = v.union(
+  v.literal("screened"),
+  v.literal("qualified"),
+  v.literal("contacted"),
+  v.literal("intro_call"),
+  v.literal("data_shared"),
+  v.literal("partner_discussion"),
+  v.literal("negotiating"),
+  v.literal("won"),
+  v.literal("lost")
+);
+
+const LEGACY_OR_NEW_STAGE_VALIDATOR = v.union(
+  PIPELINE_STAGE_VALIDATOR,
+  v.literal("prospect"),
+  v.literal("engaged"),
+  v.literal("contracted"),
+  v.literal("disqualified")
+);
 
 export const list = query({
   args: { search: v.optional(v.string()) },
@@ -29,14 +53,7 @@ export const create = mutation({
     description: v.optional(v.string()),
     therapeuticAreas: v.array(v.string()),
     // BD fields
-    bdStatus: v.optional(v.union(
-      v.literal("prospect"),
-      v.literal("contacted"),
-      v.literal("engaged"),
-      v.literal("negotiating"),
-      v.literal("contracted"),
-      v.literal("disqualified"),
-    )),
+    bdStatus: v.optional(LEGACY_OR_NEW_STAGE_VALIDATOR),
     bdScore: v.optional(v.number()),
     bdScoreRationale: v.optional(v.string()),
     companySize: v.optional(v.union(
@@ -51,6 +68,88 @@ export const create = mutation({
     )),
     revenueEstimate: v.optional(v.string()),
     employeeCount: v.optional(v.string()),
+    distributorFitScore: v.optional(v.number()),
+    distributorFitRationale: v.optional(v.string()),
+    targetSegment: v.optional(v.union(
+      v.literal("sme"),
+      v.literal("mid"),
+      v.literal("large"),
+    )),
+    menaChannelStatus: v.optional(v.union(
+      v.literal("none"),
+      v.literal("limited"),
+      v.literal("established"),
+    )),
+    exportReadiness: v.optional(v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+    )),
+    dealModelFit: v.optional(v.union(v.literal("distributor"))),
+    priorityTier: v.optional(v.union(
+      v.literal("tier_1"),
+      v.literal("tier_2"),
+      v.literal("tier_3"),
+      v.literal("deprioritized"),
+    )),
+    partnerabilitySignals: v.optional(v.array(v.string())),
+    disqualifierReasons: v.optional(v.array(v.string())),
+    ownershipType: v.optional(v.string()),
+    exportMarketsKnown: v.optional(v.array(v.string())),
+    partneringHistory: v.optional(v.string()),
+    manufacturingFootprint: v.optional(v.string()),
+    primaryCommercialModel: v.optional(v.string()),
+    entityRoles: v.optional(v.array(v.union(
+      v.literal("manufacturer"),
+      v.literal("market_authorization_holder"),
+      v.literal("licensor"),
+      v.literal("regional_partner"),
+      v.literal("distributor")
+    ))),
+    commercialControlLevel: v.optional(v.union(
+      v.literal("full"),
+      v.literal("shared"),
+      v.literal("limited"),
+      v.literal("unknown")
+    )),
+    existingMenaPartners: v.optional(v.array(v.object({
+      name: v.string(),
+      role: v.union(
+        v.literal("affiliate"),
+        v.literal("distributor"),
+        v.literal("local_mah_partner"),
+        v.literal("licensee"),
+        v.literal("co_marketing_partner"),
+        v.literal("tender_partner"),
+        v.literal("other")
+      ),
+      geographies: v.array(v.string()),
+      exclusivity: v.optional(v.union(
+        v.literal("exclusive"),
+        v.literal("non_exclusive"),
+        v.literal("unknown")
+      )),
+      confidence: v.union(
+        v.literal("confirmed"),
+        v.literal("likely"),
+        v.literal("inferred")
+      ),
+      source: v.optional(v.string()),
+      url: v.optional(v.string()),
+    }))),
+    menaPartnershipStrength: v.optional(v.union(
+      v.literal("none"),
+      v.literal("limited"),
+      v.literal("moderate"),
+      v.literal("entrenched")
+    )),
+    approachTargetRecommendation: v.optional(v.union(
+      v.literal("approach"),
+      v.literal("watch"),
+      v.literal("deprioritize")
+    )),
+    approachTargetReason: v.optional(v.string()),
+    notApproachableReason: v.optional(v.string()),
   },
   handler: async (ctx, args) =>
     ctx.db.insert("companies", { ...args, status: "active" }),
@@ -66,14 +165,7 @@ export const update = mutation({
     therapeuticAreas: v.optional(v.array(v.string())),
     status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
     // BD fields
-    bdStatus: v.optional(v.union(
-      v.literal("prospect"),
-      v.literal("contacted"),
-      v.literal("engaged"),
-      v.literal("negotiating"),
-      v.literal("contracted"),
-      v.literal("disqualified"),
-    )),
+    bdStatus: v.optional(LEGACY_OR_NEW_STAGE_VALIDATOR),
     bdScore: v.optional(v.number()),
     bdScoreRationale: v.optional(v.string()),
     companySize: v.optional(v.union(
@@ -109,6 +201,88 @@ export const update = mutation({
       confidence: v.union(v.literal("confirmed"), v.literal("likely"), v.literal("inferred")),
       source: v.optional(v.string()),
     }))),
+    distributorFitScore: v.optional(v.number()),
+    distributorFitRationale: v.optional(v.string()),
+    targetSegment: v.optional(v.union(
+      v.literal("sme"),
+      v.literal("mid"),
+      v.literal("large"),
+    )),
+    menaChannelStatus: v.optional(v.union(
+      v.literal("none"),
+      v.literal("limited"),
+      v.literal("established"),
+    )),
+    exportReadiness: v.optional(v.union(
+      v.literal("low"),
+      v.literal("medium"),
+      v.literal("high"),
+    )),
+    dealModelFit: v.optional(v.union(v.literal("distributor"))),
+    priorityTier: v.optional(v.union(
+      v.literal("tier_1"),
+      v.literal("tier_2"),
+      v.literal("tier_3"),
+      v.literal("deprioritized"),
+    )),
+    partnerabilitySignals: v.optional(v.array(v.string())),
+    disqualifierReasons: v.optional(v.array(v.string())),
+    ownershipType: v.optional(v.string()),
+    exportMarketsKnown: v.optional(v.array(v.string())),
+    partneringHistory: v.optional(v.string()),
+    manufacturingFootprint: v.optional(v.string()),
+    primaryCommercialModel: v.optional(v.string()),
+    entityRoles: v.optional(v.array(v.union(
+      v.literal("manufacturer"),
+      v.literal("market_authorization_holder"),
+      v.literal("licensor"),
+      v.literal("regional_partner"),
+      v.literal("distributor")
+    ))),
+    commercialControlLevel: v.optional(v.union(
+      v.literal("full"),
+      v.literal("shared"),
+      v.literal("limited"),
+      v.literal("unknown")
+    )),
+    existingMenaPartners: v.optional(v.array(v.object({
+      name: v.string(),
+      role: v.union(
+        v.literal("affiliate"),
+        v.literal("distributor"),
+        v.literal("local_mah_partner"),
+        v.literal("licensee"),
+        v.literal("co_marketing_partner"),
+        v.literal("tender_partner"),
+        v.literal("other")
+      ),
+      geographies: v.array(v.string()),
+      exclusivity: v.optional(v.union(
+        v.literal("exclusive"),
+        v.literal("non_exclusive"),
+        v.literal("unknown")
+      )),
+      confidence: v.union(
+        v.literal("confirmed"),
+        v.literal("likely"),
+        v.literal("inferred")
+      ),
+      source: v.optional(v.string()),
+      url: v.optional(v.string()),
+    }))),
+    menaPartnershipStrength: v.optional(v.union(
+      v.literal("none"),
+      v.literal("limited"),
+      v.literal("moderate"),
+      v.literal("entrenched")
+    )),
+    approachTargetRecommendation: v.optional(v.union(
+      v.literal("approach"),
+      v.literal("watch"),
+      v.literal("deprioritize")
+    )),
+    approachTargetReason: v.optional(v.string()),
+    notApproachableReason: v.optional(v.string()),
   },
   handler: async (ctx, { id, ...patch }) => {
     await ctx.db.patch(id, patch);
@@ -119,19 +293,12 @@ export const update = mutation({
 export const moveStage = mutation({
   args: {
     id: v.id("companies"),
-    newStatus: v.union(
-      v.literal("prospect"),
-      v.literal("contacted"),
-      v.literal("engaged"),
-      v.literal("negotiating"),
-      v.literal("contracted"),
-      v.literal("disqualified"),
-    ),
+    newStatus: PIPELINE_STAGE_VALIDATOR,
   },
   handler: async (ctx, { id, newStatus }) => {
     const company = await ctx.db.get(id);
     if (!company) return;
-    const previousStage = company.bdStatus ?? "prospect";
+    const previousStage = normalizePipelineStage(company.bdStatus);
     await ctx.db.patch(id, { bdStatus: newStatus });
     await ctx.db.insert("bdActivities", {
       companyId: id,
@@ -146,20 +313,13 @@ export const moveStage = mutation({
 
 export const listByBdStatus = query({
   args: {
-    bdStatus: v.union(
-      v.literal("prospect"),
-      v.literal("contacted"),
-      v.literal("engaged"),
-      v.literal("negotiating"),
-      v.literal("contracted"),
-      v.literal("disqualified"),
-    ),
+    bdStatus: PIPELINE_STAGE_VALIDATOR,
   },
   handler: async (ctx, { bdStatus }) => {
-    return await ctx.db
-      .query("companies")
-      .withIndex("by_bd_status", (q) => q.eq("bdStatus", bdStatus))
-      .collect();
+    const companies = await ctx.db.query("companies").collect();
+    return companies.filter(
+      (company) => normalizePipelineStage(company.bdStatus) === bdStatus
+    );
   },
 });
 
@@ -179,19 +339,28 @@ export const pipelineStats = query({
   handler: async (ctx) => {
     const all = await ctx.db.query("companies").collect();
     const counts: Record<string, number> = {
-      prospect: 0,
+      screened: 0,
+      qualified: 0,
       contacted: 0,
-      engaged: 0,
+      intro_call: 0,
+      data_shared: 0,
+      partner_discussion: 0,
       negotiating: 0,
-      contracted: 0,
-      disqualified: 0,
+      won: 0,
+      lost: 0,
       unset: 0,
     };
     for (const c of all) {
-      const stage = c.bdStatus ?? "prospect";
+      const stage = normalizePipelineStage(c.bdStatus);
       counts[stage] = (counts[stage] ?? 0) + 1;
     }
-    const activeCount = (counts.engaged ?? 0) + (counts.negotiating ?? 0);
+    const activeCount =
+      (counts.qualified ?? 0) +
+      (counts.contacted ?? 0) +
+      (counts.intro_call ?? 0) +
+      (counts.data_shared ?? 0) +
+      (counts.partner_discussion ?? 0) +
+      (counts.negotiating ?? 0);
     return { counts, total: all.length, activeCount };
   },
 });
@@ -209,5 +378,33 @@ export const listByIds = query({
   handler: async (ctx, { ids }) => {
     const results = await Promise.all(ids.map((id) => ctx.db.get(id)));
     return results.filter((r): r is NonNullable<typeof r> => r != null);
+  },
+});
+
+export const listPrioritized = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const companies = await ctx.db.query("companies").collect();
+    return companies
+      .map((company) => ({
+        ...company,
+        normalizedStage: normalizePipelineStage(company.bdStatus),
+        inferredDisqualifiers:
+          company.disqualifierReasons && company.disqualifierReasons.length > 0
+            ? company.disqualifierReasons
+            : buildDisqualifierReasons({
+                companySize: company.targetSegment ?? company.companySize,
+                menaPresence: company.menaChannelStatus ?? company.menaPresence,
+                menaRegistrationCount: 0,
+                hasPartneringSignals:
+                  (company.partnerabilitySignals?.length ?? 0) > 0,
+              }),
+      }))
+      .sort(
+        (a, b) =>
+          (b.distributorFitScore ?? b.bdScore ?? 0) -
+          (a.distributorFitScore ?? a.bdScore ?? 0)
+      )
+      .slice(0, limit ?? 25);
   },
 });

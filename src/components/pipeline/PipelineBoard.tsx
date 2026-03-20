@@ -22,23 +22,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  PIPELINE_STAGES,
+  normalizePipelineStage,
+} from "@/lib/distributorFit";
 
-type BdStatus =
-  | "prospect"
-  | "contacted"
-  | "engaged"
-  | "negotiating"
-  | "contracted"
-  | "disqualified";
+type BdStatus = (typeof PIPELINE_STAGES)[number]["key"];
 
-const ALL_STAGES: { key: BdStatus; label: string; dot: string; tab: string }[] = [
-  { key: "prospect",     label: "Prospect",     dot: "bg-zinc-500",    tab: "text-zinc-400 border-zinc-700" },
-  { key: "contacted",    label: "Contacted",    dot: "bg-blue-500",    tab: "text-blue-400 border-blue-800" },
-  { key: "engaged",      label: "Engaged",      dot: "bg-indigo-500",  tab: "text-indigo-400 border-indigo-800" },
-  { key: "negotiating",  label: "Negotiating",  dot: "bg-violet-500",  tab: "text-violet-400 border-violet-800" },
-  { key: "contracted",   label: "Contracted",   dot: "bg-emerald-500", tab: "text-emerald-400 border-emerald-800" },
-  { key: "disqualified", label: "Disqualified", dot: "bg-red-500",     tab: "text-red-400 border-red-900" },
-];
+const ALL_STAGES = PIPELINE_STAGES.map((stage) => ({
+  ...stage,
+  dot: stage.color,
+  tab: stage.badge.replace("bg-", "text-").replace("/20", "").replace("/10", ""),
+}));
 
 const MENA_LABELS: Record<string, string> = {
   none:        "No MENA",
@@ -108,10 +103,14 @@ function CompanyRow({
     _id: Id<"companies">;
     name: string;
     country: string;
-    bdStatus?: BdStatus;
+    bdStatus?: string;
     bdScore?: number;
+    distributorFitScore?: number;
     companySize?: string;
+    targetSegment?: string;
     menaPresence?: string;
+    menaChannelStatus?: string;
+    priorityTier?: string;
     contactName?: string;
     therapeuticAreas: string[];
     researchedAt?: number;
@@ -130,10 +129,10 @@ function CompanyRow({
       <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors">
         {/* BD Score */}
         <div className="w-14 shrink-0 text-right">
-          {company.bdScore != null ? (
-            <span className={`text-sm font-bold flex items-center justify-end gap-0.5 ${company.bdScore >= 7 ? "text-emerald-400" : company.bdScore >= 5 ? "text-yellow-400" : "text-zinc-500"}`}>
+          {(company.distributorFitScore ?? company.bdScore) != null ? (
+            <span className={`text-sm font-bold flex items-center justify-end gap-0.5 ${(company.distributorFitScore ?? company.bdScore)! >= 7 ? "text-emerald-400" : (company.distributorFitScore ?? company.bdScore)! >= 5 ? "text-yellow-400" : "text-zinc-500"}`}>
               <Star className="h-3 w-3" />
-              {company.bdScore.toFixed(1)}
+              {(company.distributorFitScore ?? company.bdScore)?.toFixed(1)}
             </span>
           ) : (
             <span className="text-xs text-zinc-700">—</span>
@@ -150,15 +149,20 @@ function CompanyRow({
             >
               {company.name}
             </Link>
-            {company.companySize && (
-              <span className="text-xs text-zinc-600 uppercase shrink-0">{company.companySize}</span>
+            {(company.targetSegment ?? company.companySize) && (
+              <span className="text-xs text-zinc-600 uppercase shrink-0">{company.targetSegment ?? company.companySize}</span>
+            )}
+            {company.priorityTier && (
+              <span className="text-xs rounded bg-cyan-500/10 px-1.5 py-0.5 text-cyan-300 shrink-0">
+                {company.priorityTier.replace("_", " ")}
+              </span>
             )}
           </div>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-xs text-zinc-500">{company.country}</span>
-            {company.menaPresence && (
-              <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${MENA_COLORS[company.menaPresence] ?? "bg-zinc-800 text-zinc-400"}`}>
-                {MENA_LABELS[company.menaPresence] ?? company.menaPresence}
+            {(company.menaChannelStatus ?? company.menaPresence) && (
+              <span className={`text-xs px-1.5 py-0.5 rounded shrink-0 ${MENA_COLORS[company.menaChannelStatus ?? company.menaPresence ?? ""] ?? "bg-zinc-800 text-zinc-400"}`}>
+                {MENA_LABELS[company.menaChannelStatus ?? company.menaPresence ?? ""] ?? (company.menaChannelStatus ?? company.menaPresence)}
               </span>
             )}
           </div>
@@ -186,7 +190,7 @@ function CompanyRow({
         {/* Stage select */}
         <div className="w-36 shrink-0">
           <Select
-            value={company.bdStatus ?? "prospect"}
+            value={normalizePipelineStage(company.bdStatus)}
             onValueChange={(v) => onStageChange(company._id, v as BdStatus)}
           >
             <SelectTrigger className="h-7 text-xs bg-zinc-800 border-zinc-700 text-zinc-300 w-full">
@@ -212,7 +216,7 @@ function CompanyRow({
               onClick={() => onEnrich(company._id)}
               disabled={isEnriching}
               className="p-1.5 text-amber-600 hover:text-amber-400 transition-colors rounded"
-              title="Build full prospect dossier"
+              title="Build full pursuit dossier"
             >
               {isEnriching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <span className="text-xs">⚡</span>}
             </button>
@@ -254,7 +258,7 @@ function CompanyRow({
 // Main Pipeline Board
 // ──────────────────────────────────────────────────────────────
 export function PipelineBoard() {
-  const [activeStage, setActiveStage] = useState<BdStatus>("prospect");
+  const [activeStage, setActiveStage] = useState<BdStatus>("screened");
   const [search, setSearch] = useState("");
   const [scoringId, setScoringId] = useState<Id<"companies"> | null>(null);
 
@@ -288,7 +292,9 @@ export function PipelineBoard() {
 
   async function handleScoreAll() {
     if (!allCompanies) return;
-    const unscored = allCompanies.filter((c) => c.bdScore == null).slice(0, 5);
+    const unscored = allCompanies
+      .filter((c) => c.distributorFitScore == null && c.bdScore == null)
+      .slice(0, 5);
     for (const c of unscored) {
       setScoringId(c._id);
       try { await scoreCompany({ companyId: c._id }); } catch { /* continue */ }
@@ -298,7 +304,7 @@ export function PipelineBoard() {
 
   // Filter to active stage + search
   const stageCompanies = (allCompanies ?? []).filter((c) => {
-    const stage = (c.bdStatus as BdStatus | undefined) ?? "prospect";
+    const stage = normalizePipelineStage(c.bdStatus);
     if (stage !== activeStage) return false;
     if (search) {
       const q = search.toLowerCase();
@@ -309,9 +315,13 @@ export function PipelineBoard() {
       );
     }
     return true;
-  }).sort((a, b) => (b.bdScore ?? 0) - (a.bdScore ?? 0));
+  }).sort(
+    (a, b) =>
+      (b.distributorFitScore ?? b.bdScore ?? 0) -
+      (a.distributorFitScore ?? a.bdScore ?? 0)
+  );
 
-  const unscoredCount = (allCompanies ?? []).filter((c) => c.bdScore == null).length;
+  const unscoredCount = (allCompanies ?? []).filter((c) => c.distributorFitScore == null && c.bdScore == null).length;
 
   if (!allCompanies) {
     return (
@@ -328,9 +338,9 @@ export function PipelineBoard() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">BD Pipeline</h1>
+          <h1 className="text-2xl font-bold text-white">Distributor Pipeline</h1>
           <p className="mt-1 text-sm text-zinc-400">
-            Track and manage company outreach from prospect to contracted partner
+            Track manufacturers from screening to distributor-win or loss
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -340,7 +350,7 @@ export function PipelineBoard() {
             </Button>
           )}
           <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800 text-xs" onClick={handleRunQueue} disabled={isQueueRunning}>
-            {isQueueRunning ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Enriching…</> : <>⚡ Enrich 3 prospects</>}
+            {isQueueRunning ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Enriching…</> : <>⚡ Enrich 3 targets</>}
           </Button>
           <Link href="/companies">
             <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800 text-xs">
@@ -424,9 +434,9 @@ export function PipelineBoard() {
             <p className="text-sm text-zinc-600">
               {search ? "No companies match your search" : `No companies in ${ALL_STAGES.find(s => s.key === activeStage)?.label ?? activeStage}`}
             </p>
-            {activeStage === "prospect" && !search && (
+            {activeStage === "screened" && !search && (
               <p className="text-xs text-zinc-700 mt-1">
-                Run a gap analysis and find suppliers — they&apos;ll appear here as prospects.
+                Run a gap analysis and find suppliers. Shortlisted manufacturers will appear here first.
               </p>
             )}
           </div>
@@ -446,7 +456,7 @@ export function PipelineBoard() {
 
       {stageCompanies.length > 0 && (
         <p className="text-xs text-zinc-700 mt-3 text-right">
-          {stageCompanies.length} compan{stageCompanies.length !== 1 ? "ies" : "y"} · sorted by BD score
+          {stageCompanies.length} compan{stageCompanies.length !== 1 ? "ies" : "y"} · sorted by distributor fit
         </p>
       )}
     </main>

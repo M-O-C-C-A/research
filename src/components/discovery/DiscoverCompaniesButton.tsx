@@ -183,7 +183,7 @@ export function DiscoverCompaniesButton({
           ) : (
             <Radar className="mr-2 h-4 w-4" />
           )}
-          {loading ? "Scanning..." : "Discover Companies"}
+          {loading ? "Scanning..." : "Discover Manufacturers"}
         </Button>
         {lastJobId && (
           <a
@@ -198,10 +198,10 @@ export function DiscoverCompaniesButton({
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-2xl border-zinc-800 bg-zinc-900 text-white">
           <DialogHeader>
-            <DialogTitle className="text-white">Discover Companies</DialogTitle>
+            <DialogTitle className="text-white">Discover Manufacturers</DialogTitle>
             <DialogDescription className="text-zinc-400">
-              Run company discovery as is, or attach optional PDFs, screenshots,
-              or notes to seed the search with company names and market-entry
+              Run manufacturer discovery as is, or attach optional PDFs, screenshots,
+              or notes to seed the search with smaller European targets and market-entry
               clues.
             </DialogDescription>
           </DialogHeader>

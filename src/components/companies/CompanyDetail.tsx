@@ -35,23 +35,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { normalizePipelineStage, PIPELINE_STAGES } from "@/lib/distributorFit";
 
-type BdStatus =
-  | "prospect"
-  | "contacted"
-  | "engaged"
-  | "negotiating"
-  | "contracted"
-  | "disqualified";
+type BdStatus = (typeof PIPELINE_STAGES)[number]["key"];
 
-const BD_STAGES: { value: BdStatus; label: string }[] = [
-  { value: "prospect", label: "Prospect" },
-  { value: "contacted", label: "Contacted" },
-  { value: "engaged", label: "Engaged" },
-  { value: "negotiating", label: "Negotiating" },
-  { value: "contracted", label: "Contracted" },
-  { value: "disqualified", label: "Disqualified" },
-];
+const BD_STAGES: { value: BdStatus; label: string }[] = PIPELINE_STAGES.map((stage) => ({
+  value: stage.key,
+  label: stage.label,
+}));
 
 const ACTIVITY_TYPES = [
   { value: "note", label: "Note", icon: MessageSquare },
@@ -313,7 +304,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
         )}
       </div>
 
-      {/* BD Status Panel */}
+      {/* Distributor Fit Panel */}
       <div className="rounded-lg border border-zinc-800 bg-zinc-900">
         <button
           onClick={() => setShowBD((v) => !v)}
@@ -321,9 +312,9 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
         >
           <span className="flex items-center gap-2">
             <Star className="h-4 w-4 text-orange-400" />
-            BD Assessment
-            {company.bdScore != null && (
-              <span className="text-orange-400 font-bold">{company.bdScore.toFixed(1)}/10</span>
+            Distributor Fit
+            {(company.distributorFitScore ?? company.bdScore) != null && (
+              <span className="text-orange-400 font-bold">{(company.distributorFitScore ?? company.bdScore)?.toFixed(1)}/10</span>
             )}
           </span>
           {showBD ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
@@ -334,9 +325,9 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
             {/* Stage + Score row */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <div>
-                <p className="text-xs text-zinc-500 mb-1.5">BD Stage</p>
+                <p className="text-xs text-zinc-500 mb-1.5">Pipeline Stage</p>
                 <Select
-                  value={company.bdStatus ?? "prospect"}
+                  value={normalizePipelineStage(company.bdStatus)}
                   onValueChange={(v) => handleStageChange(v as BdStatus)}
                 >
                   <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
@@ -356,42 +347,42 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                 <p className="text-xs text-zinc-500 mb-1.5">Company Size</p>
                 <div className="h-9 flex items-center">
                   <span className={`text-sm px-2 py-1 rounded ${
-                    company.companySize === "sme"
+                    (company.targetSegment ?? company.companySize) === "sme"
                       ? "bg-emerald-500/10 text-emerald-400"
-                      : company.companySize === "mid"
+                      : (company.targetSegment ?? company.companySize) === "mid"
                         ? "bg-yellow-500/10 text-yellow-400"
-                        : company.companySize === "large"
+                        : (company.targetSegment ?? company.companySize) === "large"
                           ? "bg-red-500/10 text-red-400"
                           : "text-zinc-500"
                   }`}>
-                    {company.companySize ?? "Unknown"}
+                    {company.targetSegment ?? company.companySize ?? "Unknown"}
                   </span>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs text-zinc-500 mb-1.5">MENA Presence</p>
+                <p className="text-xs text-zinc-500 mb-1.5">MENA Channel</p>
                 <div className="h-9 flex items-center">
                   <span className={`text-sm px-2 py-1 rounded ${
-                    company.menaPresence === "none"
+                    (company.menaChannelStatus ?? company.menaPresence) === "none"
                       ? "bg-emerald-500/10 text-emerald-400"
-                      : company.menaPresence === "limited"
+                      : (company.menaChannelStatus ?? company.menaPresence) === "limited"
                         ? "bg-yellow-500/10 text-yellow-400"
-                        : company.menaPresence === "established"
+                        : (company.menaChannelStatus ?? company.menaPresence) === "established"
                           ? "bg-red-500/10 text-red-400"
                           : "text-zinc-500"
                   }`}>
-                    {company.menaPresence ?? "Unknown"}
+                    {company.menaChannelStatus ?? company.menaPresence ?? "Unknown"}
                   </span>
                 </div>
               </div>
 
               <div>
-                <p className="text-xs text-zinc-500 mb-1.5">BD Score</p>
+                <p className="text-xs text-zinc-500 mb-1.5">Distributor Fit</p>
                 <div className="flex items-center gap-2 h-9">
-                  {company.bdScore != null ? (
+                  {(company.distributorFitScore ?? company.bdScore) != null ? (
                     <span className="text-xl font-bold text-white">
-                      {company.bdScore.toFixed(1)}
+                      {(company.distributorFitScore ?? company.bdScore)?.toFixed(1)}
                       <span className="text-sm text-zinc-500">/10</span>
                     </span>
                   ) : (
@@ -402,10 +393,114 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
             </div>
 
             {/* Score rationale */}
-            {company.bdScoreRationale && (
+            {(company.distributorFitRationale ?? company.bdScoreRationale) && (
               <div>
                 <p className="text-xs text-zinc-500 mb-1">Assessment</p>
-                <p className="text-sm text-zinc-400 leading-relaxed">{company.bdScoreRationale}</p>
+                <p className="text-sm text-zinc-400 leading-relaxed">{company.distributorFitRationale ?? company.bdScoreRationale}</p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-xs text-zinc-500 mb-1.5">Entity Roles</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(company.entityRoles ?? []).length > 0 ? (
+                    company.entityRoles?.map((role) => (
+                      <Badge key={role} className="border-0 bg-zinc-800 text-zinc-300">
+                        {role.replaceAll("_", " ")}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-sm text-zinc-500">Unknown</span>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 mb-1.5">Commercial Control</p>
+                <p className="text-sm text-zinc-300">
+                  {company.commercialControlLevel ?? "unknown"}
+                </p>
+              </div>
+              <div>
+                <p className="text-xs text-zinc-500 mb-1.5">MENA Partner Strength</p>
+                <p className="text-sm text-zinc-300">
+                  {company.menaPartnershipStrength ?? "unknown"}
+                </p>
+              </div>
+            </div>
+
+            {(company.approachTargetRecommendation || company.approachTargetReason) && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                  Approach Recommendation
+                </p>
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  {company.approachTargetRecommendation && (
+                    <Badge className={`border-0 ${
+                      company.approachTargetRecommendation === "approach"
+                        ? "bg-emerald-500/10 text-emerald-300"
+                        : company.approachTargetRecommendation === "watch"
+                          ? "bg-yellow-500/10 text-yellow-300"
+                          : "bg-red-500/10 text-red-300"
+                    }`}>
+                      {company.approachTargetRecommendation}
+                    </Badge>
+                  )}
+                  {company.notApproachableReason && (
+                    <span className="text-xs text-red-300">{company.notApproachableReason}</span>
+                  )}
+                </div>
+                {company.approachTargetReason && (
+                  <p className="text-sm text-zinc-400">{company.approachTargetReason}</p>
+                )}
+              </div>
+            )}
+
+            {company.disqualifierReasons && company.disqualifierReasons.length > 0 && (
+              <div>
+                <p className="text-xs text-zinc-500 mb-1">Disqualifiers / Watchouts</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {company.disqualifierReasons.map((reason) => (
+                    <Badge key={reason} className="border-0 bg-red-500/10 text-red-300">
+                      {reason}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {company.existingMenaPartners && company.existingMenaPartners.length > 0 && (
+              <div>
+                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                  Existing MENA Partners
+                </p>
+                <div className="space-y-2">
+                  {company.existingMenaPartners.map((partner) => (
+                    <div
+                      key={`${partner.name}-${partner.role}`}
+                      className="rounded-md border border-zinc-800 bg-zinc-950/60 px-3 py-2.5"
+                    >
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm text-white">{partner.name}</span>
+                        <Badge className="border-0 bg-zinc-800 text-zinc-300">
+                          {partner.role.replaceAll("_", " ")}
+                        </Badge>
+                        <span className="text-xs text-zinc-500">
+                          {partner.geographies.join(", ")}
+                        </span>
+                        {partner.exclusivity && (
+                          <span className="text-xs text-zinc-500">
+                            {partner.exclusivity.replaceAll("_", " ")}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {partner.confidence}
+                        {partner.source ? ` · ${partner.source}` : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -540,14 +635,14 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
               </div>
             )}
 
-            {/* BD Notes */}
+            {/* Pursuit Notes */}
             <div>
-              <p className="text-xs text-zinc-500 mb-1.5">BD Notes</p>
+              <p className="text-xs text-zinc-500 mb-1.5">Pursuit Notes</p>
               <textarea
                 value={effectiveNotes}
                 onChange={(e) => setBdNotes(e.target.value)}
                 onBlur={handleSaveNotes}
-                placeholder="Add notes about this company's BD potential, last conversation, next steps..."
+                placeholder="Add notes about fit, outreach, objections, documents, and next steps..."
                 className="w-full text-sm bg-zinc-800 border border-zinc-700 rounded p-3 text-zinc-300 resize-none h-24 focus:outline-none focus:border-zinc-500 placeholder:text-zinc-600"
               />
               {savingNotes && (
@@ -579,7 +674,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                 {isScoring ? (
                   <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Scoring…</>
                 ) : (
-                  <><Star className="h-3 w-3 mr-1.5" />Quick Score</>
+                  <><Star className="h-3 w-3 mr-1.5" />Quick Fit Score</>
                 )}
               </Button>
               <div className="flex items-center gap-3 ml-auto">

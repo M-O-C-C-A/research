@@ -4,14 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { ArrowRight, GitBranch } from "lucide-react";
-
-const STAGES = [
-  { key: "prospect", label: "Prospect", color: "bg-zinc-500" },
-  { key: "contacted", label: "Contacted", color: "bg-blue-500" },
-  { key: "engaged", label: "Engaged", color: "bg-indigo-500" },
-  { key: "negotiating", label: "Negotiating", color: "bg-violet-500" },
-  { key: "contracted", label: "Contracted", color: "bg-emerald-500" },
-];
+import { PIPELINE_STAGES } from "@/lib/distributorFit";
 
 export function BDPipelineWidget() {
   const stats = useQuery(api.companies.pipelineStats, {});
@@ -24,7 +17,7 @@ export function BDPipelineWidget() {
             <GitBranch className="h-4 w-4 text-orange-400" />
           </div>
           <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">
-            BD Pipeline
+            Distributor Pipeline
           </h2>
         </div>
         <Link
@@ -54,7 +47,7 @@ export function BDPipelineWidget() {
         </div>
       ) : (
         <div className="space-y-2.5">
-          {STAGES.map((stage) => {
+          {PIPELINE_STAGES.map((stage) => {
             const count = stats.counts[stage.key] ?? 0;
             const pct = stats.total > 0 ? (count / stats.total) * 100 : 0;
             return (
@@ -77,7 +70,7 @@ export function BDPipelineWidget() {
           <div className="pt-1 flex items-center justify-between">
             <span className="text-xs text-zinc-600">{stats.total} total companies</span>
             <span className="text-xs text-emerald-400 font-medium">
-              {stats.counts.contracted ?? 0} contracted
+              {stats.counts.won ?? 0} won
             </span>
           </div>
         </div>

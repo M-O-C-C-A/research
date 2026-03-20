@@ -42,13 +42,13 @@ export function StatsBar() {
       sublabel: `of ${oppStats.total} assessed`,
     },
     {
-      label: "BD Pipeline",
+      label: "Distributor Pipeline",
       value: pipelineStats?.activeCount ?? 0,
       icon: GitBranch,
       href: "/pipeline",
       color: "text-orange-400",
       bg: "bg-orange-500/10",
-      sublabel: "engaged + negotiating",
+      sublabel: "qualified through negotiating",
     },
     {
       label: "Gap Opportunities",

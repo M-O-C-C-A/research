@@ -36,6 +36,20 @@ interface CountryFinding {
 
 interface ReportBrief {
   executiveSummary: string;
+  entityMap: {
+    manufacturer: string;
+    marketAuthorizationHolder: string;
+    relationshipSummary: string;
+    knownMenaPartners: Array<{
+      entity: string;
+      role: string;
+      geography: string;
+      implication: string;
+    }>;
+    recommendedApproachEntity: string;
+    recommendedApproachEntityRole: string;
+    recommendedApproachReason: string;
+  };
   drugProfile: {
     clinicalProfile: string;
     keyClinicalData: string;
@@ -116,6 +130,42 @@ const REPORT_BRIEF_SCHEMA = {
   additionalProperties: false,
   properties: {
     executiveSummary: { type: "string" },
+    entityMap: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        manufacturer: { type: "string" },
+        marketAuthorizationHolder: { type: "string" },
+        relationshipSummary: { type: "string" },
+        knownMenaPartners: {
+          type: "array",
+          maxItems: 10,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              entity: { type: "string" },
+              role: { type: "string" },
+              geography: { type: "string" },
+              implication: { type: "string" },
+            },
+            required: ["entity", "role", "geography", "implication"],
+          },
+        },
+        recommendedApproachEntity: { type: "string" },
+        recommendedApproachEntityRole: { type: "string" },
+        recommendedApproachReason: { type: "string" },
+      },
+      required: [
+        "manufacturer",
+        "marketAuthorizationHolder",
+        "relationshipSummary",
+        "knownMenaPartners",
+        "recommendedApproachEntity",
+        "recommendedApproachEntityRole",
+        "recommendedApproachReason",
+      ],
+    },
     drugProfile: {
       type: "object",
       additionalProperties: false,
@@ -318,6 +368,7 @@ const REPORT_BRIEF_SCHEMA = {
   },
   required: [
     "executiveSummary",
+    "entityMap",
     "drugProfile",
     "regionalOverview",
     "countryFindings",
@@ -690,17 +741,64 @@ export const generateReport = action({
       const researchInputs = await ctx.runQuery(api.researchInputs.listByDrug, {
         drugId,
       });
+      const entityLinks = await ctx.runQuery(api.drugEntityLinks.listByDrug, {
+        drugId,
+      });
+      const companyMatches = company
+        ? await ctx.runQuery(api.gapCompanyMatches.listByCompany, {
+            companyId: company._id,
+            limit: 5,
+          })
+        : [];
 
       const opportunitySummary = buildOpportunitySummary(opportunities);
       const researchInputContext = buildResearchInputContext(researchInputs);
+      const companyFitContext = company
+        ? [
+            `Distributor fit score: ${company.distributorFitScore ?? company.bdScore ?? "unknown"}`,
+            `Target segment: ${company.targetSegment ?? company.companySize ?? "unknown"}`,
+            `MENA channel status: ${company.menaChannelStatus ?? company.menaPresence ?? "unknown"}`,
+            `Export readiness: ${company.exportReadiness ?? "unknown"}`,
+            `Partnerability signals: ${(company.partnerabilitySignals ?? []).join(", ") || "none recorded"}`,
+            `Disqualifiers: ${(company.disqualifierReasons ?? []).join(", ") || "none recorded"}`,
+            `Priority tier: ${company.priorityTier ?? "unknown"}`,
+            `Entity roles: ${(company.entityRoles ?? []).join(", ") || "unknown"}`,
+            `Commercial control: ${company.commercialControlLevel ?? "unknown"}`,
+            `MENA partner strength: ${company.menaPartnershipStrength ?? "unknown"}`,
+            `Approach recommendation: ${company.approachTargetRecommendation ?? "unknown"}${company.approachTargetReason ? ` — ${company.approachTargetReason}` : ""}`,
+            `Known MENA partners: ${
+              (company.existingMenaPartners ?? [])
+                .map((partner) => `${partner.name} (${partner.role}; ${partner.geographies.join("/")})`)
+                .join(", ") || "none recorded"
+            }`,
+          ].join("\n")
+        : "No manufacturer-level distributor-fit profile attached.";
+      const entityMapContext =
+        entityLinks.length > 0
+          ? entityLinks
+              .map((entry) => {
+                const name = entry.company?.name ?? entry.entityName ?? "Unknown entity";
+                return `${entry.relationshipType}: ${name}${entry.isPrimary ? " (primary)" : ""}${entry.notes ? ` — ${entry.notes}` : ""}`;
+              })
+              .join("\n")
+          : `manufacturer: ${drug.primaryManufacturerName ?? drug.manufacturerName ?? "unknown"}\nmarket_authorization_holder: ${drug.primaryMarketAuthorizationHolderName ?? "unknown"}`;
+      const matchContext =
+        companyMatches.length > 0
+          ? companyMatches
+              .map(
+                (match, index) =>
+                  `Match ${index + 1}: ${match.gap?.indication} | fit ${match.distributorFitScore}/10 | countries ${match.targetCountries.join(", ")} | rationale: ${match.rationale} | outreach angle: ${match.recommendedFirstOutreachAngle ?? "not set"}`
+              )
+              .join("\n")
+          : "No persisted gap-to-manufacturer matches available.";
       const client = createResearchClient(process.env.OPENAI_API_KEY!);
 
       const briefResponse = await createStructuredWebSearchResponse<ReportBrief>(
         client,
         {
           instructions:
-            `You are a senior pharmaceutical market intelligence analyst focused on European drug commercialization into MENA markets. Use web search and return a compact but evidence-backed JSON brief. If a fact is uncertain, say so explicitly. Cover all 15 requested MENA countries exactly once in countryFindings. ${KEMEDICA_CONTEXT}`,
-          input: `Research this drug for MENA commercialization.
+            `You are a senior pharmaceutical market-entry analyst focused on helping KEMEDICA win distributor / in-market partner mandates from overlooked European manufacturers entering MENA. Use web search and return a compact but evidence-backed JSON brief. If a fact is uncertain, say so explicitly. Cover all 15 requested MENA countries exactly once in countryFindings, but orient the brief toward pursuit strategy rather than generic market description. ${KEMEDICA_CONTEXT}`,
+          input: `Research this drug as a deal pursuit brief for MENA commercialization.
 
 Drug profile
 - Brand Name: ${drug.name}
@@ -715,6 +813,15 @@ Drug profile
 Existing internal opportunity data
 ${opportunitySummary}
 
+Manufacturer distributor-fit context
+${companyFitContext}
+
+Drug entity map context
+${entityMapContext}
+
+Gap-to-manufacturer match context
+${matchContext}
+
 Supporting uploaded document context
 ${researchInputContext}
 
@@ -723,8 +830,10 @@ Research requirements
 - Prioritize official regulator sites, WHO, PubMed, and credible market sources.
 - For each country finding, include 1-4 source URLs.
 - Use the uploaded document context as search seed material when relevant, especially for company names, partner names, products, and expansion clues.
-- Keep each section concise but specific enough to support a written market report for KEMEDICA.
-- For bdFitAssessment: score 0-10 (10 = ideal KEMEDICA partner opportunity), explain why the manufacturer would be motivated to partner with KEMEDICA (patent expiry pressure, lack of MENA access, small team without international BD), what KEMEDICA uniquely offers (regulatory expertise, established distributor networks, market access know-how), the ideal deal structure (co-promotion, exclusive distribution, licensing), suggest 3 specific job titles at the manufacturer KEMEDICA should reach out to, summarize any active MENA tenders for this specific drug in the past 24 months, and estimate the first-mover window before a competitor registers the same drug class.`,
+- Keep each section concise but specific enough to support a written pursuit brief for KEMEDICA.
+- Include an explicit entity map that distinguishes manufacturer vs MAH/commercial owner and explains whether they are the same or different.
+- Prioritize why this exact manufacturer is or is not a realistic distributor target for this exact drug and gap.
+- For businessDevelopmentStrategy and bdFitAssessment: assume the preferred deal model is distributor / in-market partner, recommend 2-3 launch countries first, explain likely outreach angles and objections, and surface evidence-backed disqualifiers where relevant.`,
           formatName: "mena_report_brief",
           schema: REPORT_BRIEF_SCHEMA,
           maxOutputTokens: 4200,
@@ -750,25 +859,27 @@ Research requirements
 
       const markdownResponse = await createTextResponse(client, {
         instructions:
-          "You are a senior pharmaceutical market intelligence analyst. Convert the supplied JSON brief into a professional markdown report for KEMEDICA. Use only the supplied brief, do not perform any additional research, and clearly note uncertainty where present.",
+          "You are a senior pharmaceutical market-entry analyst. Convert the supplied JSON brief into a professional markdown deal pursuit brief for KEMEDICA. Use only the supplied brief, do not perform any additional research, and clearly note uncertainty where present.",
         input: `Write a markdown report with these sections and no extra top-level sections:
 
-# Market Intelligence Report: ${drug.name} (${drug.genericName})
+# Deal Pursuit Brief: ${drug.name} (${drug.genericName})
 ## 1. Executive Summary
-## 2. Drug Profile
-## 3. MENA Regional Overview
-## 4. Country-by-Country Opportunity Analysis
-## 5. Competitive Landscape
-## 6. Regulatory Pathway
-## 7. Business Development Strategy
-## 8. Risk Assessment
-## 9. BD Fit Assessment
+## 2. Entity Map
+## 3. Manufacturer Suitability
+## 4. Channel Whitespace
+## 5. Portfolio-to-Gap Fit
+## 6. Target-Country Launch Sequence
+## 7. Outreach Hypothesis
+## 8. Competitive Landscape
+## 9. Regulatory Pathway
+## 10. Evidence-Backed Disqualifiers
 
 Requirements:
-- In section 4, include all 15 MENA countries.
+- In section 2, clearly state the manufacturer, the MAH/commercial owner, whether they are the same or different, known MENA partner entities, and the recommended approach target.
+- In section 6, include all 15 MENA countries, but clearly identify the top 2-3 launch priorities.
 - Use concise paragraphs, bullets, and tables where useful.
-- In section 8, render the risks as a markdown table.
-- In section 9 (BD Fit Assessment), include: BD fit score (X/10), why the manufacturer is motivated to partner, what KEMEDICA uniquely offers, recommended deal structure, a table of suggested contacts (title + rationale), tender intelligence summary, and first-mover window estimate.
+- In section 7, include why the recommended entity is likely to engage, what KEMEDICA uniquely offers, recommended deal structure, likely objections, and a table of suggested contacts (title + rationale).
+- In section 10, list concrete disqualifiers and whether each is fatal, manageable, or watch-list.
 - Do not invent sources or facts beyond the JSON brief.
 
 JSON brief:

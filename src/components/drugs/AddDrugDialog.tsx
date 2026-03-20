@@ -47,6 +47,7 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
   // For standalone entry (no company pre-selected)
   const [selectedCompanyId, setSelectedCompanyId] = useState(companyId ?? "");
   const [manufacturerName, setManufacturerName] = useState("");
+  const [marketAuthorizationHolderName, setMarketAuthorizationHolderName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const companies = useQuery(api.companies.list, {});
@@ -62,6 +63,7 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
     setApprovalDate("");
     setCategory("");
     setManufacturerName("");
+    setMarketAuthorizationHolderName("");
     if (!companyId) setSelectedCompanyId("");
   }
 
@@ -77,6 +79,9 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
         manufacturerName: !selectedCompanyId && manufacturerName
           ? manufacturerName
           : undefined,
+        primaryManufacturerName: manufacturerName || undefined,
+        primaryMarketAuthorizationHolderName:
+          marketAuthorizationHolderName || undefined,
         name,
         genericName,
         therapeuticArea,
@@ -103,7 +108,7 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
           {/* Company / Manufacturer — only shown when no company pre-set */}
           {!companyId && (
             <div className="space-y-2">
-              <label className="text-sm text-zinc-400">Manufacturer</label>
+              <label className="text-sm text-zinc-400">Primary Tracked Entity</label>
               <Select
                 value={selectedCompanyId}
                 onValueChange={(v) => {
@@ -139,6 +144,18 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
               )}
             </div>
           )}
+
+          <div className="space-y-1.5">
+            <label className="text-sm text-zinc-400">
+              MAH / Commercial Owner
+            </label>
+            <Input
+              value={marketAuthorizationHolderName}
+              onChange={(e) => setMarketAuthorizationHolderName(e.target.value)}
+              placeholder="Optional if different from the manufacturer"
+              className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+            />
+          </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

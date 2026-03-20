@@ -9,8 +9,6 @@ import {
   TrendingUp,
   Zap,
   X,
-  ChevronDown,
-  ChevronUp,
   Building2,
   Loader2,
   CheckCircle2,
@@ -30,6 +28,12 @@ import {
 } from "@/components/ui/select";
 import { Id } from "../../../convex/_generated/dataModel";
 import Link from "next/link";
+import {
+  PIPELINE_STAGE_BADGES,
+  PIPELINE_STAGE_LABELS,
+  normalizePipelineStage,
+  priorityTierLabel,
+} from "@/lib/distributorFit";
 
 type Gap = {
   _id: Id<"gapOpportunities">;
@@ -54,24 +58,6 @@ const LOG_LEVEL_COLOR: Record<string, string> = {
   success: "text-emerald-400",
   warning: "text-yellow-400",
   error: "text-red-400",
-};
-
-const BD_STATUS_LABEL: Record<string, string> = {
-  prospect: "Prospect",
-  contacted: "Contacted",
-  engaged: "Engaged",
-  negotiating: "Negotiating",
-  contracted: "Contracted",
-  disqualified: "Disqualified",
-};
-
-const BD_STATUS_COLOR: Record<string, string> = {
-  prospect: "bg-zinc-700 text-zinc-300",
-  contacted: "bg-blue-500/20 text-blue-300",
-  engaged: "bg-indigo-500/20 text-indigo-300",
-  negotiating: "bg-violet-500/20 text-violet-300",
-  contracted: "bg-emerald-500/20 text-emerald-300",
-  disqualified: "bg-red-500/10 text-red-400",
 };
 
 function GapScoreBadge({ score }: { score: number }) {
@@ -210,7 +196,7 @@ function SupplierSearchDialog({
               </div>
               <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
                 <p className="text-xs text-cyan-300 leading-relaxed">
-                  All companies found will be added to your registry, assigned a BD
+                  All companies found will be added to your registry, assigned a distributor-fit
                   score, and linked to this gap as potential distribution partners.
                 </p>
               </div>
@@ -303,6 +289,10 @@ function GapDetailPanel({
       ? { ids: gap.linkedCompanyIds }
       : "skip"
   );
+  const gapMatches = useQuery(api.gapCompanyMatches.listByGap, {
+    gapOpportunityId: gap._id,
+    limit: 20,
+  });
 
   const supplierCount = gap.linkedCompanyIds?.length ?? 0;
 
@@ -451,39 +441,54 @@ function GapDetailPanel({
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {linkedCompanies.map((c) => (
-                      <Link
-                        key={c._id}
-                        href={`/companies/${c._id}`}
-                        className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5 hover:border-zinc-700 hover:bg-zinc-800/50 transition-colors group"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-0.5">
-                            {c.bdScore != null && (
-                              <span className={`text-xs font-bold flex items-center gap-0.5 ${c.bdScore >= 7 ? "text-emerald-400" : c.bdScore >= 5 ? "text-yellow-400" : "text-zinc-500"}`}>
-                                <Star className="h-2.5 w-2.5" />{c.bdScore.toFixed(1)}
-                              </span>
-                            )}
-                            {c.companySize && (
-                              <span className="text-xs text-zinc-600 uppercase">{c.companySize}</span>
-                            )}
-                            {c.menaPresence && (
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${c.menaPresence === "none" ? "bg-emerald-500/10 text-emerald-400" : c.menaPresence === "limited" ? "bg-yellow-500/10 text-yellow-400" : "bg-red-500/10 text-red-400"}`}>
-                                {c.menaPresence === "none" ? "No MENA" : c.menaPresence === "limited" ? "Limited MENA" : "MENA present"}
-                              </span>
-                            )}
-                            {c.bdStatus && (
-                              <span className={`text-xs px-1.5 py-0.5 rounded ${BD_STATUS_COLOR[c.bdStatus] ?? "bg-zinc-700 text-zinc-300"}`}>
-                                {BD_STATUS_LABEL[c.bdStatus] ?? c.bdStatus}
-                              </span>
+                    {(gapMatches ?? linkedCompanies ?? []).map((entry) => {
+                      const c = "company" in entry ? entry.company : entry;
+                      if (!c) return null;
+                      const stage = normalizePipelineStage(c.bdStatus);
+                      const priorityLabel = priorityTierLabel(c.priorityTier);
+
+                      return (
+                        <Link
+                          key={c._id}
+                          href={`/companies/${c._id}`}
+                          className="flex items-center gap-3 rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5 hover:border-zinc-700 hover:bg-zinc-800/50 transition-colors group"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              {(c.distributorFitScore ?? c.bdScore) != null && (
+                                <span className={`text-xs font-bold flex items-center gap-0.5 ${(c.distributorFitScore ?? c.bdScore)! >= 7 ? "text-emerald-400" : (c.distributorFitScore ?? c.bdScore)! >= 5 ? "text-yellow-400" : "text-zinc-500"}`}>
+                                  <Star className="h-2.5 w-2.5" />{(c.distributorFitScore ?? c.bdScore)?.toFixed(1)}
+                                </span>
+                              )}
+                              {(c.targetSegment ?? c.companySize) && (
+                                <span className="text-xs text-zinc-600 uppercase">{c.targetSegment ?? c.companySize}</span>
+                              )}
+                              {(c.menaChannelStatus ?? c.menaPresence) && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${(c.menaChannelStatus ?? c.menaPresence) === "none" ? "bg-emerald-500/10 text-emerald-400" : (c.menaChannelStatus ?? c.menaPresence) === "limited" ? "bg-yellow-500/10 text-yellow-400" : "bg-red-500/10 text-red-400"}`}>
+                                  {(c.menaChannelStatus ?? c.menaPresence) === "none" ? "No MENA" : (c.menaChannelStatus ?? c.menaPresence) === "limited" ? "Limited MENA" : "MENA present"}
+                                </span>
+                              )}
+                              {priorityLabel && (
+                                <span className="text-xs rounded bg-cyan-500/10 px-1.5 py-0.5 text-cyan-300">
+                                  {priorityLabel}
+                                </span>
+                              )}
+                              {c.bdStatus && (
+                                <span className={`text-xs px-1.5 py-0.5 rounded ${PIPELINE_STAGE_BADGES[stage] ?? "bg-zinc-700 text-zinc-300"}`}>
+                                  {PIPELINE_STAGE_LABELS[stage] ?? stage}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm font-medium text-white truncate">{c.name}</p>
+                            <p className="text-xs text-zinc-500">{c.country}</p>
+                            {"rationale" in entry && entry.rationale && (
+                              <p className="mt-1 text-xs text-zinc-400 line-clamp-2">{entry.rationale}</p>
                             )}
                           </div>
-                          <p className="text-sm font-medium text-white truncate">{c.name}</p>
-                          <p className="text-xs text-zinc-500">{c.country}</p>
-                        </div>
-                        <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400 transition-colors shrink-0" />
-                      </Link>
-                    ))}
+                          <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400 transition-colors shrink-0" />
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -658,7 +663,7 @@ export function GapsDashboard() {
           <div>
             <h1 className="text-2xl font-bold text-white">Gap Analysis</h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Identify MENA markets where EU drugs could fill unmet supply gaps
+              Identify MENA demand gaps and shortlist smaller EU manufacturers that can bridge them
             </p>
           </div>
         </div>

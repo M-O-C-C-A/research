@@ -70,10 +70,12 @@ export function OpportunityWorkbench() {
         ))}
       </div>
 
-      <DecisionOpportunityCards
-        title="Top Opportunities"
-        description="Prioritized KSA/UAE-forward opportunities with explicit justification and outreach context."
-      />
+      <div id="top-opportunities">
+        <DecisionOpportunityCards
+          title="Top Opportunities"
+          description="Prioritized KSA/UAE-forward opportunities with explicit justification and outreach context."
+        />
+      </div>
 
       <div className="mt-8 rounded-xl border border-zinc-800 bg-zinc-950/50 p-6">
         <div className="mb-4">

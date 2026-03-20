@@ -24,6 +24,7 @@ import type * as fileProcessing from "../fileProcessing.js";
 import type * as files from "../files.js";
 import type * as gapAnalysis from "../gapAnalysis.js";
 import type * as gapCompanyMatches from "../gapCompanyMatches.js";
+import type * as gapFlow from "../gapFlow.js";
 import type * as gapOpportunities from "../gapOpportunities.js";
 import type * as openaiResearch from "../openaiResearch.js";
 import type * as opportunities from "../opportunities.js";
@@ -54,6 +55,7 @@ declare const fullApi: ApiFromModules<{
   files: typeof files;
   gapAnalysis: typeof gapAnalysis;
   gapCompanyMatches: typeof gapCompanyMatches;
+  gapFlow: typeof gapFlow;
   gapOpportunities: typeof gapOpportunities;
   openaiResearch: typeof openaiResearch;
   opportunities: typeof opportunities;

@@ -293,8 +293,12 @@ function GapDetailPanel({
     gapOpportunityId: gap._id,
     limit: 20,
   });
+  const promotedOpportunities = useQuery(api.decisionOpportunities.listByGapOpportunity, {
+    gapOpportunityId: gap._id,
+  });
 
   const supplierCount = gap.linkedCompanyIds?.length ?? 0;
+  const linkedDrugCount = gap.linkedDrugIds?.length ?? 0;
 
   return (
     <>
@@ -493,6 +497,48 @@ function GapDetailPanel({
                 )}
               </div>
 
+              <div>
+                <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Promotion Status</p>
+                {promotedOpportunities === undefined ? (
+                  <div className="h-14 rounded-lg bg-zinc-900 border border-zinc-800 animate-pulse" />
+                ) : promotedOpportunities.length > 0 ? (
+                  <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                    <p className="text-sm text-emerald-300">
+                      {promotedOpportunities.length} promoted decision opportunit{promotedOpportunities.length === 1 ? "y" : "ies"} available for this gap.
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {promotedOpportunities.map((opportunity) => (
+                        <Link
+                          key={opportunity._id}
+                          href={`/opportunities/${opportunity._id}`}
+                          className="text-xs text-cyan-400 underline hover:text-cyan-300"
+                        >
+                          #{opportunity.rankingPosition ?? "—"} {opportunity.productName}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
+                ) : supplierCount > 0 && linkedDrugCount === 0 ? (
+                  <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
+                    <p className="text-sm text-yellow-300">
+                      Research complete but not promotable yet: suppliers were found, but no relevant drugs are linked to this gap yet.
+                    </p>
+                  </div>
+                ) : supplierCount > 0 ? (
+                  <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3">
+                    <p className="text-sm text-yellow-300">
+                      Products are linked, but confidence is still too weak to promote a decision-ready opportunity from this gap.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
+                    <p className="text-sm text-zinc-500">
+                      No promoted opportunities yet. Run supplier discovery first, then the system will try to link products and promote opportunities automatically.
+                    </p>
+                  </div>
+                )}
+              </div>
+
             </div>
           </div>
 
@@ -615,17 +661,22 @@ export function GapsDashboard() {
   const [selectedTA, setSelectedTA] = useState<string>("");
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [minScore, setMinScore] = useState<number>(0);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [runningTA, setRunningTA] = useState<string>("");
+  const [isRunningFlow, setIsRunningFlow] = useState(false);
+  const [analysisScope, setAnalysisScope] = useState<"all_areas" | "use_filters">("all_areas");
+  const [lastFlowJobId, setLastFlowJobId] = useState<Id<"discoveryJobs"> | null>(null);
   const [activeGap, setActiveGap] = useState<Gap | null>(null);
 
   const gaps = useQuery(api.gapOpportunities.list, {
     therapeuticArea: selectedTA || undefined,
     status: "active",
   });
+  const flowJob = useQuery(
+    api.discoveryJobs.get,
+    lastFlowJobId ? { id: lastFlowJobId } : "skip"
+  );
 
   const archiveGap = useMutation(api.gapOpportunities.update);
-  const analyzeGaps = useAction(api.gapAnalysis.analyzeTherapeuticAreaGaps);
+  const runGapFlow = useAction(api.gapAnalysis.runGapAnalysisFlow);
 
   const filteredGaps = (gaps ?? []).filter((g) => {
     if (g.gapScore < minScore) return false;
@@ -633,13 +684,18 @@ export function GapsDashboard() {
     return true;
   });
 
-  async function handleAnalyze() {
-    if (!runningTA || isAnalyzing) return;
-    setIsAnalyzing(true);
+  async function handleAnalyzeFlow() {
+    if (isRunningFlow) return;
+    setIsRunningFlow(true);
     try {
-      await analyzeGaps({ therapeuticArea: runningTA });
+      const jobId = await runGapFlow({
+        mode: analysisScope === "all_areas" ? "all_areas" : "single_area",
+        therapeuticArea: analysisScope === "use_filters" ? selectedTA || undefined : undefined,
+        country: selectedCountry || undefined,
+      });
+      setLastFlowJobId(jobId as Id<"discoveryJobs">);
     } finally {
-      setIsAnalyzing(false);
+      setIsRunningFlow(false);
     }
   }
 
@@ -658,7 +714,7 @@ export function GapsDashboard() {
         />
       )}
 
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex items-start justify-between mb-6 gap-4">
           <div>
             <h1 className="text-2xl font-bold text-white">Gap Analysis</h1>
@@ -668,39 +724,105 @@ export function GapsDashboard() {
           </div>
         </div>
 
-        {/* Toolbar */}
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 mb-6 flex flex-wrap gap-3 items-end">
-          <div className="flex-1 min-w-[180px]">
-            <label className="block text-xs text-zinc-500 mb-1.5">Therapeutic Area</label>
-            <Select value={selectedTA} onValueChange={(v) => setSelectedTA(v ?? "")}>
-              <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
-                <SelectValue placeholder="All areas" />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-800 border-zinc-700">
-                <SelectItem value="">All areas</SelectItem>
-                {THERAPEUTIC_AREAS.map((ta) => (
-                  <SelectItem key={ta} value={ta}>{ta}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 mb-6">
+          <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Filters</p>
+                <p className="mt-1 text-xs text-zinc-600">These only change the visible gap list below.</p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="min-w-[180px]">
+                  <label className="block text-xs text-zinc-500 mb-1.5">Filter therapeutic area</label>
+                  <Select value={selectedTA} onValueChange={(v) => setSelectedTA(v ?? "")}>
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
+                      <SelectValue placeholder="All areas" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-800 border-zinc-700">
+                      <SelectItem value="">All areas</SelectItem>
+                      {THERAPEUTIC_AREAS.map((ta) => (
+                        <SelectItem key={ta} value={ta}>{ta}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="min-w-[160px]">
+                  <label className="block text-xs text-zinc-500 mb-1.5">Filter country</label>
+                  <Select value={selectedCountry} onValueChange={(v) => setSelectedCountry(v ?? "")}>
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
+                      <SelectValue placeholder="All MENA" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-800 border-zinc-700">
+                      <SelectItem value="">All MENA</SelectItem>
+                      {MENA_COUNTRIES.map((c) => (
+                        <SelectItem key={c} value={c}>{c}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Run analysis</p>
+                <p className="mt-1 text-xs text-zinc-600">
+                  Gap analysis creates research gaps. Promoted opportunities appear after supplier and product linking complete.
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <div className="min-w-[180px]">
+                  <label className="block text-xs text-zinc-500 mb-1.5">Analysis scope</label>
+                  <Select
+                    value={analysisScope}
+                    onValueChange={(v) =>
+                      setAnalysisScope((v as "all_areas" | "use_filters") ?? "all_areas")
+                    }
+                  >
+                    <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent className="bg-zinc-800 border-zinc-700">
+                      <SelectItem value="all_areas">All therapeutic areas</SelectItem>
+                      <SelectItem value="use_filters">Use current filters</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="min-w-[180px]">
+                  <label className="block text-xs text-zinc-500 mb-1.5">Analysis countries</label>
+                  <div className="h-9 rounded-md border border-zinc-700 bg-zinc-800 px-3 flex items-center text-sm text-zinc-300">
+                    {selectedCountry || "All MENA"}
+                  </div>
+                </div>
+
+                <Button
+                  onClick={handleAnalyzeFlow}
+                  disabled={isRunningFlow || (analysisScope === "use_filters" && !selectedTA)}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white h-9 shrink-0"
+                >
+                  {isRunningFlow ? (
+                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Running flow…</>
+                  ) : (
+                    "Analyze Gaps"
+                  )}
+                </Button>
+              </div>
+
+              <p className="text-xs text-zinc-500">
+                {analysisScope === "all_areas"
+                  ? "Recommended: run all therapeutic areas sequentially."
+                  : selectedTA
+                    ? `This run will analyze ${selectedTA}${selectedCountry ? ` in ${selectedCountry}` : " using the current country scope"}.`
+                    : "Select a therapeutic-area filter to run only the current slice."}
+              </p>
+            </div>
           </div>
 
-          <div className="flex-1 min-w-[160px]">
-            <label className="block text-xs text-zinc-500 mb-1.5">Country</label>
-            <Select value={selectedCountry} onValueChange={(v) => setSelectedCountry(v ?? "")}>
-              <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
-                <SelectValue placeholder="All MENA" />
-              </SelectTrigger>
-              <SelectContent className="bg-zinc-800 border-zinc-700">
-                <SelectItem value="">All MENA</SelectItem>
-                {MENA_COUNTRIES.map((c) => (
-                  <SelectItem key={c} value={c}>{c}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="min-w-[120px]">
+          <div className="mt-4 min-w-[120px]">
             <label className="block text-xs text-zinc-500 mb-1.5">Min Score: {minScore}</label>
             <input
               type="range" min={0} max={9} step={1} value={minScore}
@@ -708,34 +830,68 @@ export function GapsDashboard() {
               className="w-full accent-cyan-500 h-9"
             />
           </div>
-
-          <div className="flex gap-2 items-end">
-            <div className="min-w-[180px]">
-              <label className="block text-xs text-zinc-500 mb-1.5">Run Analysis For</label>
-              <Select value={runningTA} onValueChange={(v) => setRunningTA(v ?? "")}>
-                <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
-                  <SelectValue placeholder="Select area…" />
-                </SelectTrigger>
-                <SelectContent className="bg-zinc-800 border-zinc-700">
-                  {THERAPEUTIC_AREAS.map((ta) => (
-                    <SelectItem key={ta} value={ta}>{ta}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <Button
-              onClick={handleAnalyze}
-              disabled={!runningTA || isAnalyzing}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white h-9 shrink-0"
-            >
-              {isAnalyzing ? (
-                <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Analyzing…</>
-              ) : (
-                "Analyze Gaps"
-              )}
-            </Button>
-          </div>
         </div>
+
+        {flowJob && (
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 mb-6">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Latest analysis flow</p>
+                <p className="mt-1 text-sm text-zinc-300">
+                  {flowJob.status === "running"
+                    ? "Running end-to-end: gap analysis -> suppliers -> products -> opportunity promotion"
+                    : flowJob.summary ?? "Analysis flow finished."}
+                </p>
+              </div>
+              <span className={`text-xs px-2 py-1 rounded ${
+                flowJob.status === "completed"
+                  ? "bg-emerald-500/10 text-emerald-300"
+                  : flowJob.status === "error"
+                    ? "bg-red-500/10 text-red-300"
+                    : "bg-cyan-500/10 text-cyan-300"
+              }`}>
+                {flowJob.status}
+              </span>
+            </div>
+
+            {flowJob.log.length > 0 && (
+              <div className="mt-4 rounded-lg bg-zinc-950 border border-zinc-800 p-3 max-h-56 overflow-y-auto font-mono text-xs space-y-1">
+                {flowJob.log.map((entry, i) => (
+                  <p key={i} className={LOG_LEVEL_COLOR[entry.level] ?? "text-zinc-400"}>
+                    <span className="text-zinc-700 select-none">
+                      {new Date(entry.timestamp).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}{" "}
+                    </span>
+                    {entry.message}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            {flowJob.status === "completed" && (
+              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs">
+                <span className="rounded bg-zinc-800 px-2 py-1 text-zinc-300">
+                  Promoted opportunities: {flowJob.newItemsFound ?? 0}
+                </span>
+                <span className="rounded bg-zinc-800 px-2 py-1 text-zinc-300">
+                  Not promotable yet: {flowJob.skippedDuplicates ?? 0}
+                </span>
+                {(flowJob.newItemsFound ?? 0) > 0 && (
+                  <Link
+                    href="/gaps#top-opportunities"
+                    className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 transition-colors"
+                  >
+                    View promoted opportunities
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Results */}
         {gaps === undefined ? (
@@ -774,7 +930,7 @@ export function GapsDashboard() {
             </div>
           </>
         )}
-      </main>
+      </div>
     </>
   );
 }

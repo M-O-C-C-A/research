@@ -45,6 +45,7 @@ export const create = mutation({
       v.literal("drugs"),
       v.literal("bd_scoring"),
       v.literal("gap_analysis"),
+      v.literal("gap_analysis_flow"),
       v.literal("demand_signals"),
       v.literal("prospect_research"),
     ),

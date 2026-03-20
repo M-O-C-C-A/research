@@ -20,6 +20,7 @@ import {
   buildDistributorFitRationale,
   computeDistributorFitMetrics,
 } from "./distributorFit";
+import { runCompanyDrugLinkAndRebuild } from "./gapFlow";
 
 interface CompanyCandidate {
   name: string;
@@ -1615,8 +1616,27 @@ Return company name, EU HQ country, website if known, and 1-3 source URLs.`,
         });
       }
 
+      let productsLinked = 0;
+      let promotedDelta = 0;
+      const refreshedGap = await ctx.runQuery(api.gapOpportunities.get, {
+        id: gapOpportunityId,
+      });
+      if (refreshedGap && linkedCompanyIds.length > 0) {
+        await log(
+          "Discovering linked products, linking them to the gap, and rebuilding promoted opportunities..."
+        );
+        const promotionResult = await runCompanyDrugLinkAndRebuild({
+          ctx,
+          gap: refreshedGap,
+          companyIds: linkedCompanyIds,
+          log,
+        });
+        productsLinked = promotionResult.productsLinked;
+        promotedDelta = promotionResult.promotedDelta;
+      }
+
       const totalLinked = linkedCompanyIds.length;
-      const summary = `Supplier search complete — ${newCount} new companies added and ${totalLinked} total linked to this gap (${dupCount} were already in registry).${warningCount ? ` ${warningCount} batches had warnings.` : ""}`;
+      const summary = `Supplier search complete — ${newCount} new companies added, ${totalLinked} total linked to this gap, ${productsLinked} products linked, and ${promotedDelta} decision opportunities promoted (${dupCount} already in registry).${warningCount ? ` ${warningCount} batches had warnings.` : ""}`;
 
       await ctx.runMutation(api.discoveryJobs.complete, {
         id: jobId,

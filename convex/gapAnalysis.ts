@@ -10,6 +10,7 @@ import {
 } from "./openaiResearch";
 import { KEMEDICA_CONTEXT } from "../src/lib/brand";
 import { MENA_COUNTRIES, THERAPEUTIC_AREAS } from "./constants";
+import { appendFlowLog, runCompanyDrugLinkAndRebuild } from "./gapFlow";
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -542,3 +543,142 @@ function normalizeTherapeuticArea(area: string): string {
   );
   return match ?? area;
 }
+
+export const runGapAnalysisFlow = action({
+  args: {
+    mode: v.union(v.literal("single_area"), v.literal("all_areas")),
+    therapeuticArea: v.optional(v.string()),
+    country: v.optional(v.string()),
+  },
+  handler: async (
+    ctx,
+    args
+  ): Promise<Id<"discoveryJobs">> => {
+    const targetCountries = args.country ? [args.country] : [...MENA_COUNTRIES];
+    const areas =
+      args.mode === "all_areas"
+        ? [...THERAPEUTIC_AREAS]
+        : [args.therapeuticArea].filter((value): value is string => Boolean(value));
+
+    if (areas.length === 0) {
+      throw new Error("A therapeutic area is required for single-area analysis.");
+    }
+
+    const jobId = await ctx.runMutation(api.discoveryJobs.create, {
+      type: "gap_analysis_flow",
+      therapeuticArea:
+        args.mode === "all_areas" ? "ALL_THERAPEUTIC_AREAS" : areas[0],
+      targetCountries,
+    });
+
+    const log = async (
+      message: string,
+      level: "info" | "success" | "warning" | "error" = "info"
+    ) => appendFlowLog(ctx, jobId, message, level);
+
+    try {
+      await log(
+        `Starting ${args.mode === "all_areas" ? "all-area" : "single-area"} gap analysis flow for ${targetCountries.join(", ")}.`
+      );
+
+      let totalGapsCreated = 0;
+      let totalSuppliersLinked = 0;
+      let totalProductsLinked = 0;
+      let totalPromoted = 0;
+      let nonPromotableGaps = 0;
+
+      for (const area of areas) {
+        const areaStart = Date.now();
+        await log(`Analyzing ${area}...`);
+
+        await ctx.runAction(api.gapAnalysis.analyzeTherapeuticAreaGaps, {
+          therapeuticArea: area,
+          targetCountries,
+        });
+
+        const activeGaps = await ctx.runQuery(api.gapOpportunities.list, {
+          therapeuticArea: area,
+          status: "active",
+        });
+        const freshGaps = activeGaps
+          .filter((gap) => gap.createdAt >= areaStart && gap.gapScore >= 5)
+          .sort((left, right) => right.gapScore - left.gapScore);
+
+        totalGapsCreated += freshGaps.length;
+        await log(
+          `${area}: ${freshGaps.length} new gap opportunities created.`,
+          freshGaps.length > 0 ? "success" : "warning"
+        );
+
+        for (const gap of freshGaps) {
+          await log(`Finding suppliers for ${gap.indication}...`);
+          await ctx.runAction(api.discovery.findCompaniesForGap, {
+            gapOpportunityId: gap._id,
+          });
+
+          const refreshedGap = await ctx.runQuery(api.gapOpportunities.get, {
+            id: gap._id,
+          });
+          const linkedCompanyIds = refreshedGap?.linkedCompanyIds ?? [];
+          totalSuppliersLinked += linkedCompanyIds.length;
+
+          if (!refreshedGap || linkedCompanyIds.length === 0) {
+            nonPromotableGaps += 1;
+            await log(
+              `${gap.indication}: no suppliers found, so no decision opportunities were promoted.`,
+              "warning"
+            );
+            continue;
+          }
+
+          const promotionResult = await runCompanyDrugLinkAndRebuild({
+            ctx,
+            gap: refreshedGap,
+            companyIds: linkedCompanyIds,
+            log,
+          });
+
+          totalProductsLinked += promotionResult.productsLinked;
+          totalPromoted += promotionResult.promotedDelta;
+
+          if (promotionResult.productsLinked === 0) {
+            nonPromotableGaps += 1;
+            await log(
+              `${gap.indication}: suppliers were found but no relevant drugs were linked, so the gap is research-complete but not promotable yet.`,
+              "warning"
+            );
+          } else if (promotionResult.promotedDelta === 0) {
+            nonPromotableGaps += 1;
+            await log(
+              `${gap.indication}: products were linked, but identity or confidence remained too weak for new promoted opportunities.`,
+              "warning"
+            );
+          } else {
+            await log(
+              `${gap.indication}: ${promotionResult.productsLinked} products linked and ${promotionResult.promotedDelta} decision opportunities promoted.`,
+              "success"
+            );
+          }
+        }
+      }
+
+      const summary = `Gap flow complete — ${totalGapsCreated} gaps created, ${totalSuppliersLinked} suppliers linked, ${totalProductsLinked} products linked, ${totalPromoted} decision opportunities promoted${nonPromotableGaps > 0 ? `, ${nonPromotableGaps} gaps still research-complete but not promotable` : ""}.`;
+
+      await ctx.runMutation(api.discoveryJobs.complete, {
+        id: jobId,
+        newItemsFound: totalPromoted,
+        skippedDuplicates: nonPromotableGaps,
+        summary,
+      });
+
+      return jobId;
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Unknown error";
+      await ctx.runMutation(api.discoveryJobs.fail, {
+        id: jobId,
+        errorMessage: msg,
+      });
+      return jobId;
+    }
+  },
+});

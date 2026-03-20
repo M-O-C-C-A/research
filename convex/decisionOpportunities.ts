@@ -273,6 +273,17 @@ export const listByDrug = query({
   },
 });
 
+export const listByGapOpportunity = query({
+  args: { gapOpportunityId: v.id("gapOpportunities") },
+  handler: async (ctx, { gapOpportunityId }) => {
+    const rows = await ctx.db
+      .query("decisionOpportunities")
+      .withIndex("by_gap_opportunity", (q) => q.eq("gapOpportunityId", gapOpportunityId))
+      .collect();
+    return rows.sort((left, right) => (left.rankingPosition ?? 9999) - (right.rankingPosition ?? 9999));
+  },
+});
+
 export const get = query({
   args: { id: v.id("decisionOpportunities") },
   handler: async (ctx, { id }) => {

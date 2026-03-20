@@ -20,7 +20,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
   const drug = useQuery(api.drugs.get, { id: drugId as Id<"drugs"> });
   const company = useQuery(
     api.companies.get,
-    drug ? { id: drug.companyId } : "skip"
+    drug?.companyId ? { id: drug.companyId } : "skip"
   );
 
   if (drug === undefined) {
@@ -50,14 +50,19 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
           </div>
           <p className="text-sm text-zinc-500">
             {drug.genericName}
-            {company && (
+            {company ? (
               <span>
                 {" · "}
                 <span className="text-zinc-400">{company.name}</span>
                 {" · "}
                 {company.country}
               </span>
-            )}
+            ) : drug.manufacturerName ? (
+              <span>
+                {" · "}
+                <span className="text-zinc-400">{drug.manufacturerName}</span>
+              </span>
+            ) : null}
           </p>
         </div>
       </div>

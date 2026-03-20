@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ReportViewer } from "./ReportViewer";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Sparkles, RefreshCw, AlertCircle, Loader2 } from "lucide-react";
+import { Sparkles, RefreshCw, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 
 interface ReportSectionProps {
   drugId: string;
@@ -29,7 +29,6 @@ export function ReportSection({ drugId }: ReportSectionProps) {
     }
   }
 
-  // Loading initial query
   if (report === undefined) {
     return (
       <div className="space-y-4">
@@ -41,7 +40,6 @@ export function ReportSection({ drugId }: ReportSectionProps) {
     );
   }
 
-  // No report yet
   if (!report) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-800 bg-zinc-950/50 px-6 py-16 text-center">
@@ -49,9 +47,14 @@ export function ReportSection({ drugId }: ReportSectionProps) {
         <h3 className="text-base font-semibold text-zinc-300 mb-1.5">
           No report generated yet
         </h3>
-        <p className="text-sm text-zinc-500 max-w-sm mb-6">
-          Generate an AI-powered market intelligence report covering all 15 MENA countries — regulatory pathways, competitive landscape, and recommended outreach strategy.
+        <p className="text-sm text-zinc-500 max-w-md mb-2">
+          Generate an AI-powered market intelligence report. The AI will search live data from:
         </p>
+        <ul className="text-xs text-zinc-600 mb-6 space-y-0.5">
+          <li>EMA, SFDA, UAE MOH, QCBS and other regulatory databases</li>
+          <li>WHO disease burden and essential medicines data</li>
+          <li>Published market research and clinical literature</li>
+        </ul>
         <Button onClick={handleGenerate} disabled={triggering}>
           {triggering ? (
             <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -64,22 +67,20 @@ export function ReportSection({ drugId }: ReportSectionProps) {
     );
   }
 
-  // Generating
   if (report.status === "generating") {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-16 text-center">
         <Loader2 className="h-8 w-8 text-zinc-400 animate-spin mb-4" />
         <h3 className="text-base font-semibold text-zinc-300 mb-1.5">
-          Generating market intelligence report...
+          Searching & generating market intelligence report...
         </h3>
-        <p className="text-sm text-zinc-500">
-          Analysing MENA market data, regulatory pathways, and competitive landscape. This takes 20–40 seconds.
+        <p className="text-sm text-zinc-500 max-w-sm">
+          The AI is querying regulatory databases, market data, and clinical sources across all 15 MENA countries. This typically takes 30–60 seconds.
         </p>
       </div>
     );
   }
 
-  // Error
   if (report.status === "error") {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-red-900/40 bg-red-950/20 px-6 py-12 text-center">
@@ -108,20 +109,18 @@ export function ReportSection({ drugId }: ReportSectionProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-xs text-zinc-600">
-            Generated{" "}
-            {report.generatedAt
-              ? new Date(report.generatedAt).toLocaleDateString("en-GB", {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : ""}
-          </p>
-        </div>
+        <p className="text-xs text-zinc-600">
+          Generated{" "}
+          {report.generatedAt
+            ? new Date(report.generatedAt).toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "short",
+                year: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : ""}
+        </p>
         <Button
           variant="outline"
           size="sm"
@@ -137,9 +136,35 @@ export function ReportSection({ drugId }: ReportSectionProps) {
           Regenerate
         </Button>
       </div>
+
       <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
         <ReportViewer content={report.content ?? ""} />
       </div>
+
+      {/* Sources */}
+      {report.sources && report.sources.length > 0 && (
+        <div className="mt-6">
+          <h3 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">
+            Sources ({report.sources.length})
+          </h3>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {report.sources.map((source, i) => (
+              <a
+                key={i}
+                href={source.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group flex items-start gap-2.5 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2.5 hover:border-zinc-700 hover:bg-zinc-800/50 transition-all"
+              >
+                <ExternalLink className="h-3.5 w-3.5 text-zinc-600 group-hover:text-zinc-400 mt-0.5 shrink-0" />
+                <span className="text-xs text-zinc-400 group-hover:text-zinc-300 line-clamp-2 transition-colors">
+                  {source.title || source.url}
+                </span>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

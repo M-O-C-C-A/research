@@ -10,7 +10,10 @@
 
 import type * as ai from "../ai.js";
 import type * as companies from "../companies.js";
+import type * as discovery from "../discovery.js";
+import type * as discoveryJobs from "../discoveryJobs.js";
 import type * as drugs from "../drugs.js";
+import type * as openaiResearch from "../openaiResearch.js";
 import type * as opportunities from "../opportunities.js";
 import type * as reports from "../reports.js";
 
@@ -23,7 +26,10 @@ import type {
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   companies: typeof companies;
+  discovery: typeof discovery;
+  discoveryJobs: typeof discoveryJobs;
   drugs: typeof drugs;
+  openaiResearch: typeof openaiResearch;
   opportunities: typeof opportunities;
   reports: typeof reports;
 }>;

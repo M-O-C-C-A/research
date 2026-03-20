@@ -21,7 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { AddDrugDialog } from "./AddDrugDialog";
+import { AddDrugButton } from "./AddDrugDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TableSkeleton } from "@/components/shared/LoadingSkeleton";
 import { THERAPEUTIC_AREAS } from "@/lib/constants";
@@ -69,7 +69,7 @@ export function DrugList() {
             ))}
           </SelectContent>
         </Select>
-        <AddDrugDialog />
+        <AddDrugButton />
       </div>
 
       {drugs === undefined ? (

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -30,30 +29,54 @@ import { Plus } from "lucide-react";
 
 interface AddDrugDialogProps {
   companyId?: string;
-  trigger?: React.ReactNode;
+  open: boolean;
+  onClose: () => void;
 }
 
-export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
-  const [open, setOpen] = useState(false);
+export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) {
   const [name, setName] = useState("");
   const [genericName, setGenericName] = useState("");
   const [therapeuticArea, setTherapeuticArea] = useState("");
   const [indication, setIndication] = useState("");
   const [mechanism, setMechanism] = useState("");
-  const [approvalStatus, setApprovalStatus] = useState<"approved" | "pending" | "withdrawn">("approved");
+  const [approvalStatus, setApprovalStatus] = useState<
+    "approved" | "pending" | "withdrawn"
+  >("approved");
   const [approvalDate, setApprovalDate] = useState("");
   const [category, setCategory] = useState("");
+  // For standalone entry (no company pre-selected)
+  const [selectedCompanyId, setSelectedCompanyId] = useState(companyId ?? "");
+  const [manufacturerName, setManufacturerName] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const companies = useQuery(api.companies.list, {});
   const createDrug = useMutation(api.drugs.create);
+
+  function reset() {
+    setName("");
+    setGenericName("");
+    setTherapeuticArea("");
+    setIndication("");
+    setMechanism("");
+    setApprovalStatus("approved");
+    setApprovalDate("");
+    setCategory("");
+    setManufacturerName("");
+    if (!companyId) setSelectedCompanyId("");
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name || !genericName || !therapeuticArea || !indication || !companyId) return;
+    if (!name || !genericName || !therapeuticArea || !indication) return;
     setLoading(true);
     try {
       await createDrug({
-        companyId: companyId as Id<"companies">,
+        companyId: selectedCompanyId
+          ? (selectedCompanyId as Id<"companies">)
+          : undefined,
+        manufacturerName: !selectedCompanyId && manufacturerName
+          ? manufacturerName
+          : undefined,
         name,
         genericName,
         therapeuticArea,
@@ -63,34 +86,60 @@ export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
         approvalDate: approvalDate || undefined,
         category: category || undefined,
       });
-      setOpen(false);
-      setName("");
-      setGenericName("");
-      setTherapeuticArea("");
-      setIndication("");
-      setMechanism("");
-      setApprovalDate("");
-      setCategory("");
+      reset();
+      onClose();
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      {trigger ? (
-        <DialogTrigger render={trigger as React.ReactElement} />
-      ) : (
-        <DialogTrigger render={<Button size="sm" />}>
-          <Plus className="h-4 w-4 mr-1.5" />
-          Add Drug
-        </DialogTrigger>
-      )}
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg bg-zinc-900 border-zinc-800 text-white max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-white">Add Drug</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
+          {/* Company / Manufacturer — only shown when no company pre-set */}
+          {!companyId && (
+            <div className="space-y-2">
+              <label className="text-sm text-zinc-400">Manufacturer</label>
+              <Select
+                value={selectedCompanyId}
+                onValueChange={(v) => {
+                  setSelectedCompanyId(v ?? "");
+                  if (v) setManufacturerName("");
+                }}
+              >
+                <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                  <SelectValue placeholder="Select from registry (optional)" />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectItem value="" className="text-zinc-400 hover:bg-zinc-700">
+                    — Enter manually —
+                  </SelectItem>
+                  {(companies ?? []).map((c) => (
+                    <SelectItem
+                      key={c._id}
+                      value={c._id}
+                      className="text-white hover:bg-zinc-700"
+                    >
+                      {c.name} ({c.country})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!selectedCompanyId && (
+                <Input
+                  value={manufacturerName}
+                  onChange={(e) => setManufacturerName(e.target.value)}
+                  placeholder="e.g. Bayer AG, Germany"
+                  className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+                />
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm text-zinc-400">Brand Name *</label>
@@ -103,7 +152,7 @@ export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm text-zinc-400">Generic / INN Name *</label>
+              <label className="text-sm text-zinc-400">Generic / INN *</label>
               <Input
                 value={genericName}
                 onChange={(e) => setGenericName(e.target.value)}
@@ -113,16 +162,24 @@ export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
               />
             </div>
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm text-zinc-400">Therapeutic Area *</label>
-              <Select value={therapeuticArea} onValueChange={(v) => setTherapeuticArea(v ?? "")}>
+              <Select
+                value={therapeuticArea}
+                onValueChange={(v) => setTherapeuticArea(v ?? "")}
+              >
                 <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
                   <SelectValue placeholder="Select area" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-800 border-zinc-700">
                   {THERAPEUTIC_AREAS.map((a) => (
-                    <SelectItem key={a} value={a} className="text-white hover:bg-zinc-700">
+                    <SelectItem
+                      key={a}
+                      value={a}
+                      className="text-white hover:bg-zinc-700"
+                    >
                       {a}
                     </SelectItem>
                   ))}
@@ -131,13 +188,20 @@ export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
             </div>
             <div className="space-y-1.5">
               <label className="text-sm text-zinc-400">Category</label>
-              <Select value={category} onValueChange={(v) => setCategory(v ?? "")}>
+              <Select
+                value={category}
+                onValueChange={(v) => setCategory(v ?? "")}
+              >
                 <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-800 border-zinc-700">
                   {DRUG_CATEGORIES.map((c) => (
-                    <SelectItem key={c} value={c} className="text-white hover:bg-zinc-700">
+                    <SelectItem
+                      key={c}
+                      value={c}
+                      className="text-white hover:bg-zinc-700"
+                    >
                       {c}
                     </SelectItem>
                   ))}
@@ -145,6 +209,7 @@ export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
               </Select>
             </div>
           </div>
+
           <div className="space-y-1.5">
             <label className="text-sm text-zinc-400">Indication *</label>
             <Textarea
@@ -156,6 +221,7 @@ export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
               className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600 resize-none"
             />
           </div>
+
           <div className="space-y-1.5">
             <label className="text-sm text-zinc-400">Mechanism of Action</label>
             <Input
@@ -165,19 +231,28 @@ export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
               className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
             />
           </div>
+
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm text-zinc-400">Approval Status *</label>
               <Select
                 value={approvalStatus}
-                onValueChange={(v) => setApprovalStatus((v ?? "approved") as typeof approvalStatus)}
+                onValueChange={(v) =>
+                  setApprovalStatus(
+                    (v ?? "approved") as typeof approvalStatus
+                  )
+                }
               >
                 <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-zinc-800 border-zinc-700">
                   {APPROVAL_STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value} className="text-white hover:bg-zinc-700">
+                    <SelectItem
+                      key={s.value}
+                      value={s.value}
+                      className="text-white hover:bg-zinc-700"
+                    >
                       {s.label}
                     </SelectItem>
                   ))}
@@ -194,12 +269,13 @@ export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
               />
             </div>
           </div>
+
           <div className="flex justify-end gap-3 pt-2">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => setOpen(false)}
+              onClick={() => { reset(); onClose(); }}
               className="text-zinc-400"
             >
               Cancel
@@ -215,5 +291,29 @@ export function AddDrugDialog({ companyId, trigger }: AddDrugDialogProps) {
         </form>
       </DialogContent>
     </Dialog>
+  );
+}
+
+// Trigger button that manages open state — used in various places
+export function AddDrugButton({
+  companyId,
+  label = "Add Drug",
+}: {
+  companyId?: string;
+  label?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button size="sm" onClick={() => setOpen(true)}>
+        <Plus className="h-4 w-4 mr-1.5" />
+        {label}
+      </Button>
+      <AddDrugDialog
+        companyId={companyId}
+        open={open}
+        onClose={() => setOpen(false)}
+      />
+    </>
   );
 }

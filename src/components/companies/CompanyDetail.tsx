@@ -5,6 +5,7 @@ import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { FindDrugsButton } from "@/components/discovery/FindDrugsButton";
 import { Globe, MapPin } from "lucide-react";
 
 interface CompanyDetailProps {
@@ -51,16 +52,19 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
             )}
           </div>
         </div>
-        <Badge
-          variant={company.status === "active" ? "default" : "secondary"}
-          className={
-            company.status === "active"
-              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-              : "bg-zinc-800 text-zinc-400"
-          }
-        >
-          {company.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <FindDrugsButton companyId={companyId} />
+          <Badge
+            variant={company.status === "active" ? "default" : "secondary"}
+            className={
+              company.status === "active"
+                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
+                : "bg-zinc-800 text-zinc-400"
+            }
+          >
+            {company.status}
+          </Badge>
+        </div>
       </div>
 
       {company.description && (

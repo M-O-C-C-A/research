@@ -20,6 +20,14 @@ export const upsert = mutation({
       v.literal("error")
     ),
     errorMessage: v.optional(v.string()),
+    sources: v.optional(
+      v.array(
+        v.object({
+          title: v.string(),
+          url: v.string(),
+        })
+      )
+    ),
   },
   handler: async (ctx, { drugId, ...fields }) => {
     const existing = await ctx.db

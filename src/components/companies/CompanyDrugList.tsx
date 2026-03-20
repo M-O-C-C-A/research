@@ -8,7 +8,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TableSkeleton } from "@/components/shared/LoadingSkeleton";
-import { AddDrugDialog } from "@/components/drugs/AddDrugDialog";
+import { AddDrugButton } from "@/components/drugs/AddDrugDialog";
 import {
   Table,
   TableBody,
@@ -47,7 +47,7 @@ export function CompanyDrugList({ companyId }: CompanyDrugListProps) {
             </span>
           )}
         </h2>
-        <AddDrugDialog companyId={companyId} />
+        <AddDrugButton companyId={companyId} />
       </div>
 
       {drugs.length === 0 ? (
@@ -55,7 +55,7 @@ export function CompanyDrugList({ companyId }: CompanyDrugListProps) {
           icon={<Pill className="h-8 w-8" />}
           title="No drugs added yet"
           description="Add drugs from this company to track MENA market opportunities."
-          action={<AddDrugDialog companyId={companyId} />}
+          action={<AddDrugButton companyId={companyId} />}
         />
       ) : (
         <div className="rounded-lg border border-zinc-800 overflow-hidden">

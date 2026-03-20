@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npx convex deploy --cmd 'next build'",
+    "build": "next build",
+    "deploy:backend": "npx convex deploy --yes",
     "start": "next start",
     "lint": "eslint"
   },

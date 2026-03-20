@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { label: "Dashboard", href: "/" },
   { label: "Companies", href: "/companies" },
   { label: "Drugs", href: "/drugs" },
+  { label: "Discovery", href: "/discovery" },
 ];
 
 export function NavBar() {

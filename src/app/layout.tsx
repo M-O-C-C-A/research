@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 import ConvexClientProvider from "@/components/ConvexClientProvider";
+import { NavBar } from "@/components/NavBar";
 
 export default function RootLayout({
   children,
@@ -27,10 +28,16 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col">
-        <ConvexClientProvider>{children}</ConvexClientProvider>
+      <body className="min-h-full flex flex-col bg-zinc-950 font-sans selection:bg-zinc-500/30">
+        <ConvexClientProvider>
+          <NavBar />
+          <div className="flex-1 mt-16">{children}</div>
+          <footer className="border-t border-zinc-800 bg-zinc-950 py-8 px-6 text-center text-sm text-zinc-500">
+            © 2026 M-O-C-C-A Research. Built with Convex + Next.js.
+          </footer>
+        </ConvexClientProvider>
       </body>
     </html>
   );

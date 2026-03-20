@@ -1,7 +1,7 @@
-import { GapsDashboard } from "@/components/gaps/GapsDashboard";
+import { OpportunityWorkbench } from "@/components/opportunities/OpportunityWorkbench";
 
-export const metadata = { title: "Gap-First Opportunity Analysis — KEMEDICA" };
+export const metadata = { title: "Decision Opportunity Engine — KEMEDICA" };
 
 export default function GapsPage() {
-  return <GapsDashboard />;
+  return <OpportunityWorkbench />;
 }

@@ -52,3 +52,10 @@ export const upsert = mutation({
     });
   },
 });
+
+export const listAllForEngine = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("reports").collect();
+  },
+});

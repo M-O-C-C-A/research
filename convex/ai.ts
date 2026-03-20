@@ -768,7 +768,12 @@ export const generateReport = action({
             `Approach recommendation: ${company.approachTargetRecommendation ?? "unknown"}${company.approachTargetReason ? ` — ${company.approachTargetReason}` : ""}`,
             `Known MENA partners: ${
               (company.existingMenaPartners ?? [])
-                .map((partner) => `${partner.name} (${partner.role}; ${partner.geographies.join("/")})`)
+                .map(
+                  (
+                    partner: NonNullable<typeof company.existingMenaPartners>[number]
+                  ) =>
+                    `${partner.name} (${partner.role}; ${partner.geographies.join("/")})`
+                )
                 .join(", ") || "none recorded"
             }`,
           ].join("\n")
@@ -776,7 +781,7 @@ export const generateReport = action({
       const entityMapContext =
         entityLinks.length > 0
           ? entityLinks
-              .map((entry) => {
+              .map((entry: NonNullable<typeof entityLinks>[number]) => {
                 const name = entry.company?.name ?? entry.entityName ?? "Unknown entity";
                 return `${entry.relationshipType}: ${name}${entry.isPrimary ? " (primary)" : ""}${entry.notes ? ` — ${entry.notes}` : ""}`;
               })
@@ -786,7 +791,10 @@ export const generateReport = action({
         companyMatches.length > 0
           ? companyMatches
               .map(
-                (match, index) =>
+                (
+                  match: NonNullable<typeof companyMatches>[number],
+                  index: number
+                ) =>
                   `Match ${index + 1}: ${match.gap?.indication} | fit ${match.distributorFitScore}/10 | countries ${match.targetCountries.join(", ")} | rationale: ${match.rationale} | outreach angle: ${match.recommendedFirstOutreachAngle ?? "not set"}`
               )
               .join("\n")

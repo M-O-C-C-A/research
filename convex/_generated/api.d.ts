@@ -13,6 +13,8 @@ import type * as bdActivities from "../bdActivities.js";
 import type * as companies from "../companies.js";
 import type * as constants from "../constants.js";
 import type * as dashboard from "../dashboard.js";
+import type * as decisionOpportunities from "../decisionOpportunities.js";
+import type * as decisionOpportunityEngine from "../decisionOpportunityEngine.js";
 import type * as discovery from "../discovery.js";
 import type * as discoveryJobs from "../discoveryJobs.js";
 import type * as distributorFit from "../distributorFit.js";
@@ -41,6 +43,8 @@ declare const fullApi: ApiFromModules<{
   companies: typeof companies;
   constants: typeof constants;
   dashboard: typeof dashboard;
+  decisionOpportunities: typeof decisionOpportunities;
+  decisionOpportunityEngine: typeof decisionOpportunityEngine;
   discovery: typeof discovery;
   discoveryJobs: typeof discoveryJobs;
   distributorFit: typeof distributorFit;

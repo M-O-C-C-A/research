@@ -38,6 +38,15 @@ const menaPartner = v.object({
   url: v.optional(v.string()),
 });
 
+const scoreBreakdown = v.object({
+  gapValidity: v.number(),
+  commercialValue: v.number(),
+  urgency: v.number(),
+  feasibility: v.number(),
+  partnerReachability: v.number(),
+  evidenceConfidence: v.number(),
+});
+
 export default defineSchema({
   companies: defineTable({
     name: v.string(),
@@ -411,4 +420,160 @@ export default defineSchema({
     .index("by_company", ["companyId"])
     .index("by_gap_opportunity_and_company", ["gapOpportunityId", "companyId"])
     .index("by_distributor_fit_score", ["distributorFitScore"]),
+
+  productIdentityAliases: defineTable({
+    drugId: v.id("drugs"),
+    companyId: v.optional(v.id("companies")),
+    alias: v.string(),
+    normalizedAlias: v.string(),
+    aliasType: v.union(
+      v.literal("brand"),
+      v.literal("generic"),
+      v.literal("inn"),
+      v.literal("manufacturer"),
+      v.literal("market_authorization_holder"),
+      v.literal("other")
+    ),
+    confidence: v.union(
+      v.literal("confirmed"),
+      v.literal("likely"),
+      v.literal("uncertain")
+    ),
+    source: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_drug", ["drugId"])
+    .index("by_normalized_alias", ["normalizedAlias"])
+    .index("by_drug_and_normalized_alias", ["drugId", "normalizedAlias"]),
+
+  decisionOpportunities: defineTable({
+    drugId: v.id("drugs"),
+    companyId: v.optional(v.id("companies")),
+    gapOpportunityId: v.optional(v.id("gapOpportunities")),
+    gapCompanyMatchId: v.optional(v.id("gapCompanyMatches")),
+    title: v.string(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("archived"),
+      v.literal("needs_validation")
+    ),
+    therapeuticArea: v.string(),
+    productName: v.string(),
+    genericName: v.string(),
+    manufacturerName: v.optional(v.string()),
+    marketAuthorizationHolderName: v.optional(v.string()),
+    approachEntityName: v.string(),
+    approachEntityRole: v.union(
+      v.literal("manufacturer"),
+      v.literal("market_authorization_holder"),
+      v.literal("licensor"),
+      v.literal("regional_partner"),
+      v.literal("distributor"),
+      v.literal("unknown")
+    ),
+    focusMarkets: v.array(v.string()),
+    secondaryMarkets: v.optional(v.array(v.string())),
+    gapType: v.union(
+      v.literal("formulary_gap"),
+      v.literal("regulatory_gap"),
+      v.literal("tender_pull"),
+      v.literal("channel_whitespace"),
+      v.literal("mixed")
+    ),
+    productIdentityStatus: v.union(
+      v.literal("confirmed"),
+      v.literal("likely"),
+      v.literal("uncertain")
+    ),
+    gapSummary: v.string(),
+    commercialRationale: v.string(),
+    marketAttractiveness: v.string(),
+    marketSizeEstimate: v.optional(v.string()),
+    demandProxy: v.string(),
+    competitivePressure: v.string(),
+    regulatoryFeasibility: v.union(
+      v.literal("easy"),
+      v.literal("moderate"),
+      v.literal("complex"),
+      v.literal("unknown")
+    ),
+    timelineRange: v.string(),
+    keyConstraint: v.string(),
+    entryStrategy: v.union(
+      v.literal("distributor"),
+      v.literal("licensing"),
+      v.literal("direct"),
+      v.literal("watch")
+    ),
+    entryStrategyRationale: v.string(),
+    whyThisMarket: v.string(),
+    whyNow: v.string(),
+    whyThisPartner: v.string(),
+    targetRole: v.string(),
+    contactName: v.optional(v.string()),
+    contactTitle: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactLinkedinUrl: v.optional(v.string()),
+    contactConfidence: v.union(
+      v.literal("confirmed"),
+      v.literal("likely"),
+      v.literal("inferred"),
+      v.literal("none")
+    ),
+    outreachSubject: v.string(),
+    outreachDraft: v.string(),
+    confidenceLevel: v.union(
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low")
+    ),
+    confidenceSummary: v.string(),
+    assumptions: v.array(v.string()),
+    sourceCount: v.number(),
+    priorityScore: v.number(),
+    rankingPosition: v.optional(v.number()),
+    scoreBreakdown,
+    scoreExplanation: v.string(),
+    whyThisMarketExplanation: v.string(),
+    whyNowExplanation: v.string(),
+    howToEnterExplanation: v.string(),
+    whyThisPartnerExplanation: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    lastPromotedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_priority_score", ["priorityScore"])
+    .index("by_status_and_priority_score", ["status", "priorityScore"])
+    .index("by_drug", ["drugId"])
+    .index("by_company", ["companyId"])
+    .index("by_gap_opportunity", ["gapOpportunityId"])
+    .index("by_drug_and_company", ["drugId", "companyId"])
+    .index("by_drug_and_gap_opportunity", ["drugId", "gapOpportunityId"]),
+
+  opportunityEvidence: defineTable({
+    decisionOpportunityId: v.id("decisionOpportunities"),
+    title: v.string(),
+    url: v.string(),
+    claim: v.string(),
+    evidenceType: v.union(
+      v.literal("regulatory"),
+      v.literal("market"),
+      v.literal("gap"),
+      v.literal("company"),
+      v.literal("contact"),
+      v.literal("internal")
+    ),
+    confidence: v.union(
+      v.literal("confirmed"),
+      v.literal("likely"),
+      v.literal("inferred")
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_decision_opportunity_and_evidence_type", ["decisionOpportunityId", "evidenceType"]),
 });

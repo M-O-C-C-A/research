@@ -9,7 +9,7 @@ import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 const NAV_LINKS = [
   { label: "Dashboard", href: "/" },
-  { label: "Gaps", href: "/gaps" },
+  { label: "Opportunities", href: "/gaps" },
   { label: "Pipeline", href: "/pipeline" },
   { label: "Manufacturers", href: "/companies" },
   { label: "Drugs", href: "/drugs" },

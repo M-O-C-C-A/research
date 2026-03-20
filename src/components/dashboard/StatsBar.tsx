@@ -9,7 +9,7 @@ import { Building2, Pill, TrendingUp, Target, GitBranch } from "lucide-react";
 export function StatsBar() {
   const companyStats = useQuery(api.companies.stats, {});
   const drugStats = useQuery(api.drugs.stats, {});
-  const oppStats = useQuery(api.opportunities.stats, {});
+  const oppStats = useQuery(api.decisionOpportunities.stats, {});
   const pipelineStats = useQuery(api.companies.pipelineStats, {});
   const gapStats = useQuery(api.gapOpportunities.stats, {});
 
@@ -33,13 +33,13 @@ export function StatsBar() {
       bg: "bg-violet-500/10",
     },
     {
-      label: "High-Opportunity Markets",
-      value: oppStats.highOpportunity,
+      label: "Decision Opportunities",
+      value: oppStats.active,
       icon: TrendingUp,
-      href: "/drugs",
+      href: "/gaps",
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
-      sublabel: `of ${oppStats.total} assessed`,
+      sublabel: `${oppStats.needsValidation} need validation`,
     },
     {
       label: "Distributor Pipeline",

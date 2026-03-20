@@ -21,7 +21,7 @@ export function ActionQueueWidget() {
               Next Best Actions
             </h2>
             <p className="text-xs text-zinc-500">
-              Smallest steps that move a gap-first distributor opportunity forward
+              Smallest steps that move a promoted decision opportunity toward outreach
             </p>
           </div>
         </div>
@@ -33,7 +33,7 @@ export function ActionQueueWidget() {
         <div className="py-8 text-center">
           <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
           <p className="text-sm text-zinc-500">
-            No urgent follow-ups right now. Add more gap analyses, shortlisted manufacturers, or pursuit briefs.
+            No urgent follow-ups right now. Promote more opportunities or validate the ones still blocked on identity and contacts.
           </p>
         </div>
       ) : (
@@ -61,8 +61,9 @@ export function ActionQueueWidget() {
 
       {cockpit && (
         <div className="mt-4 border-t border-zinc-800 pt-4 text-xs text-zinc-600">
-          {cockpit.insightSummary.reportCoverageGap} high-potential drugs without reports ·{" "}
-          {cockpit.insightSummary.pipelineReadyCompanies} pipeline-ready companies ·{" "}
+          {cockpit.insightSummary.promotedActiveCount} active promoted opportunities ·{" "}
+          {cockpit.insightSummary.needsValidationCount} need validation ·{" "}
+          {cockpit.insightSummary.missingContactCount} missing contact direction ·{" "}
           {cockpit.insightSummary.unlinkedHighValueGaps} high-value gaps still unlinked
         </div>
       )}

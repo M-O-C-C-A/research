@@ -40,7 +40,7 @@ export function DrugDetailTabs({ drugId }: DrugDetailTabsProps) {
     <Tabs value={activeTab} onValueChange={handleTabChange}>
       <TabsList className="bg-zinc-900 border border-zinc-800 mb-6">
         <TabsTrigger value="opportunities" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-400">
-          MENA Opportunities
+          Decision Opportunities
         </TabsTrigger>
         <TabsTrigger value="report" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-400">
           Deal Pursuit Brief

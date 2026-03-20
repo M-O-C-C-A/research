@@ -6,6 +6,7 @@ import { BDPipelineWidget } from "@/components/dashboard/BDPipelineWidget";
 import { PriorityMatchesWidget } from "@/components/dashboard/PriorityMatchesWidget";
 import { ActionQueueWidget } from "@/components/dashboard/ActionQueueWidget";
 import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompaniesButton";
+import { RebuildOpportunityEngineButton } from "@/components/opportunities/RebuildOpportunityEngineButton";
 import Link from "next/link";
 import { Building2, Pill, ArrowRight, Radar, Target, GitBranch } from "lucide-react";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
@@ -17,13 +18,16 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            {BRAND_NAME} Gap-First Cockpit
+            {BRAND_NAME} Opportunity Engine
           </h1>
           <p className="mt-1 text-sm text-zinc-400">
             {BRAND_TAGLINE}
           </p>
         </div>
-        <DiscoverCompaniesButton />
+        <div className="flex items-center gap-2">
+          <RebuildOpportunityEngineButton />
+          <DiscoverCompaniesButton />
+        </div>
       </div>
 
       <StatsBar />
@@ -79,8 +83,8 @@ export default function DashboardPage() {
                   <Target className="h-4 w-4 text-cyan-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white">Analyze Gaps</p>
-                  <p className="text-xs text-zinc-500">Start from unmet MENA demand</p>
+                  <p className="text-sm font-medium text-white">Decision Opportunities</p>
+                  <p className="text-xs text-zinc-500">Open the ranked opportunity shortlist</p>
                 </div>
                 <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400" />
               </Link>
@@ -155,11 +159,11 @@ export default function DashboardPage() {
             <ol className="space-y-3">
               {[
                 "Analyze a MENA demand gap",
-                "Source smaller EU manufacturers for that gap",
-                "Shortlist manufacturers by distributor fit",
-                "Move them through the distributor pipeline",
-                "Generate a deal pursuit brief",
-                "Advance partnership discussions",
+                "Promote a decision-ready opportunity",
+                "Validate route to market and partner reachability",
+                "Open the named contact and outreach draft",
+                "Move the manufacturer through the pipeline",
+                "Use research views as supporting evidence only",
               ].map((step, i) => (
                 <li
                   key={i}

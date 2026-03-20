@@ -4,12 +4,14 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { StatsSkeleton } from "@/components/shared/LoadingSkeleton";
 import Link from "next/link";
-import { Building2, Pill, TrendingUp } from "lucide-react";
+import { Building2, Pill, TrendingUp, Target, GitBranch } from "lucide-react";
 
 export function StatsBar() {
   const companyStats = useQuery(api.companies.stats, {});
   const drugStats = useQuery(api.drugs.stats, {});
   const oppStats = useQuery(api.opportunities.stats, {});
+  const pipelineStats = useQuery(api.companies.pipelineStats, {});
+  const gapStats = useQuery(api.gapOpportunities.stats, {});
 
   if (!companyStats || !drugStats || !oppStats) return <StatsSkeleton />;
 
@@ -39,10 +41,28 @@ export function StatsBar() {
       bg: "bg-emerald-500/10",
       sublabel: `of ${oppStats.total} assessed`,
     },
+    {
+      label: "BD Pipeline",
+      value: pipelineStats?.activeCount ?? 0,
+      icon: GitBranch,
+      href: "/pipeline",
+      color: "text-orange-400",
+      bg: "bg-orange-500/10",
+      sublabel: "engaged + negotiating",
+    },
+    {
+      label: "Gap Opportunities",
+      value: gapStats?.total ?? 0,
+      icon: Target,
+      href: "/gaps",
+      color: "text-cyan-400",
+      bg: "bg-cyan-500/10",
+      sublabel: gapStats?.total ? `avg score ${gapStats.avgScore.toFixed(1)}/10` : "run gap analysis",
+    },
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-3 mb-8">
+    <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 mb-8">
       {stats.map((stat) => (
         <Link
           key={stat.label}

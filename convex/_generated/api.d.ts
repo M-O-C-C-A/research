@@ -9,12 +9,16 @@
  */
 
 import type * as ai from "../ai.js";
+import type * as bdActivities from "../bdActivities.js";
 import type * as companies from "../companies.js";
+import type * as constants from "../constants.js";
 import type * as discovery from "../discovery.js";
 import type * as discoveryJobs from "../discoveryJobs.js";
 import type * as drugs from "../drugs.js";
 import type * as fileProcessing from "../fileProcessing.js";
 import type * as files from "../files.js";
+import type * as gapAnalysis from "../gapAnalysis.js";
+import type * as gapOpportunities from "../gapOpportunities.js";
 import type * as openaiResearch from "../openaiResearch.js";
 import type * as opportunities from "../opportunities.js";
 import type * as reports from "../reports.js";
@@ -28,12 +32,16 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   ai: typeof ai;
+  bdActivities: typeof bdActivities;
   companies: typeof companies;
+  constants: typeof constants;
   discovery: typeof discovery;
   discoveryJobs: typeof discoveryJobs;
   drugs: typeof drugs;
   fileProcessing: typeof fileProcessing;
   files: typeof files;
+  gapAnalysis: typeof gapAnalysis;
+  gapOpportunities: typeof gapOpportunities;
   openaiResearch: typeof openaiResearch;
   opportunities: typeof opportunities;
   reports: typeof reports;

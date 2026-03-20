@@ -95,6 +95,11 @@ export const create = mutation({
     ),
     approvalDate: v.optional(v.string()),
     category: v.optional(v.string()),
+    patentExpiryYear: v.optional(v.number()),
+    patentExpirySource: v.optional(v.string()),
+    emaApprovalDate: v.optional(v.string()),
+    menaRegistrationCount: v.optional(v.number()),
+    patentUrgencyScore: v.optional(v.number()),
   },
   handler: async (ctx, args) =>
     ctx.db.insert("drugs", { ...args, status: "active" }),
@@ -119,9 +124,24 @@ export const update = mutation({
     category: v.optional(v.string()),
     status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
     manufacturerName: v.optional(v.string()),
+    patentExpiryYear: v.optional(v.number()),
+    patentExpirySource: v.optional(v.string()),
+    emaApprovalDate: v.optional(v.string()),
+    menaRegistrationCount: v.optional(v.number()),
+    patentUrgencyScore: v.optional(v.number()),
   },
   handler: async (ctx, { id, ...patch }) => {
     await ctx.db.patch(id, patch);
+  },
+});
+
+export const listWithPatentUrgency = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const all = await ctx.db.query("drugs").take(limit ?? 100);
+    return all
+      .filter((d) => d.patentExpiryYear != null)
+      .sort((a, b) => (a.patentExpiryYear ?? 9999) - (b.patentExpiryYear ?? 9999));
   },
 });
 

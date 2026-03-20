@@ -20,10 +20,41 @@ export default defineSchema({
     description: v.optional(v.string()),
     therapeuticAreas: v.array(v.string()),
     status: v.union(v.literal("active"), v.literal("inactive")),
+    // BD qualification fields
+    bdStatus: v.optional(v.union(
+      v.literal("prospect"),
+      v.literal("contacted"),
+      v.literal("engaged"),
+      v.literal("negotiating"),
+      v.literal("contracted"),
+      v.literal("disqualified"),
+    )),
+    bdScore: v.optional(v.number()),
+    bdScoreRationale: v.optional(v.string()),
+    companySize: v.optional(v.union(
+      v.literal("sme"),
+      v.literal("mid"),
+      v.literal("large"),
+    )),
+    menaPresence: v.optional(v.union(
+      v.literal("none"),
+      v.literal("limited"),
+      v.literal("established"),
+    )),
+    revenueEstimate: v.optional(v.string()),
+    employeeCount: v.optional(v.string()),
+    contactName: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactTitle: v.optional(v.string()),
+    linkedinUrl: v.optional(v.string()),
+    bdNotes: v.optional(v.string()),
+    bdScoredAt: v.optional(v.number()),
   })
     .index("by_name", ["name"])
     .index("by_country", ["country"])
-    .index("by_status", ["status"]),
+    .index("by_status", ["status"])
+    .index("by_bd_status", ["bdStatus"])
+    .index("by_bd_score", ["bdScore"]),
 
   drugs: defineTable({
     companyId: v.optional(v.id("companies")),
@@ -41,6 +72,12 @@ export default defineSchema({
     approvalDate: v.optional(v.string()),
     category: v.optional(v.string()),
     status: v.union(v.literal("active"), v.literal("inactive")),
+    // Patent & MENA registration intelligence
+    patentExpiryYear: v.optional(v.number()),
+    patentExpirySource: v.optional(v.string()),
+    emaApprovalDate: v.optional(v.string()),
+    menaRegistrationCount: v.optional(v.number()),
+    patentUrgencyScore: v.optional(v.number()),
   })
     .index("by_company", ["companyId"])
     .index("by_therapeutic_area", ["therapeuticArea"]),
@@ -95,7 +132,16 @@ export default defineSchema({
   discoveryJobs: defineTable({
     // "companies" = find new European pharma companies
     // "drugs" = find drugs for a specific company
-    type: v.union(v.literal("companies"), v.literal("drugs")),
+    // "bd_scoring" = score a company for BD suitability
+    // "gap_analysis" = analyze MENA supply/demand gaps
+    // "demand_signals" = discover MENA procurement signals
+    type: v.union(
+      v.literal("companies"),
+      v.literal("drugs"),
+      v.literal("bd_scoring"),
+      v.literal("gap_analysis"),
+      v.literal("demand_signals"),
+    ),
     status: v.union(
       v.literal("running"),
       v.literal("completed"),
@@ -104,6 +150,10 @@ export default defineSchema({
     // For drug-discovery jobs — which company was scanned
     companyId: v.optional(v.id("companies")),
     companyName: v.optional(v.string()),
+    // For gap analysis jobs
+    gapOpportunityId: v.optional(v.id("gapOpportunities")),
+    therapeuticArea: v.optional(v.string()),
+    targetCountries: v.optional(v.array(v.string())),
     // Results summary
     newItemsFound: v.optional(v.number()),
     skippedDuplicates: v.optional(v.number()),
@@ -123,4 +173,52 @@ export default defineSchema({
     .index("by_started", ["startedAt"])
     .index("by_company", ["companyId"])
     .index("by_type", ["type"]),
+
+  bdActivities: defineTable({
+    companyId: v.id("companies"),
+    type: v.union(
+      v.literal("note"),
+      v.literal("email_sent"),
+      v.literal("email_received"),
+      v.literal("call"),
+      v.literal("meeting"),
+      v.literal("stage_change"),
+      v.literal("deal_update"),
+    ),
+    content: v.string(),
+    previousStage: v.optional(v.string()),
+    newStage: v.optional(v.string()),
+    dealValue: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_company", ["companyId"])
+    .index("by_created", ["createdAt"]),
+
+  gapOpportunities: defineTable({
+    therapeuticArea: v.string(),
+    indication: v.string(),
+    targetCountries: v.array(v.string()),
+    gapScore: v.number(),
+    demandEvidence: v.string(),
+    supplyGap: v.string(),
+    competitorLandscape: v.string(),
+    suggestedDrugClasses: v.array(v.string()),
+    tenderSignals: v.optional(v.string()),
+    whoDiseaseBurden: v.optional(v.string()),
+    regulatoryFeasibility: v.optional(v.union(
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low"),
+    )),
+    status: v.union(v.literal("active"), v.literal("archived")),
+    sources: v.optional(v.array(v.object({ title: v.string(), url: v.string() }))),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    linkedDrugIds: v.optional(v.array(v.id("drugs"))),
+    linkedCompanyIds: v.optional(v.array(v.id("companies"))),
+  })
+    .index("by_therapeutic_area", ["therapeuticArea"])
+    .index("by_gap_score", ["gapScore"])
+    .index("by_status", ["status"])
+    .index("by_created", ["createdAt"]),
 });

@@ -1,9 +1,11 @@
 import { StatsBar } from "@/components/dashboard/StatsBar";
 import { RecentDrugs } from "@/components/dashboard/RecentDrugs";
 import { RecentJobs } from "@/components/dashboard/RecentJobs";
+import { TopGapsWidget } from "@/components/dashboard/TopGapsWidget";
+import { BDPipelineWidget } from "@/components/dashboard/BDPipelineWidget";
 import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompaniesButton";
 import Link from "next/link";
-import { Building2, Pill, ArrowRight, Radar } from "lucide-react";
+import { Building2, Pill, ArrowRight, Radar, Target, GitBranch } from "lucide-react";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 export default function DashboardPage() {
@@ -13,7 +15,7 @@ export default function DashboardPage() {
       <div className="flex items-start justify-between mb-8 gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white">
-            {BRAND_NAME} Intelligence Dashboard
+            {BRAND_NAME} BD Cockpit
           </h1>
           <p className="mt-1 text-sm text-zinc-400">
             {BRAND_TAGLINE}
@@ -23,6 +25,12 @@ export default function DashboardPage() {
       </div>
 
       <StatsBar />
+
+      {/* BD Cockpit widgets */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <TopGapsWidget />
+        <BDPipelineWidget />
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Recent drugs — wide column */}
@@ -54,6 +62,32 @@ export default function DashboardPage() {
               Quick Actions
             </h2>
             <div className="space-y-2">
+              <Link
+                href="/gaps"
+                className="group flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-zinc-800 transition-colors"
+              >
+                <div className="rounded bg-cyan-500/10 p-1.5">
+                  <Target className="h-4 w-4 text-cyan-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white">Gap Analysis</p>
+                  <p className="text-xs text-zinc-500">Find MENA supply gaps</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400" />
+              </Link>
+              <Link
+                href="/pipeline"
+                className="group flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-zinc-800 transition-colors"
+              >
+                <div className="rounded bg-orange-500/10 p-1.5">
+                  <GitBranch className="h-4 w-4 text-orange-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white">BD Pipeline</p>
+                  <p className="text-xs text-zinc-500">Manage company outreach</p>
+                </div>
+                <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400" />
+              </Link>
               <Link
                 href="/discovery"
                 className="group flex items-center gap-3 rounded-md px-3 py-2.5 hover:bg-zinc-800 transition-colors"
@@ -107,16 +141,16 @@ export default function DashboardPage() {
           {/* How it works */}
           <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">
             <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider mb-3">
-              How It Works
+              BD Workflow
             </h2>
             <ol className="space-y-3">
               {[
-                "Run Discover Companies to auto-populate registry",
-                "For each company, run Find Drugs to load their portfolio",
-                "Attach PDFs, screenshots, and notes as research inputs",
-                "Score MENA market opportunities per country",
-                "Generate AI market intelligence reports tailored to KEMEDICA",
-                "Prioritise outreach and start sales cycles",
+                "Run Gap Analysis to find MENA unmet demand",
+                "Discover EU companies that fill the gaps",
+                "AI scores BD suitability per company",
+                "Move companies through the BD pipeline",
+                "Generate market reports with BD fit assessment",
+                "Close partnership deals",
               ].map((step, i) => (
                 <li
                   key={i}

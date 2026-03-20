@@ -40,16 +40,28 @@ export const recentStats = query({
 
 export const create = mutation({
   args: {
-    type: v.union(v.literal("companies"), v.literal("drugs")),
+    type: v.union(
+      v.literal("companies"),
+      v.literal("drugs"),
+      v.literal("bd_scoring"),
+      v.literal("gap_analysis"),
+      v.literal("demand_signals"),
+    ),
     companyId: v.optional(v.id("companies")),
     companyName: v.optional(v.string()),
+    gapOpportunityId: v.optional(v.id("gapOpportunities")),
+    therapeuticArea: v.optional(v.string()),
+    targetCountries: v.optional(v.array(v.string())),
   },
-  handler: async (ctx, { type, companyId, companyName }) =>
+  handler: async (ctx, { type, companyId, companyName, gapOpportunityId, therapeuticArea, targetCountries }) =>
     ctx.db.insert("discoveryJobs", {
       type,
       status: "running",
       companyId,
       companyName,
+      gapOpportunityId,
+      therapeuticArea,
+      targetCountries,
       startedAt: Date.now(),
       log: [],
       provider: "openai",

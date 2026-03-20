@@ -14,24 +14,7 @@ import {
   blobToDataUrl,
 } from "./fileProcessing";
 import { KEMEDICA_CONTEXT } from "../src/lib/brand";
-
-const MENA_COUNTRIES = [
-  "Saudi Arabia",
-  "UAE",
-  "Qatar",
-  "Kuwait",
-  "Bahrain",
-  "Oman",
-  "Jordan",
-  "Lebanon",
-  "Egypt",
-  "Iraq",
-  "Syria",
-  "Libya",
-  "Tunisia",
-  "Morocco",
-  "Algeria",
-] as const;
+import { MENA_COUNTRIES } from "./constants";
 
 interface Citation {
   title: string;
@@ -95,6 +78,19 @@ interface ReportBrief {
     impact: string;
     mitigation: string;
   }>;
+  bdFitAssessment: {
+    bdFitScore: number;
+    companyMotivation: string;
+    kemedicaLeverage: string;
+    dealStructureSuggestion: string;
+    suggestedContacts: Array<{
+      name: string | null;
+      title: string;
+      rationale: string;
+    }>;
+    tenderIntelligence: string;
+    firstMoverWindow: string;
+  };
   citations: Citation[];
 }
 
@@ -271,6 +267,41 @@ const REPORT_BRIEF_SCHEMA = {
         required: ["risk", "likelihood", "impact", "mitigation"],
       },
     },
+    bdFitAssessment: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        bdFitScore: { type: "number" },
+        companyMotivation: { type: "string" },
+        kemedicaLeverage: { type: "string" },
+        dealStructureSuggestion: { type: "string" },
+        suggestedContacts: {
+          type: "array",
+          maxItems: 3,
+          items: {
+            type: "object",
+            additionalProperties: false,
+            properties: {
+              name: { type: ["string", "null"] },
+              title: { type: "string" },
+              rationale: { type: "string" },
+            },
+            required: ["name", "title", "rationale"],
+          },
+        },
+        tenderIntelligence: { type: "string" },
+        firstMoverWindow: { type: "string" },
+      },
+      required: [
+        "bdFitScore",
+        "companyMotivation",
+        "kemedicaLeverage",
+        "dealStructureSuggestion",
+        "suggestedContacts",
+        "tenderIntelligence",
+        "firstMoverWindow",
+      ],
+    },
     citations: {
       type: "array",
       maxItems: 30,
@@ -294,6 +325,7 @@ const REPORT_BRIEF_SCHEMA = {
     "regulatoryPathway",
     "businessDevelopmentStrategy",
     "risks",
+    "bdFitAssessment",
     "citations",
   ],
 } as const;
@@ -691,7 +723,8 @@ Research requirements
 - Prioritize official regulator sites, WHO, PubMed, and credible market sources.
 - For each country finding, include 1-4 source URLs.
 - Use the uploaded document context as search seed material when relevant, especially for company names, partner names, products, and expansion clues.
-- Keep each section concise but specific enough to support a written market report for KEMEDICA.`,
+- Keep each section concise but specific enough to support a written market report for KEMEDICA.
+- For bdFitAssessment: score 0-10 (10 = ideal KEMEDICA partner opportunity), explain why the manufacturer would be motivated to partner with KEMEDICA (patent expiry pressure, lack of MENA access, small team without international BD), what KEMEDICA uniquely offers (regulatory expertise, established distributor networks, market access know-how), the ideal deal structure (co-promotion, exclusive distribution, licensing), suggest 3 specific job titles at the manufacturer KEMEDICA should reach out to, summarize any active MENA tenders for this specific drug in the past 24 months, and estimate the first-mover window before a competitor registers the same drug class.`,
           formatName: "mena_report_brief",
           schema: REPORT_BRIEF_SCHEMA,
           maxOutputTokens: 4200,
@@ -729,11 +762,13 @@ Research requirements
 ## 6. Regulatory Pathway
 ## 7. Business Development Strategy
 ## 8. Risk Assessment
+## 9. BD Fit Assessment
 
 Requirements:
 - In section 4, include all 15 MENA countries.
 - Use concise paragraphs, bullets, and tables where useful.
 - In section 8, render the risks as a markdown table.
+- In section 9 (BD Fit Assessment), include: BD fit score (X/10), why the manufacturer is motivated to partner, what KEMEDICA uniquely offers, recommended deal structure, a table of suggested contacts (title + rationale), tender intelligence summary, and first-mover window estimate.
 - Do not invent sources or facts beyond the JSON brief.
 
 JSON brief:

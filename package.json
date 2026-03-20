@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx convex deploy --yes --cmd 'next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL; else next build; fi",
     "deploy:backend": "npx convex deploy --yes",
     "start": "next start",
     "lint": "eslint"

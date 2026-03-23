@@ -35,6 +35,7 @@ import {
   normalizePipelineStage,
   priorityTierLabel,
 } from "@/lib/distributorFit";
+import { normalizeExternalUrl } from "@/lib/urlUtils";
 
 export type Gap = {
   _id: Id<"gapOpportunities">;
@@ -476,9 +477,13 @@ export function GapDetailPanel({
                   <ul className="space-y-1">
                     {gap.sources.map((s, i) => (
                       <li key={i}>
-                        <a href={s.url} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 underline transition-colors">
-                          {s.title}
-                        </a>
+                        {normalizeExternalUrl(s.url) ? (
+                          <a href={normalizeExternalUrl(s.url)!} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 underline transition-colors">
+                            {s.title}
+                          </a>
+                        ) : (
+                          <span className="text-xs text-zinc-500">{s.title}</span>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -492,7 +497,7 @@ export function GapDetailPanel({
                     {gap.evidenceItems.slice(0, 5).map((item) => (
                       <a
                         key={`${item.url}-${item.claim}`}
-                        href={item.url}
+                        href={normalizeExternalUrl(item.url) ?? undefined}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="block rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-3 hover:border-zinc-700"

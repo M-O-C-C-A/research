@@ -28,6 +28,7 @@ import {
   normalizePipelineStage,
   priorityTierLabel,
 } from "@/lib/distributorFit";
+import { normalizeExternalUrl } from "@/lib/urlUtils";
 
 export function GapDetailPage({ gapId }: { gapId: string }) {
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
@@ -200,7 +201,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
               {typedGap.sources.map((source) => (
                 <a
                   key={source.url}
-                  href={source.url}
+                  href={normalizeExternalUrl(source.url) ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block text-sm text-cyan-400 underline hover:text-cyan-300"
@@ -219,7 +220,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
               {typedGap.evidenceItems.slice(0, 8).map((item) => (
                 <a
                   key={`${item.url}-${item.claim}`}
-                  href={item.url}
+                  href={normalizeExternalUrl(item.url) ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block rounded-lg border border-zinc-800 bg-zinc-950/60 px-4 py-3 hover:border-zinc-700"

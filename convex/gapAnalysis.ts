@@ -310,6 +310,17 @@ function buildSourceTitle(url: string) {
   }
 }
 
+function normalizeExternalUrl(value?: string | null): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^www\./i.test(raw)) return `https://${raw}`;
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(raw) && !/\s/.test(raw)) {
+    return `https://${raw}`;
+  }
+  return null;
+}
+
 function deriveGapNarrative(args: {
   gapType: GapType;
   validationStatus: GapValidationStatus;
@@ -434,20 +445,23 @@ function buildGapSources(args: {
 }) {
   const directSources = args.evidenceItems.map((item) => ({
     title: item.title,
-    url: item.url,
-  }));
+    url: normalizeExternalUrl(item.url),
+  })).filter((item): item is { title: string; url: string } => Boolean(item.url));
   const responseSources = args.responseSources.map((source) => ({
     title: source.title || buildSourceTitle(source.url),
-    url: source.url,
-  }));
+    url: normalizeExternalUrl(source.url),
+  })).filter((item): item is { title: string; url: string } => Boolean(item.url));
   const tenderSources = args.tenderSignals
-    .filter((signal) => signal.sourceUrl)
+    .filter((signal) => normalizeExternalUrl(signal.sourceUrl))
     .map((signal) => ({
       title: `${signal.country} tender signal`,
-      url: signal.sourceUrl!,
+      url: normalizeExternalUrl(signal.sourceUrl)!,
     }));
   const whoSources = args.whoSourceUrl
-    ? [{ title: "WHO/GBD disease burden", url: args.whoSourceUrl }]
+    ? (() => {
+        const url = normalizeExternalUrl(args.whoSourceUrl);
+        return url ? [{ title: "WHO/GBD disease burden", url }] : [];
+      })()
     : [];
 
   return uniqBy(
@@ -578,11 +592,15 @@ suggestedDrugClasses should list drug classes that are actually implicated by th
                     .join("\n")
                 : undefined;
             const evidenceItems = gap.evidenceItems
+              .map((item) => ({
+                ...item,
+                url: normalizeExternalUrl(item.url),
+              }))
               .filter((item) => item.url && item.title && item.claim)
               .map((item) => ({
                 claim: item.claim,
                 title: item.title,
-                url: item.url,
+                url: item.url!,
                 sourceKind: item.sourceKind,
                 country: item.country ?? undefined,
                 productOrClass: item.productOrClass ?? undefined,
@@ -759,7 +777,7 @@ Focus on branded/specialty medicines, NOT generics. For each signal identify: th
           .map((s) => ({
             claim: s.description,
             title: `${s.country} ${s.signalType.replace("_", " ")}`,
-            url: s.sourceUrl!,
+            url: normalizeExternalUrl(s.sourceUrl)!,
             sourceKind:
               s.signalType === "tender" || s.signalType === "procurement_list"
                 ? ("tender_portal" as const)
@@ -770,7 +788,8 @@ Focus on branded/specialty medicines, NOT generics. For each signal identify: th
               s.signalType === "tender" || s.signalType === "shortage"
                 ? ("confirmed" as const)
                 : ("likely" as const),
-          }));
+          }))
+          .filter((item) => Boolean(item.url));
         const validationStatus: GapValidationStatus =
           evidenceItems.length === 0
             ? "insufficient_evidence"

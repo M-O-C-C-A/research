@@ -260,10 +260,11 @@ function extractSources(response: { output?: unknown[] }): ResearchSource[] {
     if (typedItem.type !== "web_search_call") continue;
 
     for (const source of typedItem.action?.sources ?? []) {
-      if (!source.url || byUrl.has(source.url)) continue;
-      byUrl.set(source.url, {
-        title: source.url,
-        url: source.url,
+      const normalizedUrl = normalizeExternalUrl(source.url);
+      if (!normalizedUrl || byUrl.has(normalizedUrl)) continue;
+      byUrl.set(normalizedUrl, {
+        title: normalizedUrl,
+        url: normalizedUrl,
       });
     }
   }
@@ -273,4 +274,15 @@ function extractSources(response: { output?: unknown[] }): ResearchSource[] {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function normalizeExternalUrl(value?: string | null): string | null {
+  const raw = value?.trim();
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (/^www\./i.test(raw)) return `https://${raw}`;
+  if (/^[a-z0-9.-]+\.[a-z]{2,}(\/.*)?$/i.test(raw) && !/\s/.test(raw)) {
+    return `https://${raw}`;
+  }
+  return null;
 }

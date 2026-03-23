@@ -6,6 +6,7 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
+import { normalizeExternalUrl } from "@/lib/urlUtils";
 import { ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3 } from "lucide-react";
 
 interface OpportunityDetailViewProps {
@@ -154,7 +155,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                 opportunity.evidence.map((item) => (
                   <a
                     key={item._id}
-                    href={item.url}
+                    href={normalizeExternalUrl(item.url) ?? undefined}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="block rounded-lg border border-zinc-800 bg-zinc-950/70 px-4 py-3 transition-colors hover:border-zinc-700 hover:bg-zinc-950"
@@ -200,7 +201,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                   )}
                   {opportunity.contactLinkedinUrl && (
                     <a
-                      href={opportunity.contactLinkedinUrl}
+                      href={normalizeExternalUrl(opportunity.contactLinkedinUrl) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300"

@@ -47,6 +47,28 @@ const scoreBreakdown = v.object({
   evidenceConfidence: v.number(),
 });
 
+const registrationImportStatus = v.union(
+  v.literal("uploaded"),
+  v.literal("parsed"),
+  v.literal("needs_review"),
+  v.literal("ready"),
+  v.literal("applied"),
+  v.literal("failed")
+);
+
+const registrationImportMatchStatus = v.union(
+  v.literal("matched"),
+  v.literal("unmatched"),
+  v.literal("ambiguous"),
+  v.literal("skipped")
+);
+
+const registrationImportApplyState = v.union(
+  v.literal("pending"),
+  v.literal("applied"),
+  v.literal("skipped")
+);
+
 export default defineSchema({
   companies: defineTable({
     name: v.string(),
@@ -617,4 +639,64 @@ export default defineSchema({
   })
     .index("by_decision_opportunity", ["decisionOpportunityId"])
     .index("by_decision_opportunity_and_evidence_type", ["decisionOpportunityId", "evidenceType"]),
+
+  registrationImports: defineTable({
+    fileName: v.string(),
+    storageId: v.id("_storage"),
+    sourceMarket: v.optional(v.string()),
+    status: registrationImportStatus,
+    sheetNames: v.array(v.string()),
+    totalRows: v.number(),
+    matchedRows: v.number(),
+    unresolvedRows: v.number(),
+    ambiguousRows: v.number(),
+    skippedRows: v.number(),
+    appliedRows: v.number(),
+    parseErrorCount: v.number(),
+    lastError: v.optional(v.string()),
+    parsedAt: v.optional(v.number()),
+    applyRequestedAt: v.optional(v.number()),
+    appliedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_created_at", ["createdAt"])
+    .index("by_status", ["status"]),
+
+  registrationImportRows: defineTable({
+    importId: v.id("registrationImports"),
+    productName: v.string(),
+    genericName: v.optional(v.string()),
+    manufacturerName: v.optional(v.string()),
+    mahName: v.optional(v.string()),
+    country: v.string(),
+    registrationStatus: v.union(
+      v.literal("registered"),
+      v.literal("not_found"),
+      v.literal("unverified")
+    ),
+    registrationNumber: v.optional(v.string()),
+    approvalDate: v.optional(v.string()),
+    sourceNote: v.optional(v.string()),
+    sourceSheet: v.string(),
+    sourceRowNumber: v.number(),
+    matchStatus: registrationImportMatchStatus,
+    applyState: registrationImportApplyState,
+    matchedDrugId: v.optional(v.id("drugs")),
+    matchedCompanyId: v.optional(v.id("companies")),
+    validationIssues: v.array(v.string()),
+    rawRow: v.record(v.string(), v.string()),
+    appliedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_import", ["importId"])
+    .index("by_import_and_match_status", ["importId", "matchStatus"])
+    .index("by_import_and_apply_state", ["importId", "applyState"])
+    .index("by_import_and_match_status_and_apply_state", [
+      "importId",
+      "matchStatus",
+      "applyState",
+    ])
+    .index("by_import_and_source_sheet", ["importId", "sourceSheet"]),
 });

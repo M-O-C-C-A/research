@@ -6,6 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -25,6 +26,7 @@ import { AddDrugButton } from "./AddDrugDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { TableSkeleton } from "@/components/shared/LoadingSkeleton";
 import { THERAPEUTIC_AREAS } from "@/lib/constants";
+import { cn } from "@/lib/utils";
 import { Search, Pill, ArrowRight } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
@@ -69,6 +71,12 @@ export function DrugList() {
             ))}
           </SelectContent>
         </Select>
+        <Link
+          href="/drugs/imports"
+          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+        >
+          Import Registrations
+        </Link>
         <AddDrugButton />
       </div>
 

@@ -1,0 +1,537 @@
+import {
+  internalMutation,
+  internalQuery,
+  MutationCtx,
+  mutation,
+  QueryCtx,
+  query,
+} from "./_generated/server";
+import { v } from "convex/values";
+import { Doc, Id } from "./_generated/dataModel";
+import {
+  RegistrationImportStatus,
+  RegistrationStatus,
+} from "../src/lib/registrationImports";
+
+const registrationStatusValidator = v.union(
+  v.literal("registered"),
+  v.literal("not_found"),
+  v.literal("unverified")
+);
+
+const importStatusValidator = v.union(
+  v.literal("uploaded"),
+  v.literal("parsed"),
+  v.literal("needs_review"),
+  v.literal("ready"),
+  v.literal("applied"),
+  v.literal("failed")
+);
+
+const matchStatusValidator = v.union(
+  v.literal("matched"),
+  v.literal("unmatched"),
+  v.literal("ambiguous"),
+  v.literal("skipped")
+);
+
+const applyStateValidator = v.union(
+  v.literal("pending"),
+  v.literal("applied"),
+  v.literal("skipped")
+);
+
+const importRowValidator = v.object({
+  productName: v.string(),
+  genericName: v.optional(v.string()),
+  manufacturerName: v.optional(v.string()),
+  mahName: v.optional(v.string()),
+  country: v.string(),
+  registrationStatus: registrationStatusValidator,
+  registrationNumber: v.optional(v.string()),
+  approvalDate: v.optional(v.string()),
+  sourceNote: v.optional(v.string()),
+  sourceSheet: v.string(),
+  sourceRowNumber: v.number(),
+  matchStatus: matchStatusValidator,
+  applyState: applyStateValidator,
+  matchedDrugId: v.optional(v.id("drugs")),
+  matchedCompanyId: v.optional(v.id("companies")),
+  validationIssues: v.array(v.string()),
+  rawRow: v.record(v.string(), v.string()),
+});
+
+type ImportRowInput = {
+  productName: string;
+  genericName?: string;
+  manufacturerName?: string;
+  mahName?: string;
+  country: string;
+  registrationStatus: RegistrationStatus;
+  registrationNumber?: string;
+  approvalDate?: string;
+  sourceNote?: string;
+  sourceSheet: string;
+  sourceRowNumber: number;
+  matchStatus: "matched" | "unmatched" | "ambiguous" | "skipped";
+  applyState: "pending" | "applied" | "skipped";
+  matchedDrugId?: Id<"drugs">;
+  matchedCompanyId?: Id<"companies">;
+  validationIssues: string[];
+  rawRow: Record<string, string>;
+};
+
+type ImportSummary = {
+  totalRows: number;
+  matchedRows: number;
+  unresolvedRows: number;
+  ambiguousRows: number;
+  skippedRows: number;
+  parseErrorCount: number;
+};
+
+function buildImportSummary(rows: Array<Doc<"registrationImportRows"> | ImportRowInput>): ImportSummary {
+  const totalRows = rows.length;
+  const matchedRows = rows.filter((row) => row.matchStatus === "matched").length;
+  const ambiguousRows = rows.filter((row) => row.matchStatus === "ambiguous").length;
+  const skippedRows = rows.filter((row) => row.matchStatus === "skipped").length;
+  const unresolvedRows = rows.filter(
+    (row) => row.matchStatus === "unmatched" || row.matchStatus === "ambiguous"
+  ).length;
+  const parseErrorCount = rows.filter((row) => row.validationIssues.length > 0).length;
+  return {
+    totalRows,
+    matchedRows,
+    unresolvedRows,
+    ambiguousRows,
+    skippedRows,
+    parseErrorCount,
+  };
+}
+
+function deriveImportStatus(summary: ImportSummary): RegistrationImportStatus {
+  if (summary.totalRows === 0) return "parsed";
+  if (summary.unresolvedRows > 0) return "needs_review";
+  return "ready";
+}
+
+type DbCtx = QueryCtx | MutationCtx;
+
+async function loadImportRows(ctx: DbCtx, importId: Id<"registrationImports">) {
+  return await ctx.db
+    .query("registrationImportRows")
+    .withIndex("by_import", (q) => q.eq("importId", importId))
+    .collect();
+}
+
+async function syncImportSummary(
+  ctx: MutationCtx,
+  importId: Id<"registrationImports">,
+  patch: Partial<Doc<"registrationImports">> = {}
+) {
+  const rows = await loadImportRows(ctx, importId);
+  const summary = buildImportSummary(rows);
+  const appliedRows = rows.filter((row) => row.applyState === "applied").length;
+  await ctx.db.patch(importId, {
+    totalRows: summary.totalRows,
+    matchedRows: summary.matchedRows,
+    unresolvedRows: summary.unresolvedRows,
+    ambiguousRows: summary.ambiguousRows,
+    skippedRows: summary.skippedRows,
+    appliedRows,
+    parseErrorCount: summary.parseErrorCount,
+    status: deriveImportStatus(summary),
+    updatedAt: Date.now(),
+    ...patch,
+  });
+}
+
+export const createImport = mutation({
+  args: {
+    storageId: v.id("_storage"),
+    fileName: v.string(),
+    sourceMarket: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    return await ctx.db.insert("registrationImports", {
+      ...args,
+      status: "uploaded",
+      sheetNames: [],
+      totalRows: 0,
+      matchedRows: 0,
+      unresolvedRows: 0,
+      ambiguousRows: 0,
+      skippedRows: 0,
+      appliedRows: 0,
+      parseErrorCount: 0,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const listImports = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    return await ctx.db
+      .query("registrationImports")
+      .withIndex("by_created_at")
+      .order("desc")
+      .take(limit ?? 20);
+  },
+});
+
+export const getImportDetail = query({
+  args: {
+    importId: v.id("registrationImports"),
+    rowLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, { importId, rowLimit }) => {
+    const importDoc = await ctx.db.get(importId);
+    if (!importDoc) return null;
+    const rows = await ctx.db
+      .query("registrationImportRows")
+      .withIndex("by_import", (q) => q.eq("importId", importId))
+      .collect();
+
+    const limitedRows = rows
+      .sort((left, right) => {
+        const priority: Record<Doc<"registrationImportRows">["matchStatus"], number> = {
+          ambiguous: 0,
+          unmatched: 1,
+          matched: 2,
+          skipped: 3,
+        };
+        const matchDelta = priority[left.matchStatus] - priority[right.matchStatus];
+        if (matchDelta !== 0) return matchDelta;
+        if (left.sourceSheet !== right.sourceSheet) {
+          return left.sourceSheet.localeCompare(right.sourceSheet);
+        }
+        return left.sourceRowNumber - right.sourceRowNumber;
+      })
+      .slice(0, rowLimit ?? 150);
+
+    return { importDoc, rows: limitedRows, totalRowCount: rows.length };
+  },
+});
+
+export const resolveRowMatch = mutation({
+  args: {
+    rowId: v.id("registrationImportRows"),
+    matchedDrugId: v.optional(v.id("drugs")),
+    skip: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { rowId, matchedDrugId, skip }) => {
+    const row = await ctx.db.get(rowId);
+    if (!row) throw new Error("Import row not found.");
+
+    const now = Date.now();
+    if (skip) {
+      await ctx.db.patch(rowId, {
+        matchStatus: "skipped",
+        applyState: "skipped",
+        matchedDrugId: undefined,
+        matchedCompanyId: undefined,
+        updatedAt: now,
+      });
+      await syncImportSummary(ctx, row.importId);
+      return;
+    }
+
+    if (!matchedDrugId) {
+      await ctx.db.patch(rowId, {
+        matchStatus: "unmatched",
+        applyState: "pending",
+        matchedDrugId: undefined,
+        matchedCompanyId: undefined,
+        updatedAt: now,
+      });
+      await syncImportSummary(ctx, row.importId);
+      return;
+    }
+
+    const drug = await ctx.db.get(matchedDrugId);
+    if (!drug) throw new Error("Drug not found.");
+
+    await ctx.db.patch(rowId, {
+      matchStatus: "matched",
+      applyState: "pending",
+      matchedDrugId,
+      matchedCompanyId: drug.companyId,
+      updatedAt: now,
+    });
+    await syncImportSummary(ctx, row.importId);
+  },
+});
+
+export const requestApply = mutation({
+  args: { importId: v.id("registrationImports") },
+  handler: async (ctx, { importId }) => {
+    const importDoc = await ctx.db.get(importId);
+    if (!importDoc) throw new Error("Import not found.");
+
+    const rows = await loadImportRows(ctx, importId);
+    const unresolvedRows = rows.filter(
+      (row) => row.matchStatus === "unmatched" || row.matchStatus === "ambiguous"
+    );
+    if (unresolvedRows.length > 0) {
+      throw new Error("Resolve or skip all unmatched rows before applying.");
+    }
+
+    const pendingMatchedRows = rows.filter(
+      (row) => row.matchStatus === "matched" && row.applyState === "pending"
+    );
+    if (pendingMatchedRows.length === 0) {
+      throw new Error("There are no matched rows left to apply.");
+    }
+
+    await ctx.db.patch(importId, {
+      applyRequestedAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const getMatchingSnapshot = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const [drugs, companies, links] = await Promise.all([
+      ctx.db.query("drugs").collect(),
+      ctx.db.query("companies").collect(),
+      ctx.db.query("drugEntityLinks").collect(),
+    ]);
+
+    const companyById = new Map(companies.map((company) => [company._id, company]));
+    const linksByDrugId = new Map<Id<"drugs">, Doc<"drugEntityLinks">[]>();
+    for (const link of links) {
+      const current = linksByDrugId.get(link.drugId) ?? [];
+      current.push(link);
+      linksByDrugId.set(link.drugId, current);
+    }
+
+    return {
+      drugs: drugs.map((drug) => {
+        const company = drug.companyId ? companyById.get(drug.companyId) : undefined;
+        const drugLinks = linksByDrugId.get(drug._id) ?? [];
+        const manufacturerCandidates = [
+          drug.manufacturerName,
+          drug.primaryManufacturerName,
+          company?.name,
+          ...drugLinks
+            .filter((link) => link.relationshipType === "manufacturer")
+            .map((link) =>
+              link.entityName ?? (link.companyId ? companyById.get(link.companyId)?.name : undefined)
+            ),
+        ].filter((value): value is string => Boolean(value));
+        const mahCandidates = [
+          drug.primaryMarketAuthorizationHolderName,
+          ...drugLinks
+            .filter((link) => link.relationshipType === "market_authorization_holder")
+            .map((link) =>
+              link.entityName ?? (link.companyId ? companyById.get(link.companyId)?.name : undefined)
+            ),
+        ].filter((value): value is string => Boolean(value));
+
+        return {
+          _id: drug._id,
+          companyId: drug.companyId,
+          name: drug.name,
+          genericName: drug.genericName,
+          manufacturerCandidates,
+          mahCandidates,
+        };
+      }),
+      companies: companies.map((company) => ({
+        _id: company._id,
+        name: company.name,
+      })),
+    };
+  },
+});
+
+export const clearImportRows = internalMutation({
+  args: { importId: v.id("registrationImports") },
+  handler: async (ctx, { importId }) => {
+    const rows = await ctx.db
+      .query("registrationImportRows")
+      .withIndex("by_import", (q) => q.eq("importId", importId))
+      .collect();
+
+    for (const row of rows) {
+      await ctx.db.delete(row._id);
+    }
+
+    await ctx.db.patch(importId, {
+      totalRows: 0,
+      matchedRows: 0,
+      unresolvedRows: 0,
+      ambiguousRows: 0,
+      skippedRows: 0,
+      appliedRows: 0,
+      parseErrorCount: 0,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const insertImportRowsChunk = internalMutation({
+  args: {
+    importId: v.id("registrationImports"),
+    rows: v.array(importRowValidator),
+  },
+  handler: async (ctx, { importId, rows }) => {
+    const now = Date.now();
+    for (const row of rows) {
+      await ctx.db.insert("registrationImportRows", {
+        importId,
+        ...row,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+  },
+});
+
+export const finalizeParsedImport = internalMutation({
+  args: {
+    importId: v.id("registrationImports"),
+    sheetNames: v.array(v.string()),
+    status: importStatusValidator,
+    summary: v.object({
+      totalRows: v.number(),
+      matchedRows: v.number(),
+      unresolvedRows: v.number(),
+      ambiguousRows: v.number(),
+      skippedRows: v.number(),
+      parseErrorCount: v.number(),
+    }),
+  },
+  handler: async (ctx, { importId, sheetNames, status, summary }) => {
+    await ctx.db.patch(importId, {
+      sheetNames,
+      status,
+      parsedAt: Date.now(),
+      totalRows: summary.totalRows,
+      matchedRows: summary.matchedRows,
+      unresolvedRows: summary.unresolvedRows,
+      ambiguousRows: summary.ambiguousRows,
+      skippedRows: summary.skippedRows,
+      parseErrorCount: summary.parseErrorCount,
+      appliedRows: 0,
+      lastError: undefined,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const markImportFailed = internalMutation({
+  args: {
+    importId: v.id("registrationImports"),
+    errorMessage: v.string(),
+  },
+  handler: async (ctx, { importId, errorMessage }) => {
+    await ctx.db.patch(importId, {
+      status: "failed",
+      lastError: errorMessage,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+export const applyImportBatch = internalMutation({
+  args: {
+    importId: v.id("registrationImports"),
+    batchSize: v.optional(v.number()),
+  },
+  handler: async (ctx, { importId, batchSize }) => {
+    const importDoc = await ctx.db.get(importId);
+    if (!importDoc) throw new Error("Import not found.");
+
+    const rows = await ctx.db
+      .query("registrationImportRows")
+      .withIndex("by_import_and_match_status_and_apply_state", (q) =>
+        q.eq("importId", importId).eq("matchStatus", "matched").eq("applyState", "pending")
+      )
+      .take(batchSize ?? 25);
+
+    if (rows.length === 0) {
+      return { appliedCount: 0, done: true };
+    }
+
+    const now = Date.now();
+    const drugPatchState = new Map<
+      Id<"drugs">,
+      {
+        registrations: NonNullable<Doc<"drugs">["menaRegistrations"]>;
+      }
+    >();
+
+    for (const row of rows) {
+      if (!row.matchedDrugId) continue;
+      let drugState = drugPatchState.get(row.matchedDrugId);
+      if (!drugState) {
+        const drug = await ctx.db.get(row.matchedDrugId);
+        if (!drug) continue;
+        drugState = { registrations: [...(drug.menaRegistrations ?? [])] };
+        drugPatchState.set(row.matchedDrugId, drugState);
+      }
+
+      const nextRegistration = {
+        country: row.country,
+        status: row.registrationStatus,
+        registrationNumber: row.registrationNumber,
+        source: `Manual import · ${importDoc.fileName}${importDoc.sourceMarket ? ` · ${importDoc.sourceMarket}` : ""}`,
+        verifiedAt: now,
+      };
+
+      const existingIndex = drugState.registrations.findIndex(
+        (registration) => registration.country === row.country
+      );
+      if (existingIndex >= 0) {
+        drugState.registrations[existingIndex] = {
+          ...drugState.registrations[existingIndex],
+          ...nextRegistration,
+        };
+      } else {
+        drugState.registrations.push(nextRegistration);
+      }
+    }
+
+    for (const [drugId, state] of drugPatchState) {
+      await ctx.db.patch(drugId, {
+        menaRegistrations: state.registrations,
+        menaRegistrationCount: state.registrations.filter(
+          (registration) => registration.status === "registered"
+        ).length,
+      });
+    }
+
+    for (const row of rows) {
+      await ctx.db.patch(row._id, {
+        applyState: "applied",
+        appliedAt: now,
+        updatedAt: now,
+      });
+    }
+
+    const remainingRows = await ctx.db
+      .query("registrationImportRows")
+      .withIndex("by_import_and_match_status_and_apply_state", (q) =>
+        q.eq("importId", importId).eq("matchStatus", "matched").eq("applyState", "pending")
+      )
+      .take(1);
+
+    await ctx.db.patch(importId, {
+      appliedRows: importDoc.appliedRows + rows.length,
+      status: remainingRows.length === 0 ? "applied" : "ready",
+      appliedAt: remainingRows.length === 0 ? now : importDoc.appliedAt,
+      updatedAt: now,
+    });
+
+    return {
+      appliedCount: rows.length,
+      done: remainingRows.length === 0,
+    };
+  },
+});

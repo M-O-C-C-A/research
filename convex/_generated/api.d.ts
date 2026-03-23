@@ -30,6 +30,8 @@ import type * as gapIdentity from "../gapIdentity.js";
 import type * as gapOpportunities from "../gapOpportunities.js";
 import type * as openaiResearch from "../openaiResearch.js";
 import type * as opportunities from "../opportunities.js";
+import type * as registrationImportActions from "../registrationImportActions.js";
+import type * as registrationImports from "../registrationImports.js";
 import type * as reports from "../reports.js";
 import type * as research from "../research.js";
 import type * as researchInputs from "../researchInputs.js";
@@ -64,6 +66,8 @@ declare const fullApi: ApiFromModules<{
   gapOpportunities: typeof gapOpportunities;
   openaiResearch: typeof openaiResearch;
   opportunities: typeof opportunities;
+  registrationImportActions: typeof registrationImportActions;
+  registrationImports: typeof registrationImports;
   reports: typeof reports;
   research: typeof research;
   researchInputs: typeof researchInputs;

@@ -112,12 +112,12 @@ export function ResearchInputPanel({ drugId }: ResearchInputPanelProps) {
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
           <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-200">
-            Research Inputs
+            Supporting material
           </h3>
           <p className="mt-1 text-sm text-zinc-500">
-            Upload PDFs, screenshots, or notes with company names and product
-            clues. They will be used as search seed context for deeper internet
-            research.
+            Add optional notes, PDFs, or screenshots if you want the brief to include your
+            internal context. This is helpful, but not required to generate a useful decision
+            brief.
           </p>
         </div>
         <input
@@ -154,13 +154,13 @@ export function ResearchInputPanel({ drugId }: ResearchInputPanelProps) {
         <Input
           value={title}
           onChange={(event) => setTitle(event.target.value)}
-          placeholder="Quick note title, e.g. KEMEDICA target list"
+          placeholder="Short title, for example target list or meeting notes"
           className="border-zinc-700 bg-zinc-800 text-white placeholder:text-zinc-600"
         />
         <Textarea
           value={textContent}
           onChange={(event) => setTextContent(event.target.value)}
-          placeholder="Paste company names, distributor notes, excerpts from directories, or commercial hypotheses..."
+          placeholder="Paste notes, market observations, contact context, or anything you want the brief to consider..."
           rows={4}
           className="resize-none border-zinc-700 bg-zinc-800 text-white placeholder:text-zinc-600"
         />
@@ -171,14 +171,16 @@ export function ResearchInputPanel({ drugId }: ResearchInputPanelProps) {
             ) : (
               <FileText className="mr-2 h-4 w-4" />
             )}
-            Save Note
+            Save supporting note
           </Button>
         </div>
       </div>
 
       <div className="space-y-2">
         {(researchInputs ?? []).length === 0 ? (
-          <p className="text-sm text-zinc-600">No research inputs attached yet.</p>
+          <p className="text-sm text-zinc-600">
+            No supporting material attached yet. You can still generate a brief without it.
+          </p>
         ) : (
           researchInputs?.map((input) => (
             <div

@@ -72,6 +72,14 @@ export function DrugList() {
         <AddDrugButton />
       </div>
 
+      <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <p className="text-sm text-zinc-300">
+          Use this page to review the products you may want to pursue. Opening a drug lets you
+          assess market opportunity, generate a decision brief, and move into the recommended
+          opportunity flow.
+        </p>
+      </div>
+
       {drugs === undefined ? (
         <TableSkeleton rows={6} />
       ) : drugs.length === 0 ? (
@@ -81,7 +89,7 @@ export function DrugList() {
           description={
             search || area
               ? "Try adjusting your search or filter."
-              : "Add drugs from your company registry to start tracking MENA opportunities."
+              : "Add a drug to unlock market opportunity review, a decision brief, and the next-step recommendation flow."
           }
         />
       ) : (

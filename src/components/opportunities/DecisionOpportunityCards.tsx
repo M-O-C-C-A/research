@@ -85,26 +85,49 @@ export function DecisionOpportunityCards({
               </div>
 
               <div className="mt-4 space-y-3 text-xs text-zinc-400">
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    What this is
+                  </p>
+                  <p className="mt-1 text-zinc-300">
+                    {item.productName} for {item.focusMarkets.join(", ")} via {item.approachEntityName}.
+                  </p>
+                </div>
                 <div className="flex items-start gap-2">
                   <MapPinned className="mt-0.5 h-3.5 w-3.5 text-cyan-400" />
-                  <p>{item.whyThisMarket}</p>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                      Why it matters
+                    </p>
+                    <p className="mt-1">{item.whyThisMarket}</p>
+                  </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <ShieldCheck className="mt-0.5 h-3.5 w-3.5 text-emerald-400" />
-                  <p>{item.howToEnterExplanation}</p>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                      What to do next
+                    </p>
+                    <p className="mt-1">{item.howToEnterExplanation}</p>
+                  </div>
                 </div>
                 <div className="flex items-start gap-2">
                   <Mail className="mt-0.5 h-3.5 w-3.5 text-blue-400" />
-                  <p>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                      Who to contact
+                    </p>
+                    <p className="mt-1">
                     {item.contactName
                       ? `${item.contactName} · ${item.contactTitle ?? item.targetRole}`
                       : item.targetRole}
-                  </p>
+                    </p>
+                  </div>
                 </div>
               </div>
 
               <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-cyan-400">
-                Open opportunity
+                Review recommendation
                 <ArrowRight className="h-3 w-3" />
               </div>
             </Link>

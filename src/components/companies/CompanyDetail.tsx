@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
+import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
@@ -27,6 +28,7 @@ import {
   ShieldX,
   ShieldQuestion,
   Zap,
+  ArrowRight,
 } from "lucide-react";
 import {
   Select,
@@ -266,6 +268,13 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              href="/gaps"
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+            >
+              Review opportunities
+              <ArrowRight className="h-4 w-4" />
+            </Link>
             <FindDrugsButton companyId={companyId} />
             <Badge
               variant={company.status === "active" ? "default" : "secondary"}
@@ -283,6 +292,14 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
         {company.description && (
           <p className="text-sm text-zinc-400 mb-4">{company.description}</p>
         )}
+
+        <div className="mb-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+          <p className="text-sm text-zinc-300">
+            Use this page to decide whether this company is worth moving forward. Review its fit,
+            products, and MENA position, then move into the opportunity or outreach flow once the
+            case is strong enough.
+          </p>
+        </div>
 
         {company.therapeuticAreas.length > 0 && (
           <div>

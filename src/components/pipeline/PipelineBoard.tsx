@@ -325,22 +325,22 @@ export function PipelineBoard() {
 
   if (!allCompanies) {
     return (
-      <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+      <div className="py-10">
         <div className="flex items-center justify-center py-24">
           <Loader2 className="h-6 w-6 animate-spin text-zinc-600" />
         </div>
-      </main>
+      </div>
     );
   }
 
   return (
-    <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
+    <div>
       {/* Header */}
       <div className="flex items-start justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">Distributor Pipeline</h1>
+          <h1 className="text-2xl font-bold text-white">Outreach Pipeline</h1>
           <p className="mt-1 text-sm text-zinc-400">
-            Track manufacturers from screening to distributor-win or loss
+            Track manufacturers from first review through active outreach and outcome
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -459,6 +459,6 @@ export function PipelineBoard() {
           {stageCompanies.length} compan{stageCompanies.length !== 1 ? "ies" : "y"} · sorted by distributor fit
         </p>
       )}
-    </main>
+    </div>
   );
 }

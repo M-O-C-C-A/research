@@ -14,9 +14,10 @@ export default async function DrugDetailPage({
       <PageHeader
         breadcrumbs={[
           { label: "Drugs", href: "/drugs" },
-          { label: "Drug Detail" },
+          { label: "Drug detail" },
         ]}
-        title=""
+        title="Drug review"
+        description="Review this product, understand the market opportunity, generate a decision brief, and move to the next recommended action."
       />
       <DrugDetail drugId={id} />
       <DrugDetailTabs drugId={id} />

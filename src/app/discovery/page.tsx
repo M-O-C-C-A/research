@@ -21,8 +21,8 @@ function DiscoveryPageInner() {
   return (
     <main className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10">
       <PageHeader
-        title="Discovery History"
-        description="Log of all automated company and drug discovery runs."
+        title="Advanced Research"
+        description="Review discovery runs and research logs when you want to inspect the raw sourcing activity behind the guided workflow."
         action={<DiscoverCompaniesButton />}
       />
 

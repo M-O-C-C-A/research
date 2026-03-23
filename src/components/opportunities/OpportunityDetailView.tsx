@@ -1,13 +1,14 @@
 "use client";
 
 import { useQuery } from "convex/react";
+import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
 import { normalizeExternalUrl } from "@/lib/urlUtils";
-import { ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3 } from "lucide-react";
+import { ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight } from "lucide-react";
 
 interface OpportunityDetailViewProps {
   opportunityId: string;
@@ -63,6 +64,69 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         </div>
       </section>
 
+      <section className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+              Decision Summary
+            </p>
+            <h3 className="mt-2 text-xl font-semibold text-white">
+              The core recommendation in plain language
+            </h3>
+            <p className="mt-2 text-sm text-zinc-300">
+              Use this section first if you only need the key takeaways before deciding whether
+              to move forward.
+            </p>
+          </div>
+          <Link
+            href="/pipeline"
+            className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+          >
+            Track outreach
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Why this is worth pursuing
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              {opportunity.commercialRationale}
+            </p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              What to do next
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              {opportunity.howToEnterExplanation}
+            </p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Who to contact
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              {opportunity.contactName ?? opportunity.targetRole}
+              {opportunity.contactTitle ? ` · ${opportunity.contactTitle}` : ""}
+            </p>
+            <p className="mt-2 text-xs text-zinc-500">
+              Contact confidence: {opportunity.contactConfidence}
+            </p>
+          </div>
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              What evidence supports this
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+              {opportunity.confidenceSummary}
+            </p>
+          </div>
+        </div>
+      </section>
+
       <section className="grid gap-4 lg:grid-cols-4">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <p className="text-xs uppercase tracking-wider text-zinc-500">Why This Market</p>
@@ -91,7 +155,14 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
 
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-6" open>
+            <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-wider text-zinc-300">
+              Decision details and scoring
+            </summary>
+            <p className="mt-2 text-xs text-zinc-500">
+              Use this section when you want to inspect the scoring logic, assumptions, and
+              constraints behind the recommendation.
+            </p>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Decision Summary
             </h3>
@@ -130,7 +201,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                 <p className="mt-1 text-sm text-zinc-300">{opportunity.competitivePressure}</p>
               </div>
             </div>
-          </div>
+          </details>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <div className="flex items-center justify-between gap-4">

@@ -30,6 +30,14 @@ export function CompanyList() {
         <AddCompanyDialog />
       </div>
 
+      <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <p className="text-sm text-zinc-300">
+          Use this page to keep a clean list of manufacturers you may want to approach. The next
+          step after adding a company is usually to add one or more drugs, then review the
+          recommended opportunities.
+        </p>
+      </div>
+
       {companies === undefined ? (
         <CardGridSkeleton count={6} />
       ) : companies.length === 0 ? (
@@ -39,7 +47,7 @@ export function CompanyList() {
           description={
             search
               ? "Try a different search term."
-              : "Add your first European pharma company to get started."
+              : "Add your first company so you can connect products, review opportunities, and decide what to pursue next."
           }
           action={!search ? <AddCompanyDialog /> : undefined}
         />

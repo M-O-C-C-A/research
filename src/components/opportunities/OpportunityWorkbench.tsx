@@ -6,6 +6,7 @@ import { DecisionOpportunityCards } from "./DecisionOpportunityCards";
 import { RebuildOpportunityEngineButton } from "./RebuildOpportunityEngineButton";
 import { GapsDashboard } from "@/components/gaps/GapsDashboard";
 import { ArrowRight, DatabaseZap, FileSearch, Target } from "lucide-react";
+import { WorkflowCallout } from "@/components/shared/WorkflowCallout";
 
 export function OpportunityWorkbench() {
   const stats = useQuery(api.decisionOpportunities.stats, {});
@@ -15,18 +16,27 @@ export function OpportunityWorkbench() {
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
-            KEMEDICA Opportunity Engine
+            Opportunity decisions
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-white">
-            Decision-ready opportunities, not raw gap browsing
+            Choose what to pursue next
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
-            This view promotes only the opportunities that already connect product, market, route
-            to entry, and contact direction into a BD-ready unit.
+            Start with the recommended shortlist below. Each card combines market need,
+            route to market, and contact direction so you can decide whether to move
+            forward without digging through every research screen first.
           </p>
         </div>
         <RebuildOpportunityEngineButton />
       </div>
+
+      <WorkflowCallout
+        eyebrow="How To Use This Page"
+        title="Read left to right: what it is, why it matters, and what to do next"
+        description="A higher priority score means the opportunity looks more commercially attractive overall. Confidence shows how solid the supporting evidence is. Open any opportunity to see the recommended next action, outreach direction, and supporting evidence."
+        href="/pipeline"
+        actionLabel="Open outreach pipeline"
+      />
 
       <div className="mb-8 grid gap-4 md:grid-cols-4">
         {[
@@ -72,8 +82,8 @@ export function OpportunityWorkbench() {
 
       <div id="top-opportunities">
         <DecisionOpportunityCards
-          title="Top Opportunities"
-          description="Prioritized KSA/UAE-forward opportunities with explicit justification and outreach context."
+          title="Recommended opportunities"
+          description="Start here when you want the strongest opportunities with a clear reason to act and a suggested next move."
         />
       </div>
 
@@ -83,8 +93,8 @@ export function OpportunityWorkbench() {
             Supporting Research Layer
           </h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Gap discovery remains available here, but it now supports the promoted opportunity layer
-            above instead of being the primary decision surface.
+            Use the research layer below when you need to inspect the raw market gap work behind
+            the recommendations. Most users can make their next decision from the shortlist above.
           </p>
         </div>
         <GapsDashboard />

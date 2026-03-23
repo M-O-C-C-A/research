@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery } from "convex/react";
+import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowRight } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -79,6 +81,22 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
               </span>
             ) : null}
           </p>
+        </div>
+        <div className="flex flex-col items-end gap-2">
+          <Link
+            href={`/drugs/${drugId}?tab=report`}
+            className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+          >
+            Open decision brief
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/gaps"
+            className="inline-flex items-center gap-1 text-sm text-cyan-300 hover:text-cyan-200"
+          >
+            Compare against all opportunities
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
 

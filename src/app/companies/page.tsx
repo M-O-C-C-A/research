@@ -8,8 +8,8 @@ export default function CompaniesPage() {
   return (
     <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
       <PageHeader
-        title="Manufacturer Registry"
-        description="European pharmaceutical manufacturers ranked for gap-first MENA distributor opportunities."
+        title="Companies"
+        description="Keep track of the manufacturers you may want to approach, then connect them to products and recommended next steps."
       />
       <CompanyList />
     </main>

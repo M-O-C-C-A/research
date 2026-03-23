@@ -13,10 +13,10 @@ export default async function OpportunityDetailPage({
       <PageHeader
         breadcrumbs={[
           { label: "Opportunities", href: "/gaps" },
-          { label: "Opportunity Detail" },
+          { label: "Recommendation detail" },
         ]}
-        title="Decision Opportunity"
-        description="A ranked, evidence-backed BD opportunity with market rationale, route to entry, and contact direction."
+        title="Opportunity recommendation"
+        description="Review the recommendation, why it matters, who to contact, and the next step you should take."
       />
       <OpportunityDetailView opportunityId={id} />
     </main>

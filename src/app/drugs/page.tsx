@@ -8,8 +8,8 @@ export default function DrugsPage() {
   return (
     <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
       <PageHeader
-        title="Drug Registry"
-        description="All European drugs tracked for MENA market opportunities."
+        title="Drugs"
+        description="Review products, generate decision briefs, and connect each drug to the strongest next commercial action."
       />
       <DrugList />
     </main>

@@ -38,14 +38,20 @@ export function CompanyDrugList({ companyId }: CompanyDrugListProps) {
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-white">
-          Drug Portfolio{" "}
-          {drugs.length > 0 && (
-            <span className="text-zinc-500 font-normal text-sm">
-              ({drugs.length})
-            </span>
-          )}
-        </h2>
+        <div>
+          <h2 className="text-lg font-semibold text-white">
+            Drug Portfolio{" "}
+            {drugs.length > 0 && (
+              <span className="text-zinc-500 font-normal text-sm">
+                ({drugs.length})
+              </span>
+            )}
+          </h2>
+          <p className="mt-1 text-sm text-zinc-500">
+            Add or review products from this company, then open a drug to generate a brief or
+            inspect the next recommended opportunity.
+          </p>
+        </div>
         <AddDrugButton companyId={companyId} />
       </div>
 
@@ -53,7 +59,7 @@ export function CompanyDrugList({ companyId }: CompanyDrugListProps) {
         <EmptyState
           icon={<Pill className="h-8 w-8" />}
           title="No drugs added yet"
-          description="Add drugs from this company to track MENA market opportunities."
+          description="Add the first product from this company so you can assess market opportunity and decide whether to pursue outreach."
           action={<AddDrugButton companyId={companyId} />}
         />
       ) : (

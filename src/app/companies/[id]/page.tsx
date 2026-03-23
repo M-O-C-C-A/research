@@ -14,9 +14,10 @@ export default async function CompanyDetailPage({
       <PageHeader
         breadcrumbs={[
           { label: "Companies", href: "/companies" },
-          { label: "Company Detail" },
+          { label: "Company detail" },
         ]}
-        title=""
+        title="Company review"
+        description="Use this page to understand the company, review its products, and decide whether it belongs in the next outreach step."
       />
       <CompanyDetail companyId={id} />
       <CompanyDrugList companyId={id} />

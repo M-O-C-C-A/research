@@ -8,12 +8,11 @@ import { cn } from "@/lib/utils";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 const NAV_LINKS = [
-  { label: "Dashboard", href: "/" },
+  { label: "Home", href: "/" },
+  { label: "Guided Workflow", href: "/workflow" },
   { label: "Opportunities", href: "/gaps" },
-  { label: "Pipeline", href: "/pipeline" },
-  { label: "Manufacturers", href: "/companies" },
+  { label: "Companies", href: "/companies" },
   { label: "Drugs", href: "/drugs" },
-  { label: "Discovery", href: "/discovery" },
 ];
 
 export function NavBar() {

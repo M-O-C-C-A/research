@@ -1,6 +1,7 @@
 import { OpportunityWorkbench } from "@/components/opportunities/OpportunityWorkbench";
+import { BRAND_NAME } from "@/lib/brand";
 
-export const metadata = { title: "Decision Opportunity Engine — KEMEDICA" };
+export const metadata = { title: `Opportunities | ${BRAND_NAME}` };
 
 export default function GapsPage() {
   return <OpportunityWorkbench />;

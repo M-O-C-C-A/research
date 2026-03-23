@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useAction } from "convex/react";
+import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { useState } from "react";
@@ -10,6 +11,7 @@ import { ResearchInputPanel } from "./ResearchInputPanel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Sparkles, RefreshCw, AlertCircle, Loader2, ExternalLink } from "lucide-react";
 import { BRAND_NAME } from "@/lib/brand";
+import { WorkflowCallout } from "@/components/shared/WorkflowCallout";
 
 interface ReportSectionProps {
   drugId: string;
@@ -45,14 +47,22 @@ export function ReportSection({ drugId }: ReportSectionProps) {
   if (!report) {
     return (
       <div>
+        <WorkflowCallout
+          eyebrow="What This Brief Does"
+          title="Turn market research into a decision-ready summary"
+          description="This brief answers the business questions a non-technical user cares about: where the opportunity is strongest, what evidence supports it, what risks to watch, and what the most sensible next action looks like."
+          tone="emphasis"
+        />
         <ResearchInputPanel drugId={drugId} />
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-zinc-800 bg-zinc-950/50 px-6 py-16 text-center">
           <Sparkles className="h-10 w-10 text-zinc-600 mb-4" />
           <h3 className="text-base font-semibold text-zinc-300 mb-1.5">
-            No pursuit brief generated yet
+            No decision brief generated yet
           </h3>
           <p className="text-sm text-zinc-500 max-w-md mb-2">
-            Generate a {BRAND_NAME}-tailored deal pursuit brief. The AI will combine uploaded research inputs with live internet research from:
+            Generate a {BRAND_NAME}-tailored brief to understand whether this drug is worth
+            pursuing, where to focus first, and what action should come next. The AI combines your
+            supporting material with live research from:
           </p>
           <ul className="text-xs text-zinc-600 mb-6 space-y-0.5">
             <li>EMA, SFDA, UAE MOH, QCBS and other regulatory databases</li>
@@ -65,7 +75,7 @@ export function ReportSection({ drugId }: ReportSectionProps) {
             ) : (
               <Sparkles className="h-4 w-4 mr-2" />
             )}
-            Generate Brief
+            Generate decision brief
           </Button>
         </div>
       </div>
@@ -77,10 +87,11 @@ export function ReportSection({ drugId }: ReportSectionProps) {
       <div className="flex flex-col items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 px-6 py-16 text-center">
         <Loader2 className="h-8 w-8 text-zinc-400 animate-spin mb-4" />
         <h3 className="text-base font-semibold text-zinc-300 mb-1.5">
-          Building distributor pursuit brief...
+          Building decision brief...
         </h3>
         <p className="text-sm text-zinc-500 max-w-sm">
-          The AI is querying regulatory databases, market data, and clinical sources across all 15 MENA countries. This typically takes 30–60 seconds.
+          The AI is gathering market, regulatory, and competitive context across the MENA region.
+          This typically takes 30–60 seconds.
         </p>
       </div>
     );
@@ -113,6 +124,13 @@ export function ReportSection({ drugId }: ReportSectionProps) {
   // Ready
   return (
     <div>
+      <WorkflowCallout
+        eyebrow="How To Use This Brief"
+        title="Read the summary first, then decide whether to move forward"
+        description="Use the brief to understand the commercial case, supporting evidence, likely risks, and where to focus first. If the recommendation looks strong, continue into the opportunities view to compare it against the rest of your shortlist."
+        href="/gaps"
+        actionLabel="Compare with all opportunities"
+      />
       <ResearchInputPanel drugId={drugId} />
       <div className="flex items-center justify-between mb-6">
         <p className="text-xs text-zinc-600">
@@ -139,12 +157,27 @@ export function ReportSection({ drugId }: ReportSectionProps) {
           ) : (
             <RefreshCw className="h-4 w-4 mr-2" />
           )}
-          Regenerate Brief
+          Refresh brief
         </Button>
       </div>
 
       <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
         <ReportViewer content={report.content ?? ""} />
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link
+          href="/gaps"
+          className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+        >
+          Review recommended opportunities
+        </Link>
+        <Link
+          href="/pipeline"
+          className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+        >
+          Track outreach progress
+        </Link>
       </div>
 
       {/* Sources */}

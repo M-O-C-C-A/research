@@ -307,12 +307,12 @@ suggestedDrugClasses should list EU drug classes that could fill the gap.`,
           if (score >= 5) {
             const competitorList = gap.registeredDrugs
               .slice(0, 5)
-              .map((d) => `${d.brandName} (${d.originator})`)
+              .map((d: { brandName: string; originator: string }) => `${d.brandName} (${d.originator})`)
               .join("; ");
 
             const unregisteredList = gap.unregisteredEuDrugs
               .slice(0, 5)
-              .map((d) => `${d.brandName}/${d.inn} (${d.originator})`)
+              .map((d: { brandName: string; inn: string; originator: string }) => `${d.brandName}/${d.inn} (${d.originator})`)
               .join("; ");
 
             const tenderText =
@@ -444,10 +444,6 @@ Focus on branded/specialty medicines, NOT generics. For each signal identify: th
       await log(`Found ${signals.length} demand signals. Processing...`);
 
       // Fetch existing gap opportunities to check for matches
-      const existingGaps = await ctx.runQuery(api.gapOpportunities.list, {
-        status: "active",
-      });
-
       let newGaps = 0;
       let updatedGaps = 0;
 
@@ -467,48 +463,41 @@ Focus on branded/specialty medicines, NOT generics. For each signal identify: th
           )
           .join("\n");
 
-        // Check if matching gap opportunity exists
-        const match = existingGaps.find(
-          (g) => g.therapeuticArea.toLowerCase() === ta.toLowerCase()
+        const countries = [...new Set(areaSignals.map((s) => s.country))];
+        const highUrgency = areaSignals.filter((s) => s.urgency === "high");
+        const gapScore = Math.min(
+          10,
+          3 + highUrgency.length * 2 + Math.min(areaSignals.length, 2)
         );
 
-        if (match) {
-          await ctx.runMutation(api.gapOpportunities.update, {
-            id: match._id,
-            tenderSignals: tenderText,
-          });
+        const sources = areaSignals
+          .filter((s) => s.sourceUrl)
+          .slice(0, 5)
+          .map((s) => ({ title: `${s.country}: ${s.drugOrClass}`, url: s.sourceUrl! }));
+
+        const previous = await ctx.runQuery(api.gapOpportunities.list, {
+          therapeuticArea: ta,
+          status: "active",
+          limit: 100,
+        });
+        const createdId = await ctx.runMutation(api.gapOpportunities.create, {
+          therapeuticArea: ta,
+          indication: areaSignals[0]?.drugOrClass ?? ta,
+          targetCountries: countries,
+          gapScore,
+          demandEvidence: `${areaSignals.length} procurement signal(s) found in: ${countries.join(", ")}`,
+          supplyGap: `Active demand for: ${areaSignals.map((s) => s.drugOrClass).join(", ")}`,
+          competitorLandscape: "Not yet analyzed - run therapeutic area gap analysis for full picture",
+          suggestedDrugClasses: [...new Set(areaSignals.map((s) => s.drugOrClass))].slice(0, 5),
+          tenderSignals: tenderText,
+          sources,
+        });
+        const existed = previous.some((gap: { _id: Id<"gapOpportunities"> }) => gap._id === createdId);
+
+        if (existed) {
           updatedGaps++;
-          await log(
-            `Updated tender signals for existing gap: ${ta}`,
-            "success"
-          );
+          await log(`Updated existing gap opportunity from demand signal: ${ta}`, "success");
         } else {
-          // Create new gap opportunity from demand signal
-          const countries = [...new Set(areaSignals.map((s) => s.country))];
-          const highUrgency = areaSignals.filter((s) => s.urgency === "high");
-          const gapScore = Math.min(
-            10,
-            3 + highUrgency.length * 2 + Math.min(areaSignals.length, 2)
-          );
-
-          const sources = areaSignals
-            .filter((s) => s.sourceUrl)
-            .slice(0, 5)
-            .map((s) => ({ title: `${s.country}: ${s.drugOrClass}`, url: s.sourceUrl! }));
-
-          await ctx.runMutation(api.gapOpportunities.create, {
-            therapeuticArea: ta,
-            indication: areaSignals[0]?.drugOrClass ?? ta,
-            targetCountries: countries,
-            gapScore,
-            demandEvidence: `${areaSignals.length} procurement signal(s) found in: ${countries.join(", ")}`,
-            supplyGap: `Active demand for: ${areaSignals.map((s) => s.drugOrClass).join(", ")}`,
-            competitorLandscape: "Not yet analyzed — run therapeutic area gap analysis for full picture",
-            suggestedDrugClasses: [...new Set(areaSignals.map((s) => s.drugOrClass))].slice(0, 5),
-            tenderSignals: tenderText,
-            sources,
-          });
-
           newGaps++;
           await log(
             `New gap opportunity from demand signal: ${ta} (score: ${gapScore}/10)`,
@@ -601,8 +590,13 @@ export const runGapAnalysisFlow = action({
           status: "active",
         });
         const freshGaps = activeGaps
-          .filter((gap) => gap.createdAt >= areaStart && gap.gapScore >= 5)
-          .sort((left, right) => right.gapScore - left.gapScore);
+          .filter((gap: { createdAt: number; gapScore: number }) => gap.createdAt >= areaStart && gap.gapScore >= 5)
+          .sort(
+            (
+              left: { gapScore: number },
+              right: { gapScore: number }
+            ) => right.gapScore - left.gapScore
+          );
 
         totalGapsCreated += freshGaps.length;
         await log(

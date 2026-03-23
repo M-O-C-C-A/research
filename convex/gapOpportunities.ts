@@ -1,5 +1,18 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
+import {
+  buildGapDedupeKey,
+  mergeMultilineText,
+  mergeUniqueStrings,
+} from "./gapIdentity";
+
+function mergeSources(
+  existing?: Array<{ title: string; url: string }>,
+  incoming?: Array<{ title: string; url: string }>
+) {
+  const all = [...(existing ?? []), ...(incoming ?? [])];
+  return [...new Map(all.map((item) => [item.url, item])).values()];
+}
 
 export const list = query({
   args: {
@@ -89,9 +102,47 @@ export const create = mutation({
   },
   handler: async (ctx, args) => {
     const now = Date.now();
+    const dedupeKey = buildGapDedupeKey(args);
+    const existing = await ctx.db
+      .query("gapOpportunities")
+      .withIndex("by_status_and_dedupe_key", (q) =>
+        q.eq("status", "active").eq("dedupeKey", dedupeKey)
+      )
+      .unique();
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        therapeuticArea: args.therapeuticArea,
+        indication: args.indication,
+        targetCountries: mergeUniqueStrings([
+          ...existing.targetCountries,
+          ...args.targetCountries,
+        ]),
+        gapScore: Math.max(existing.gapScore, args.gapScore),
+        demandEvidence: mergeMultilineText(existing.demandEvidence, args.demandEvidence),
+        supplyGap: mergeMultilineText(existing.supplyGap, args.supplyGap) ?? existing.supplyGap,
+        competitorLandscape:
+          mergeMultilineText(existing.competitorLandscape, args.competitorLandscape) ??
+          existing.competitorLandscape,
+        suggestedDrugClasses: mergeUniqueStrings([
+          ...existing.suggestedDrugClasses,
+          ...args.suggestedDrugClasses,
+        ]),
+        tenderSignals: mergeMultilineText(existing.tenderSignals, args.tenderSignals),
+        whoDiseaseBurden: mergeMultilineText(existing.whoDiseaseBurden, args.whoDiseaseBurden),
+        regulatoryFeasibility: args.regulatoryFeasibility ?? existing.regulatoryFeasibility,
+        sources: mergeSources(existing.sources, args.sources),
+        linkedDrugIds: existing.linkedDrugIds,
+        linkedCompanyIds: existing.linkedCompanyIds,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
     return await ctx.db.insert("gapOpportunities", {
       ...args,
       status: "active",
+      dedupeKey,
       createdAt: now,
       updatedAt: now,
     });
@@ -120,7 +171,20 @@ export const update = mutation({
     ),
   },
   handler: async (ctx, { id, ...fields }) => {
-    await ctx.db.patch(id, { ...fields, updatedAt: Date.now() });
+    const existing = await ctx.db.get(id);
+    if (!existing) return;
+    const nextTherapeuticArea = fields.therapeuticArea ?? existing.therapeuticArea;
+    const nextIndication = fields.indication ?? existing.indication;
+    const nextTargetCountries = fields.targetCountries ?? existing.targetCountries;
+    await ctx.db.patch(id, {
+      ...fields,
+      dedupeKey: buildGapDedupeKey({
+        therapeuticArea: nextTherapeuticArea,
+        indication: nextIndication,
+        targetCountries: nextTargetCountries,
+      }),
+      updatedAt: Date.now(),
+    });
   },
 });
 

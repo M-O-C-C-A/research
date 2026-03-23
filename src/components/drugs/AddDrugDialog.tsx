@@ -51,7 +51,7 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
   const [loading, setLoading] = useState(false);
 
   const companies = useQuery(api.companies.list, {});
-  const createDrug = useMutation(api.drugs.create);
+  const createDrug = useMutation(api.drugs.createWithEntities);
 
   function reset() {
     setName("");
@@ -90,6 +90,37 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
         approvalStatus,
         approvalDate: approvalDate || undefined,
         category: category || undefined,
+        entityLinks: [
+          ...(selectedCompanyId
+            ? [
+                {
+                  companyId: selectedCompanyId as Id<"companies">,
+                  relationshipType: "manufacturer" as const,
+                  isPrimary: true,
+                  confidence: "confirmed" as const,
+                },
+              ]
+            : manufacturerName
+              ? [
+                  {
+                    entityName: manufacturerName,
+                    relationshipType: "manufacturer" as const,
+                    isPrimary: true,
+                    confidence: "likely" as const,
+                  },
+                ]
+              : []),
+          ...(marketAuthorizationHolderName
+            ? [
+                {
+                  entityName: marketAuthorizationHolderName,
+                  relationshipType: "market_authorization_holder" as const,
+                  isPrimary: true,
+                  confidence: "likely" as const,
+                },
+              ]
+            : []),
+        ],
       });
       reset();
       onClose();

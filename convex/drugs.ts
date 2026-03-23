@@ -1,5 +1,58 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, QueryCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { api } from "./_generated/api";
+import { Doc } from "./_generated/dataModel";
+import { normalizeDrugEntityLinks } from "./drugEntityLinkUtils";
+
+async function buildEnrichedDrug(ctx: QueryCtx, d: Doc<"drugs">) {
+  const company = d.companyId ? await ctx.db.get(d.companyId) : null;
+  const entityLinks = await ctx.db
+    .query("drugEntityLinks")
+    .withIndex("by_drug", (q) => q.eq("drugId", d._id))
+    .collect();
+  const linkedCompanies = await Promise.all(
+    entityLinks.map(async (link) => ({
+      link,
+      company: link.companyId ? await ctx.db.get(link.companyId) : null,
+    }))
+  );
+  const primaryManufacturer =
+    linkedCompanies.find(
+      ({ link }) => link.relationshipType === "manufacturer" && link.isPrimary
+    ) ??
+    linkedCompanies.find(({ link }) => link.relationshipType === "manufacturer");
+  const primaryMah =
+    linkedCompanies.find(
+      ({ link }) =>
+        link.relationshipType === "market_authorization_holder" && link.isPrimary
+    ) ??
+    linkedCompanies.find(
+      ({ link }) => link.relationshipType === "market_authorization_holder"
+    );
+
+  return {
+    ...d,
+    companyName: company?.name ?? d.manufacturerName ?? "—",
+    primaryManufacturerName:
+      primaryManufacturer?.company?.name ??
+      primaryManufacturer?.link.entityName ??
+      d.primaryManufacturerName ??
+      d.manufacturerName ??
+      "—",
+    primaryMarketAuthorizationHolderName:
+      primaryMah?.company?.name ??
+      primaryMah?.link.entityName ??
+      d.primaryMarketAuthorizationHolderName ??
+      "—",
+    entityRelationships: linkedCompanies.map(({ link, company: linkedCompany }) => ({
+      relationshipType: link.relationshipType,
+      isPrimary: link.isPrimary,
+      companyId: link.companyId,
+      companyName: linkedCompany?.name,
+      entityName: link.entityName,
+    })),
+  };
+}
 
 export const list = query({
   args: {
@@ -53,62 +106,32 @@ export const listEnriched = query({
         })
       : rows;
 
-    return Promise.all(
-      filtered.map(async (d) => {
-        const company = d.companyId ? await ctx.db.get(d.companyId) : null;
-        const entityLinks = await ctx.db
-          .query("drugEntityLinks")
-          .withIndex("by_drug", (q) => q.eq("drugId", d._id))
-          .collect();
-        const linkedCompanies = await Promise.all(
-          entityLinks.map(async (link) => ({
-            link,
-            company: link.companyId ? await ctx.db.get(link.companyId) : null,
-          }))
-        );
-        const primaryManufacturer =
-          linkedCompanies.find(
-            ({ link }) => link.relationshipType === "manufacturer" && link.isPrimary
-          ) ??
-          linkedCompanies.find(
-            ({ link }) => link.relationshipType === "manufacturer"
-          );
-        const primaryMah =
-          linkedCompanies.find(
-            ({ link }) =>
-              link.relationshipType === "market_authorization_holder" &&
-              link.isPrimary
-          ) ??
-          linkedCompanies.find(
-            ({ link }) => link.relationshipType === "market_authorization_holder"
-          );
-        return {
-          ...d,
-          companyName: company?.name ?? d.manufacturerName ?? "—",
-          primaryManufacturerName:
-            primaryManufacturer?.company?.name ??
-            primaryManufacturer?.link.entityName ??
-            d.primaryManufacturerName ??
-            d.manufacturerName ??
-            "—",
-          primaryMarketAuthorizationHolderName:
-            primaryMah?.company?.name ??
-            primaryMah?.link.entityName ??
-            d.primaryMarketAuthorizationHolderName ??
-            "—",
-        };
-      })
-    );
+    return Promise.all(filtered.map(async (d) => buildEnrichedDrug(ctx, d)));
   },
 });
 
 export const listByCompany = query({
   args: { companyId: v.id("companies") },
-  handler: async (ctx, { companyId }) =>
-    ctx.db
+  handler: async (ctx, { companyId }) => {
+    const direct = await ctx.db
       .query("drugs")
       .withIndex("by_company", (q) => q.eq("companyId", companyId))
-      .collect(),
+      .collect();
+    const linked = await ctx.runQuery(api.drugEntityLinks.listByCompany, { companyId });
+
+    const byDrugId = new Map(direct.map((drug) => [drug._id, drug]));
+    for (const entry of linked) {
+      if (entry.drug) {
+        byDrugId.set(entry.drug._id, entry.drug);
+      }
+    }
+
+    const enriched = await Promise.all(
+      [...byDrugId.values()].map(async (drug) => buildEnrichedDrug(ctx, drug))
+    );
+
+    return enriched.sort((left, right) => left.name.localeCompare(right.name));
+  },
 });
 
 export const get = query({
@@ -144,6 +167,103 @@ export const create = mutation({
     ctx.db.insert("drugs", { ...args, status: "active" }),
 });
 
+export const createWithEntities = mutation({
+  args: {
+    companyId: v.optional(v.id("companies")),
+    manufacturerName: v.optional(v.string()),
+    primaryManufacturerName: v.optional(v.string()),
+    primaryMarketAuthorizationHolderName: v.optional(v.string()),
+    name: v.string(),
+    genericName: v.string(),
+    therapeuticArea: v.string(),
+    indication: v.string(),
+    mechanism: v.optional(v.string()),
+    approvalStatus: v.union(
+      v.literal("approved"),
+      v.literal("pending"),
+      v.literal("withdrawn")
+    ),
+    approvalDate: v.optional(v.string()),
+    category: v.optional(v.string()),
+    patentExpiryYear: v.optional(v.number()),
+    patentExpirySource: v.optional(v.string()),
+    emaApprovalDate: v.optional(v.string()),
+    menaRegistrationCount: v.optional(v.number()),
+    patentUrgencyScore: v.optional(v.number()),
+    entityLinks: v.optional(
+      v.array(
+        v.object({
+          companyId: v.optional(v.id("companies")),
+          entityName: v.optional(v.string()),
+          relationshipType: v.union(
+            v.literal("manufacturer"),
+            v.literal("market_authorization_holder"),
+            v.literal("licensor"),
+            v.literal("regional_partner"),
+            v.literal("distributor")
+          ),
+          jurisdiction: v.optional(v.string()),
+          isPrimary: v.boolean(),
+          notes: v.optional(v.string()),
+          source: v.optional(v.string()),
+          url: v.optional(v.string()),
+          confidence: v.union(
+            v.literal("confirmed"),
+            v.literal("likely"),
+            v.literal("inferred")
+          ),
+        })
+      )
+    ),
+  },
+  handler: async (ctx, { entityLinks, ...args }) => {
+    const drugId = await ctx.db.insert("drugs", { ...args, status: "active" });
+
+    const links = normalizeDrugEntityLinks([
+      ...(entityLinks ?? []),
+      ...(args.companyId
+        ? [
+            {
+              companyId: args.companyId,
+              relationshipType: "manufacturer" as const,
+              isPrimary: true,
+              confidence: "confirmed" as const,
+            },
+          ]
+        : []),
+      ...(args.primaryManufacturerName && !args.companyId
+        ? [
+            {
+              entityName: args.primaryManufacturerName,
+              relationshipType: "manufacturer" as const,
+              isPrimary: true,
+              confidence: "likely" as const,
+            },
+          ]
+        : []),
+      ...(args.primaryMarketAuthorizationHolderName
+        ? [
+            {
+              entityName: args.primaryMarketAuthorizationHolderName,
+              relationshipType: "market_authorization_holder" as const,
+              isPrimary: true,
+              confidence: "likely" as const,
+            },
+          ]
+        : []),
+    ]);
+
+    if (links.length > 0) {
+      await ctx.runMutation(api.drugEntityLinks.replaceForDrug, {
+        drugId,
+        links,
+      });
+    }
+
+    return drugId;
+  },
+});
+
 export const update = mutation({
   args: {
     id: v.id("drugs"),
@@ -173,6 +293,69 @@ export const update = mutation({
   },
   handler: async (ctx, { id, ...patch }) => {
     await ctx.db.patch(id, patch);
+  },
+});
+
+export const updateWithEntities = mutation({
+  args: {
+    id: v.id("drugs"),
+    name: v.optional(v.string()),
+    genericName: v.optional(v.string()),
+    therapeuticArea: v.optional(v.string()),
+    indication: v.optional(v.string()),
+    mechanism: v.optional(v.string()),
+    approvalStatus: v.optional(
+      v.union(
+        v.literal("approved"),
+        v.literal("pending"),
+        v.literal("withdrawn")
+      )
+    ),
+    approvalDate: v.optional(v.string()),
+    category: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("active"), v.literal("inactive"))),
+    manufacturerName: v.optional(v.string()),
+    primaryManufacturerName: v.optional(v.string()),
+    primaryMarketAuthorizationHolderName: v.optional(v.string()),
+    patentExpiryYear: v.optional(v.number()),
+    patentExpirySource: v.optional(v.string()),
+    emaApprovalDate: v.optional(v.string()),
+    menaRegistrationCount: v.optional(v.number()),
+    patentUrgencyScore: v.optional(v.number()),
+    entityLinks: v.optional(
+      v.array(
+        v.object({
+          companyId: v.optional(v.id("companies")),
+          entityName: v.optional(v.string()),
+          relationshipType: v.union(
+            v.literal("manufacturer"),
+            v.literal("market_authorization_holder"),
+            v.literal("licensor"),
+            v.literal("regional_partner"),
+            v.literal("distributor")
+          ),
+          jurisdiction: v.optional(v.string()),
+          isPrimary: v.boolean(),
+          notes: v.optional(v.string()),
+          source: v.optional(v.string()),
+          url: v.optional(v.string()),
+          confidence: v.union(
+            v.literal("confirmed"),
+            v.literal("likely"),
+            v.literal("inferred")
+          ),
+        })
+      )
+    ),
+  },
+  handler: async (ctx, { id, entityLinks, ...patch }) => {
+    await ctx.db.patch(id, patch);
+    if (entityLinks) {
+      await ctx.runMutation(api.drugEntityLinks.replaceForDrug, {
+        drugId: id,
+        links: normalizeDrugEntityLinks(entityLinks),
+      });
+    }
   },
 });
 

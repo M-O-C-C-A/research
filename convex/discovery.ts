@@ -2,6 +2,7 @@
 
 import { action, ActionCtx } from "./_generated/server";
 import { api } from "./_generated/api";
+import { normalizeDrugEntityLinks } from "./drugEntityLinkUtils";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import {
@@ -652,7 +653,7 @@ ${researchContext ?? "None provided"}`,
 
       const existing = await ctx.runQuery(api.companies.list, {});
       const existingNames = new Set(
-        existing.map((company) => company.name.toLowerCase().trim())
+        existing.map((company: { name: string }) => company.name.toLowerCase().trim())
       );
 
       let newCount = 0;
@@ -863,7 +864,9 @@ export const findDrugsForCompany = action({
         companyId,
       });
       const existingInn = new Set(
-        existing.map((drug) => drug.genericName.toLowerCase().trim())
+        existing.map((drug: { genericName: string }) =>
+          drug.genericName.toLowerCase().trim()
+        )
       );
 
       let newCount = 0;
@@ -883,7 +886,72 @@ export const findDrugsForCompany = action({
         const menaCount = (drug.menaRegistrations ?? []).length;
         const patentUrgency = computePatentUrgencyScore(drug.patentExpiryYear ?? null);
 
-        const createdDrugId = await ctx.runMutation(api.drugs.create, {
+        const rawLinks: Array<{
+          companyId?: Id<"companies">;
+          entityName?: string;
+          relationshipType: "manufacturer" | "market_authorization_holder" | "licensor";
+          isPrimary: boolean;
+          confidence: "likely";
+          notes?: string;
+        }> = [];
+
+        if (
+          drug.relationshipToCompany === "manufacturer" ||
+          drug.relationshipToCompany === "both" ||
+          !drug.relationshipToCompany
+        ) {
+          rawLinks.push({
+            companyId,
+            relationshipType: "manufacturer",
+            isPrimary: true,
+            confidence: "likely",
+          });
+        }
+        if (
+          drug.relationshipToCompany === "market_authorization_holder" ||
+          drug.relationshipToCompany === "both"
+        ) {
+          rawLinks.push({
+            companyId,
+            relationshipType: "market_authorization_holder",
+            isPrimary: true,
+            confidence: "likely",
+          });
+        }
+        if (drug.relationshipToCompany === "licensor") {
+          rawLinks.push({
+            companyId,
+            relationshipType: "licensor",
+            isPrimary: true,
+            confidence: "likely",
+          });
+        }
+        if (
+          drug.marketAuthorizationHolderName &&
+          drug.marketAuthorizationHolderName.toLowerCase() !== company.name.toLowerCase()
+        ) {
+          rawLinks.push({
+            entityName: drug.marketAuthorizationHolderName,
+            relationshipType: "market_authorization_holder",
+            isPrimary: true,
+            confidence: "likely",
+            notes: `${company.name} appears related to the product, but MAH/commercial control may sit with another entity.`,
+          });
+        }
+        if (
+          drug.manufacturerEntityName &&
+          drug.manufacturerEntityName.toLowerCase() !== company.name.toLowerCase()
+        ) {
+          rawLinks.push({
+            entityName: drug.manufacturerEntityName,
+            relationshipType: "manufacturer",
+            isPrimary: true,
+            confidence: "likely",
+            notes: `${company.name} appears related to the product, but manufacturing may sit with another entity.`,
+          });
+        }
+
+        await ctx.runMutation(api.drugs.createWithEntities, {
           companyId,
           name: drug.name,
           genericName: drug.genericName,
@@ -902,76 +970,7 @@ export const findDrugsForCompany = action({
           emaApprovalDate: drug.emaApprovalDate ?? undefined,
           menaRegistrationCount: menaCount,
           patentUrgencyScore: patentUrgency,
-        });
-
-        const linkEntries: Array<{
-          companyId?: Id<"companies">;
-          entityName?: string;
-          relationshipType: "manufacturer" | "market_authorization_holder" | "licensor";
-          isPrimary: boolean;
-          confidence: "likely";
-          notes?: string;
-        }> = [];
-
-        if (
-          drug.relationshipToCompany === "manufacturer" ||
-          drug.relationshipToCompany === "both" ||
-          !drug.relationshipToCompany
-        ) {
-          linkEntries.push({
-            companyId,
-            relationshipType: "manufacturer",
-            isPrimary: true,
-            confidence: "likely",
-          });
-        }
-        if (
-          drug.relationshipToCompany === "market_authorization_holder" ||
-          drug.relationshipToCompany === "both"
-        ) {
-          linkEntries.push({
-            companyId,
-            relationshipType: "market_authorization_holder",
-            isPrimary: true,
-            confidence: "likely",
-          });
-        }
-        if (drug.relationshipToCompany === "licensor") {
-          linkEntries.push({
-            companyId,
-            relationshipType: "licensor",
-            isPrimary: true,
-            confidence: "likely",
-          });
-        }
-        if (
-          drug.marketAuthorizationHolderName &&
-          drug.marketAuthorizationHolderName.toLowerCase() !== company.name.toLowerCase()
-        ) {
-          linkEntries.push({
-            entityName: drug.marketAuthorizationHolderName,
-            relationshipType: "market_authorization_holder",
-            isPrimary: true,
-            confidence: "likely",
-            notes: `${company.name} appears related to the product, but MAH/commercial control may sit with another entity.`,
-          });
-        }
-        if (
-          drug.manufacturerEntityName &&
-          drug.manufacturerEntityName.toLowerCase() !== company.name.toLowerCase()
-        ) {
-          linkEntries.push({
-            entityName: drug.manufacturerEntityName,
-            relationshipType: "manufacturer",
-            isPrimary: true,
-            confidence: "likely",
-            notes: `${company.name} appears related to the product, but manufacturing may sit with another entity.`,
-          });
-        }
-
-        await ctx.runMutation(api.drugEntityLinks.replaceForDrug, {
-          drugId: createdDrugId,
-          links: linkEntries,
+          entityLinks: normalizeDrugEntityLinks(rawLinks),
         });
 
         existingInn.add(innLower);
@@ -1214,7 +1213,9 @@ export const scoreCompanyForBD = action({
     if (!company) throw new Error("Company not found");
 
     const drugs = await ctx.runQuery(api.drugs.listByCompany, { companyId });
-    const drugList = drugs.map((d) => `${d.name} (${d.genericName})`).join(", ");
+    const drugList = drugs
+      .map((d: { name: string; genericName: string }) => `${d.name} (${d.genericName})`)
+      .join(", ");
 
     const client = createResearchClient(process.env.OPENAI_API_KEY!);
 
@@ -1447,11 +1448,14 @@ Return company name, EU HQ country, website if known, and 1-3 source URLs.`,
       // ── Step 3: Deduplicate, insert, and link to gap ─────────────────────────
       const existing = await ctx.runQuery(api.companies.list, {});
       const existingNames = new Set(
-        existing.map((c) => c.name.toLowerCase().trim())
+        existing.map((c: { name: string }) => c.name.toLowerCase().trim())
       );
       // Also build an ID map so we can link existing companies to the gap
-      const existingByName = new Map(
-        existing.map((c) => [c.name.toLowerCase().trim(), c._id])
+      const existingByName = new Map<string, Id<"companies">>(
+        existing.map((c: { name: string; _id: Id<"companies"> }) => [
+          c.name.toLowerCase().trim(),
+          c._id,
+        ])
       );
 
       let newCount = 0;

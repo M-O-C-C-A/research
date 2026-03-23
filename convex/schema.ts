@@ -233,7 +233,8 @@ export default defineSchema({
   })
     .index("by_drug", ["drugId"])
     .index("by_company", ["companyId"])
-    .index("by_drug_and_relationship_type", ["drugId", "relationshipType"]),
+    .index("by_drug_and_relationship_type", ["drugId", "relationshipType"])
+    .index("by_company_and_relationship_type", ["companyId", "relationshipType"]),
 
   opportunities: defineTable({
     drugId: v.id("drugs"),
@@ -373,6 +374,7 @@ export default defineSchema({
       v.literal("low"),
     )),
     status: v.union(v.literal("active"), v.literal("archived")),
+    dedupeKey: v.optional(v.string()),
     sources: v.optional(v.array(v.object({ title: v.string(), url: v.string() }))),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -382,7 +384,9 @@ export default defineSchema({
     .index("by_therapeutic_area", ["therapeuticArea"])
     .index("by_gap_score", ["gapScore"])
     .index("by_status", ["status"])
-    .index("by_created", ["createdAt"]),
+    .index("by_created", ["createdAt"])
+    .index("by_dedupe_key", ["dedupeKey"])
+    .index("by_status_and_dedupe_key", ["status", "dedupeKey"]),
 
   gapCompanyMatches: defineTable({
     gapOpportunityId: v.id("gapOpportunities"),

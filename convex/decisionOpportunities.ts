@@ -167,9 +167,13 @@ function chooseBestDrug(args: {
   company: Doc<"companies">;
   gap: Doc<"gapOpportunities">;
   drugs: Doc<"drugs">[];
+  companyLinkedDrugIds: Set<Id<"drugs">>;
 }) {
   const candidateDrugs = args.drugs
-    .filter((drug) => drug.companyId === args.company._id)
+    .filter(
+      (drug) =>
+        args.companyLinkedDrugIds.has(drug._id) || drug.companyId === args.company._id
+    )
     .filter(
       (drug) =>
         args.gap.linkedDrugIds?.includes(drug._id) ||
@@ -453,18 +457,27 @@ export const archiveUntouched = mutation({
 export const rebuildFromResearch = action({
   args: {},
   handler: async (ctx): Promise<{ rebuilt: number; focusMarkets: string[] }> => {
-    const [companies, drugs, gaps, matches, reports] = await Promise.all([
+    const [companies, drugs, gaps, matches, reports, entityLinks] = await Promise.all([
       ctx.runQuery(api.companies.list, {}),
       ctx.runQuery(api.drugs.list, {}),
       ctx.runQuery(api.gapOpportunities.list, { status: "active" }),
       ctx.runQuery(api.gapCompanyMatches.listAllForEngine, {}),
       ctx.runQuery(api.reports.listAllForEngine, {}),
+      ctx.runQuery(api.drugEntityLinks.listAllForEngine, {}),
     ]);
 
     const companiesById = new Map(companies.map((item) => [item._id, item]));
     const gapsById = new Map(gaps.map((item) => [item._id, item]));
     const reportByDrugId = new Map(reports.map((item) => [item.drugId, item]));
+    const drugIdsByCompanyId = new Map<Id<"companies">, Set<Id<"drugs">>>();
     const touchedIds: Id<"decisionOpportunities">[] = [];
+
+    for (const link of entityLinks) {
+      if (!link.companyId) continue;
+      const current = drugIdsByCompanyId.get(link.companyId) ?? new Set<Id<"drugs">>();
+      current.add(link.drugId);
+      drugIdsByCompanyId.set(link.companyId, current);
+    }
 
     for (const drug of drugs) {
       const aliases = uniqBy(
@@ -524,7 +537,12 @@ export const rebuildFromResearch = action({
       const gap = gapsById.get(match.gapOpportunityId);
       if (!company || !gap) continue;
 
-      const drug = chooseBestDrug({ company, gap, drugs });
+      const drug = chooseBestDrug({
+        company,
+        gap,
+        drugs,
+        companyLinkedDrugIds: drugIdsByCompanyId.get(company._id) ?? new Set<Id<"drugs">>(),
+      });
       if (!drug) continue;
 
       const evidence = collectEvidence({

@@ -35,15 +35,23 @@ export async function linkRelevantDrugsToGap(args: {
   });
   const linkedDrugIds = new Set(args.gap.linkedDrugIds ?? []);
   const candidates = drugs
-    .map((drug) => ({
+    .map((drug: Doc<"drugs">) => ({
       drug,
       score: overlapScore(args.gap, drug),
     }))
-    .filter((entry) => entry.score > 0 && !linkedDrugIds.has(entry.drug._id))
-    .sort((left, right) => {
+    .filter(
+      (entry: { drug: Doc<"drugs">; score: number }) =>
+        entry.score > 0 && !linkedDrugIds.has(entry.drug._id)
+    )
+    .sort(
+      (
+        left: { drug: Doc<"drugs">; score: number },
+        right: { drug: Doc<"drugs">; score: number }
+      ) => {
       if (left.score !== right.score) return right.score - left.score;
       return (right.drug.patentUrgencyScore ?? 0) - (left.drug.patentUrgencyScore ?? 0);
-    })
+      }
+    )
     .slice(0, 5);
 
   for (const entry of candidates) {

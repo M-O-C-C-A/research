@@ -32,7 +32,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
       suppressHydrationWarning
     >
-      <body className="min-h-full flex flex-col bg-zinc-950 font-sans selection:bg-zinc-500/30">
+      <body
+        className="min-h-full flex flex-col bg-zinc-950 font-sans selection:bg-zinc-500/30"
+        suppressHydrationWarning
+      >
         <ConvexClientProvider>
           <NavBar />
           <div className="flex-1 mt-16">{children}</div>

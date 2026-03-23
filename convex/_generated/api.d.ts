@@ -18,6 +18,7 @@ import type * as decisionOpportunityEngine from "../decisionOpportunityEngine.js
 import type * as discovery from "../discovery.js";
 import type * as discoveryJobs from "../discoveryJobs.js";
 import type * as distributorFit from "../distributorFit.js";
+import type * as drugEntityLinkUtils from "../drugEntityLinkUtils.js";
 import type * as drugEntityLinks from "../drugEntityLinks.js";
 import type * as drugs from "../drugs.js";
 import type * as fileProcessing from "../fileProcessing.js";
@@ -25,12 +26,14 @@ import type * as files from "../files.js";
 import type * as gapAnalysis from "../gapAnalysis.js";
 import type * as gapCompanyMatches from "../gapCompanyMatches.js";
 import type * as gapFlow from "../gapFlow.js";
+import type * as gapIdentity from "../gapIdentity.js";
 import type * as gapOpportunities from "../gapOpportunities.js";
 import type * as openaiResearch from "../openaiResearch.js";
 import type * as opportunities from "../opportunities.js";
 import type * as reports from "../reports.js";
 import type * as research from "../research.js";
 import type * as researchInputs from "../researchInputs.js";
+import type * as researchLifecycle from "../researchLifecycle.js";
 
 import type {
   ApiFromModules,
@@ -49,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   discovery: typeof discovery;
   discoveryJobs: typeof discoveryJobs;
   distributorFit: typeof distributorFit;
+  drugEntityLinkUtils: typeof drugEntityLinkUtils;
   drugEntityLinks: typeof drugEntityLinks;
   drugs: typeof drugs;
   fileProcessing: typeof fileProcessing;
@@ -56,12 +60,14 @@ declare const fullApi: ApiFromModules<{
   gapAnalysis: typeof gapAnalysis;
   gapCompanyMatches: typeof gapCompanyMatches;
   gapFlow: typeof gapFlow;
+  gapIdentity: typeof gapIdentity;
   gapOpportunities: typeof gapOpportunities;
   openaiResearch: typeof openaiResearch;
   opportunities: typeof opportunities;
   reports: typeof reports;
   research: typeof research;
   researchInputs: typeof researchInputs;
+  researchLifecycle: typeof researchLifecycle;
 }>;
 
 /**

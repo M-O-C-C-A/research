@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { Id } from "../../../convex/_generated/dataModel";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   PIPELINE_STAGE_BADGES,
   PIPELINE_STAGE_LABELS,
@@ -35,7 +36,7 @@ import {
   priorityTierLabel,
 } from "@/lib/distributorFit";
 
-type Gap = {
+export type Gap = {
   _id: Id<"gapOpportunities">;
   therapeuticArea: string;
   indication: string;
@@ -60,7 +61,7 @@ const LOG_LEVEL_COLOR: Record<string, string> = {
   error: "text-red-400",
 };
 
-function GapScoreBadge({ score }: { score: number }) {
+export function GapScoreBadge({ score }: { score: number }) {
   const color =
     score >= 8
       ? "bg-red-500/20 text-red-300 border border-red-500/30"
@@ -77,7 +78,7 @@ function GapScoreBadge({ score }: { score: number }) {
   );
 }
 
-function FeasibilityBadge({ level }: { level?: "high" | "medium" | "low" }) {
+export function FeasibilityBadge({ level }: { level?: "high" | "medium" | "low" }) {
   if (!level) return null;
   const styles = {
     high: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
@@ -94,7 +95,7 @@ function FeasibilityBadge({ level }: { level?: "high" | "medium" | "low" }) {
 // ──────────────────────────────────────────────────────────────
 // Supplier Search Dialog (modal overlay)
 // ──────────────────────────────────────────────────────────────
-function SupplierSearchDialog({
+export function SupplierSearchDialog({
   gap,
   onClose,
 }: {
@@ -273,7 +274,7 @@ function SupplierSearchDialog({
 // ──────────────────────────────────────────────────────────────
 // Gap Detail Slide-Over
 // ──────────────────────────────────────────────────────────────
-function GapDetailPanel({
+export function GapDetailPanel({
   gap,
   onClose,
   onArchive,
@@ -658,13 +659,13 @@ function GapOpportunityCard({
 // Main Dashboard
 // ──────────────────────────────────────────────────────────────
 export function GapsDashboard() {
+  const router = useRouter();
   const [selectedTA, setSelectedTA] = useState<string>("");
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [minScore, setMinScore] = useState<number>(0);
   const [isRunningFlow, setIsRunningFlow] = useState(false);
   const [analysisScope, setAnalysisScope] = useState<"all_areas" | "use_filters">("all_areas");
   const [lastFlowJobId, setLastFlowJobId] = useState<Id<"discoveryJobs"> | null>(null);
-  const [activeGap, setActiveGap] = useState<Gap | null>(null);
 
   const gaps = useQuery(api.gapOpportunities.list, {
     therapeuticArea: selectedTA || undefined,
@@ -705,15 +706,6 @@ export function GapsDashboard() {
 
   return (
     <>
-      {/* Gap detail slide-over */}
-      {activeGap && (
-        <GapDetailPanel
-          gap={activeGap}
-          onClose={() => setActiveGap(null)}
-          onArchive={handleArchive}
-        />
-      )}
-
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
         <div className="flex items-start justify-between mb-6 gap-4">
           <div>
@@ -923,7 +915,7 @@ export function GapsDashboard() {
                   <GapOpportunityCard
                     key={gap._id}
                     gap={gap}
-                    onClick={() => setActiveGap(gap)}
+                    onClick={() => router.push(`/gaps/${gap._id}`)}
                     onArchive={handleArchive}
                   />
                 ))}

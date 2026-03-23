@@ -39,6 +39,18 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
 
   if (!drug) return null;
 
+  const primaryEntity =
+    entityLinks?.find((entry) => entry.relationshipType === "manufacturer" && entry.isPrimary) ??
+    entityLinks?.find((entry) => entry.relationshipType === "manufacturer") ??
+    entityLinks?.find(
+      (entry) =>
+        entry.relationshipType === "market_authorization_holder" && entry.isPrimary
+    ) ??
+    entityLinks?.[0];
+  const primaryEntityLabel =
+    primaryEntity?.company?.name ?? primaryEntity?.entityName ?? company?.name ?? drug.manufacturerName;
+  const primaryEntityCountry = primaryEntity?.company?.country ?? company?.country;
+
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6 mb-6">
       <div className="flex items-start justify-between gap-4 mb-4">
@@ -54,17 +66,16 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
           </div>
           <p className="text-sm text-zinc-500">
             {drug.genericName}
-            {company ? (
+            {primaryEntityLabel ? (
               <span>
                 {" · "}
-                <span className="text-zinc-400">{company.name}</span>
-                {" · "}
-                {company.country}
-              </span>
-            ) : drug.manufacturerName ? (
-              <span>
-                {" · "}
-                <span className="text-zinc-400">{drug.manufacturerName}</span>
+                <span className="text-zinc-400">{primaryEntityLabel}</span>
+                {primaryEntityCountry ? (
+                  <>
+                    {" · "}
+                    {primaryEntityCountry}
+                  </>
+                ) : null}
               </span>
             ) : null}
           </p>
@@ -98,7 +109,14 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
       <div className="mt-4 grid gap-4 border-t border-zinc-800 pt-4 sm:grid-cols-2">
         <div>
           <p className="text-xs text-zinc-600 uppercase tracking-wider mb-1.5">Primary Manufacturer</p>
-          <p className="text-sm text-zinc-300">{drug.primaryManufacturerName ?? company?.name ?? drug.manufacturerName ?? "—"}</p>
+          <p className="text-sm text-zinc-300">
+            {drug.primaryManufacturerName ??
+              entityLinks?.find((entry) => entry.relationshipType === "manufacturer" && entry.isPrimary)?.company?.name ??
+              entityLinks?.find((entry) => entry.relationshipType === "manufacturer" && entry.isPrimary)?.entityName ??
+              company?.name ??
+              drug.manufacturerName ??
+              "—"}
+          </p>
         </div>
         <div>
           <p className="text-xs text-zinc-600 uppercase tracking-wider mb-1.5">MAH / Commercial Owner</p>

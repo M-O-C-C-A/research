@@ -1,5 +1,6 @@
 import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
+import { normalizeDrugEntityLinks } from "./drugEntityLinkUtils";
 
 const relationshipTypeValidator = v.union(
   v.literal("manufacturer"),
@@ -32,6 +33,40 @@ export const listByDrug = query({
   },
 });
 
+export const listByCompany = query({
+  args: {
+    companyId: v.id("companies"),
+    relationshipType: v.optional(relationshipTypeValidator),
+  },
+  handler: async (ctx, { companyId, relationshipType }) => {
+    const links = relationshipType
+      ? await ctx.db
+          .query("drugEntityLinks")
+          .withIndex("by_company_and_relationship_type", (q) =>
+            q.eq("companyId", companyId).eq("relationshipType", relationshipType)
+          )
+          .collect()
+      : await ctx.db
+          .query("drugEntityLinks")
+          .withIndex("by_company", (q) => q.eq("companyId", companyId))
+          .collect();
+
+    return await Promise.all(
+      links.map(async (link) => ({
+        ...link,
+        drug: await ctx.db.get(link.drugId),
+      }))
+    );
+  },
+});
+
+export const listAllForEngine = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("drugEntityLinks").collect();
+  },
+});
+
 export const replaceForDrug = mutation({
   args: {
     drugId: v.id("drugs"),
@@ -60,7 +95,8 @@ export const replaceForDrug = mutation({
     }
 
     const now = Date.now();
-    for (const link of links) {
+    const normalizedLinks = normalizeDrugEntityLinks(links);
+    for (const link of normalizedLinks) {
       if (!link.companyId && !link.entityName) {
         continue;
       }

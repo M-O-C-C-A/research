@@ -10,6 +10,7 @@ import {
   GapScoreBadge,
   FeasibilityBadge,
   SupplierSearchDialog,
+  EvidenceEnrichmentDialog,
   ValidationStatusBadge,
   formatGapType,
 } from "@/components/gaps/GapsDashboard";
@@ -17,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
   Building2,
+  FlaskConical,
   MapPin,
   Search,
   Star,
@@ -32,6 +34,7 @@ import { normalizeExternalUrl } from "@/lib/urlUtils";
 
 export function GapDetailPage({ gapId }: { gapId: string }) {
   const [showSupplierDialog, setShowSupplierDialog] = useState(false);
+  const [showEnrichDialog, setShowEnrichDialog] = useState(false);
   const gap = useQuery(api.gapOpportunities.get, {
     id: gapId as Id<"gapOpportunities">,
   });
@@ -65,6 +68,12 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
         <SupplierSearchDialog
           gap={typedGap}
           onClose={() => setShowSupplierDialog(false)}
+        />
+      )}
+      {showEnrichDialog && (
+        <EvidenceEnrichmentDialog
+          gap={typedGap}
+          onClose={() => setShowEnrichDialog(false)}
         />
       )}
 
@@ -106,6 +115,15 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
               >
                 <Search className="mr-1.5 h-3.5 w-3.5" />
                 {supplierCount > 0 ? "Search Again" : "Find Suppliers"}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10"
+                onClick={() => setShowEnrichDialog(true)}
+              >
+                <FlaskConical className="mr-1.5 h-3.5 w-3.5" />
+                {typedGap.lastEnrichedAt ? "Re-enrich Evidence" : "Enrich Evidence"}
               </Button>
               <Button
                 size="sm"

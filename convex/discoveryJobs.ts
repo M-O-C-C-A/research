@@ -48,6 +48,7 @@ export const create = mutation({
       v.literal("gap_analysis_flow"),
       v.literal("demand_signals"),
       v.literal("prospect_research"),
+      v.literal("gap_evidence_enrichment"),
     ),
     companyId: v.optional(v.id("companies")),
     companyName: v.optional(v.string()),

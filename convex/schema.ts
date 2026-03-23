@@ -319,6 +319,7 @@ export default defineSchema({
       v.literal("gap_analysis_flow"),
       v.literal("demand_signals"),
       v.literal("prospect_research"),
+      v.literal("gap_evidence_enrichment"),
     ),
     status: v.union(
       v.literal("running"),
@@ -424,6 +425,8 @@ export default defineSchema({
         v.literal("tender_portal"),
         v.literal("who_or_gbd"),
         v.literal("market_report"),
+        v.literal("pubmed"),
+        v.literal("clinical_trial"),
       ),
       country: v.optional(v.string()),
       productOrClass: v.optional(v.string()),
@@ -435,6 +438,7 @@ export default defineSchema({
     }))),
     createdAt: v.number(),
     updatedAt: v.number(),
+    lastEnrichedAt: v.optional(v.number()),
     linkedDrugIds: v.optional(v.array(v.id("drugs"))),
     linkedCompanyIds: v.optional(v.array(v.id("companies"))),
   })

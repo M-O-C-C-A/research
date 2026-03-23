@@ -57,6 +57,7 @@ export type Gap = {
   regulatoryFeasibility?: "high" | "medium" | "low";
   linkedCompanyIds?: Id<"companies">[];
   linkedDrugIds?: Id<"drugs">[];
+  lastEnrichedAt?: number;
   sources?: { title: string; url: string }[];
   evidenceItems?: Array<{
     claim: string;
@@ -68,7 +69,9 @@ export type Gap = {
       | "government_publication"
       | "tender_portal"
       | "who_or_gbd"
-      | "market_report";
+      | "market_report"
+      | "pubmed"
+      | "clinical_trial";
     country?: string;
     productOrClass?: string;
     confidence: "confirmed" | "likely" | "inferred";
@@ -303,6 +306,164 @@ export function SupplierSearchDialog({
           {phase === "running" && (
             <Button variant="outline" size="sm" disabled className="border-zinc-700 text-zinc-500">
               <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Searching…
+            </Button>
+          )}
+          {phase === "done" && (
+            <Button size="sm" className="bg-zinc-700 hover:bg-zinc-600 text-white" onClick={onClose}>Close</Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Evidence Enrichment Dialog
+// ──────────────────────────────────────────────────────────────
+export function EvidenceEnrichmentDialog({
+  gap,
+  onClose,
+}: {
+  gap: Gap;
+  onClose: () => void;
+}) {
+  const [jobId, setJobId] = useState<Id<"discoveryJobs"> | null>(null);
+  const [isLaunching, setIsLaunching] = useState(false);
+  const logEndRef = useRef<HTMLDivElement>(null);
+
+  const enrichGap = useAction(api.evidenceEnrichment.enrichGapWithEvidence);
+  const job = useQuery(
+    api.discoveryJobs.get,
+    jobId ? { id: jobId } : "skip"
+  );
+
+  useEffect(() => {
+    logEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [job?.log?.length]);
+
+  async function handleLaunch() {
+    setIsLaunching(true);
+    try {
+      const id = await enrichGap({ gapOpportunityId: gap._id });
+      setJobId(id as Id<"discoveryJobs">);
+    } catch {
+      setIsLaunching(false);
+    }
+  }
+
+  const isDone = job?.status === "completed" || job?.status === "error";
+  const phase: "confirm" | "running" | "done" = !jobId
+    ? "confirm"
+    : isDone
+      ? "done"
+      : "running";
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-black/70"
+        onClick={phase !== "running" ? onClose : undefined}
+      />
+      <div className="relative w-full max-w-lg rounded-xl border border-zinc-700 bg-zinc-900 shadow-2xl">
+        <div className="flex items-start justify-between p-5 border-b border-zinc-800">
+          <div className="flex-1 min-w-0">
+            <h2 className="text-base font-semibold text-white">
+              {phase === "confirm" && "Enrich with Live Evidence"}
+              {phase === "running" && "Fetching evidence…"}
+              {phase === "done" &&
+                (job?.status === "completed" ? "Evidence enriched" : "Enrichment failed")}
+            </h2>
+            <p className="text-xs text-zinc-500 mt-0.5 truncate">{gap.indication}</p>
+          </div>
+          {phase !== "running" && (
+            <button
+              onClick={onClose}
+              className="ml-3 shrink-0 p-1 text-zinc-600 hover:text-zinc-400 transition-colors"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="p-5 space-y-4">
+          {phase === "confirm" && (
+            <>
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                KEMEDICA will query two live databases to add citable evidence to this gap:
+              </p>
+              <div className="rounded-lg bg-zinc-800 p-4 space-y-3 text-sm">
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-xs text-blue-300 border border-blue-500/20">PubMed</span>
+                  <p className="text-zinc-300">Disease burden &amp; prevalence literature for {gap.indication} in {gap.targetCountries.slice(0, 3).join(", ")}{gap.targetCountries.length > 3 ? "…" : ""}</p>
+                </div>
+                <div className="flex items-start gap-3">
+                  <span className="mt-0.5 shrink-0 rounded bg-purple-500/10 px-1.5 py-0.5 text-xs text-purple-300 border border-purple-500/20">ClinicalTrials</span>
+                  <p className="text-zinc-300">Active and completed trials for this indication in MENA markets — reveals pipeline competition</p>
+                </div>
+              </div>
+              {gap.lastEnrichedAt && (
+                <p className="text-xs text-zinc-500">
+                  Last enriched: {new Date(gap.lastEnrichedAt).toLocaleDateString()}
+                </p>
+              )}
+            </>
+          )}
+
+          {(phase === "running" || phase === "done") && (
+            <>
+              <div className="flex items-start gap-2.5">
+                {phase === "running" && <Loader2 className="h-4 w-4 text-cyan-400 animate-spin shrink-0 mt-0.5" />}
+                {phase === "done" && job?.status === "completed" && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />}
+                {phase === "done" && job?.status === "error" && <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />}
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  {phase === "running" && "Querying PubMed and ClinicalTrials.gov — usually takes 10–20 seconds…"}
+                  {phase === "done" && job?.status === "completed" &&
+                    (job.summary ?? `Added ${job.newItemsFound ?? 0} evidence item${(job.newItemsFound ?? 0) !== 1 ? "s" : ""}.`)}
+                  {phase === "done" && job?.status === "error" && (job.errorMessage ?? "The enrichment encountered an error.")}
+                </p>
+              </div>
+
+              {job?.log && job.log.length > 0 && (
+                <div className="rounded-lg bg-zinc-950 border border-zinc-800 p-3 max-h-52 overflow-y-auto font-mono text-xs space-y-0.5">
+                  {job.log.map((entry, i) => (
+                    <p key={i} className={LOG_LEVEL_COLOR[entry.level] ?? "text-zinc-400"}>
+                      <span className="text-zinc-700 select-none">
+                        {new Date(entry.timestamp).toLocaleTimeString([], {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}{" "}
+                      </span>
+                      {entry.message}
+                    </p>
+                  ))}
+                  <div ref={logEndRef} />
+                </div>
+              )}
+
+              {phase === "done" && job?.status === "completed" && (
+                <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3">
+                  <p className="text-xs text-emerald-300 leading-relaxed">
+                    Evidence items and sources have been added to this gap. Scroll down on the gap page to see them.
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 px-5 pb-5">
+          {phase === "confirm" && (
+            <>
+              <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800" onClick={onClose}>Cancel</Button>
+              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-white" onClick={handleLaunch} disabled={isLaunching}>
+                {isLaunching ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Launching…</> : <><TrendingUp className="h-3 w-3 mr-1.5" />Enrich Evidence</>}
+              </Button>
+            </>
+          )}
+          {phase === "running" && (
+            <Button variant="outline" size="sm" disabled className="border-zinc-700 text-zinc-500">
+              <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Fetching…
             </Button>
           )}
           {phase === "done" && (

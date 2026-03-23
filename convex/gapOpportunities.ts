@@ -14,37 +14,29 @@ function mergeSources(
   return [...new Map(all.map((item) => [item.url, item])).values()];
 }
 
+type EvidenceSourceKind =
+  | "official_registry"
+  | "ema"
+  | "government_publication"
+  | "tender_portal"
+  | "who_or_gbd"
+  | "market_report"
+  | "pubmed"
+  | "clinical_trial";
+
+type EvidenceItem = {
+  claim: string;
+  title: string;
+  url: string;
+  sourceKind: EvidenceSourceKind;
+  country?: string;
+  productOrClass?: string;
+  confidence: "confirmed" | "likely" | "inferred";
+};
+
 function mergeEvidenceItems(
-  existing?: Array<{
-    claim: string;
-    title: string;
-    url: string;
-    sourceKind:
-      | "official_registry"
-      | "ema"
-      | "government_publication"
-      | "tender_portal"
-      | "who_or_gbd"
-      | "market_report";
-    country?: string;
-    productOrClass?: string;
-    confidence: "confirmed" | "likely" | "inferred";
-  }>,
-  incoming?: Array<{
-    claim: string;
-    title: string;
-    url: string;
-    sourceKind:
-      | "official_registry"
-      | "ema"
-      | "government_publication"
-      | "tender_portal"
-      | "who_or_gbd"
-      | "market_report";
-    country?: string;
-    productOrClass?: string;
-    confidence: "confirmed" | "likely" | "inferred";
-  }>
+  existing?: EvidenceItem[],
+  incoming?: EvidenceItem[]
 ) {
   const all = [...(existing ?? []), ...(incoming ?? [])];
   return [
@@ -167,7 +159,9 @@ export const create = mutation({
         v.literal("government_publication"),
         v.literal("tender_portal"),
         v.literal("who_or_gbd"),
-        v.literal("market_report")
+        v.literal("market_report"),
+        v.literal("pubmed"),
+        v.literal("clinical_trial")
       ),
       country: v.optional(v.string()),
       productOrClass: v.optional(v.string()),
@@ -277,6 +271,7 @@ export const update = mutation({
       v.union(v.literal("high"), v.literal("medium"), v.literal("low"))
     ),
     status: v.optional(v.union(v.literal("active"), v.literal("archived"))),
+    lastEnrichedAt: v.optional(v.number()),
     sources: v.optional(
       v.array(v.object({ title: v.string(), url: v.string() }))
     ),
@@ -290,7 +285,9 @@ export const update = mutation({
         v.literal("government_publication"),
         v.literal("tender_portal"),
         v.literal("who_or_gbd"),
-        v.literal("market_report")
+        v.literal("market_report"),
+        v.literal("pubmed"),
+        v.literal("clinical_trial")
       ),
       country: v.optional(v.string()),
       productOrClass: v.optional(v.string()),

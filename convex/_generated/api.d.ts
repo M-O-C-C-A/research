@@ -21,6 +21,7 @@ import type * as distributorFit from "../distributorFit.js";
 import type * as drugEntityLinkUtils from "../drugEntityLinkUtils.js";
 import type * as drugEntityLinks from "../drugEntityLinks.js";
 import type * as drugs from "../drugs.js";
+import type * as evidenceEnrichment from "../evidenceEnrichment.js";
 import type * as fileProcessing from "../fileProcessing.js";
 import type * as files from "../files.js";
 import type * as gapAnalysis from "../gapAnalysis.js";
@@ -57,6 +58,7 @@ declare const fullApi: ApiFromModules<{
   drugEntityLinkUtils: typeof drugEntityLinkUtils;
   drugEntityLinks: typeof drugEntityLinks;
   drugs: typeof drugs;
+  evidenceEnrichment: typeof evidenceEnrichment;
   fileProcessing: typeof fileProcessing;
   files: typeof files;
   gapAnalysis: typeof gapAnalysis;

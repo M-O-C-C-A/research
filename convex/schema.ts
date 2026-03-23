@@ -362,6 +362,21 @@ export default defineSchema({
     indication: v.string(),
     targetCountries: v.array(v.string()),
     gapScore: v.number(),
+    gapType: v.optional(v.union(
+      v.literal("regulatory_gap"),
+      v.literal("formulary_gap"),
+      v.literal("shortage_gap"),
+      v.literal("tender_pull"),
+      v.literal("channel_whitespace"),
+    )),
+    validationStatus: v.optional(v.union(
+      v.literal("confirmed"),
+      v.literal("likely"),
+      v.literal("insufficient_evidence"),
+    )),
+    evidenceSummary: v.optional(v.string()),
+    verifiedRegisteredCount: v.optional(v.number()),
+    verifiedMissingCount: v.optional(v.number()),
     demandEvidence: v.string(),
     supplyGap: v.string(),
     competitorLandscape: v.string(),
@@ -376,6 +391,26 @@ export default defineSchema({
     status: v.union(v.literal("active"), v.literal("archived")),
     dedupeKey: v.optional(v.string()),
     sources: v.optional(v.array(v.object({ title: v.string(), url: v.string() }))),
+    evidenceItems: v.optional(v.array(v.object({
+      claim: v.string(),
+      title: v.string(),
+      url: v.string(),
+      sourceKind: v.union(
+        v.literal("official_registry"),
+        v.literal("ema"),
+        v.literal("government_publication"),
+        v.literal("tender_portal"),
+        v.literal("who_or_gbd"),
+        v.literal("market_report"),
+      ),
+      country: v.optional(v.string()),
+      productOrClass: v.optional(v.string()),
+      confidence: v.union(
+        v.literal("confirmed"),
+        v.literal("likely"),
+        v.literal("inferred")
+      ),
+    }))),
     createdAt: v.number(),
     updatedAt: v.number(),
     linkedDrugIds: v.optional(v.array(v.id("drugs"))),
@@ -483,6 +518,7 @@ export default defineSchema({
     gapType: v.union(
       v.literal("formulary_gap"),
       v.literal("regulatory_gap"),
+      v.literal("shortage_gap"),
       v.literal("tender_pull"),
       v.literal("channel_whitespace"),
       v.literal("mixed")

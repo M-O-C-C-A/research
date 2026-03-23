@@ -1,16 +1,18 @@
 "use node";
 
-import { action } from "./_generated/server";
-import { api } from "./_generated/api";
+import { action, ActionCtx, internalAction } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import {
   createResearchClient,
   createStructuredWebSearchResponse,
+  ResearchSource,
 } from "./openaiResearch";
 import { KEMEDICA_CONTEXT } from "../src/lib/brand";
 import { MENA_COUNTRIES, THERAPEUTIC_AREAS } from "./constants";
-import { appendFlowLog, runCompanyDrugLinkAndRebuild } from "./gapFlow";
+import { appendFlowLog } from "./gapFlow";
+import { runFindCompaniesForGapJob } from "./discovery";
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -105,6 +107,56 @@ const GAP_SUPPLY_SCHEMA = {
         required: ["country", "description", "sourceUrl", "year"],
       },
     },
+    gapType: {
+      type: "string",
+      enum: [
+        "regulatory_gap",
+        "formulary_gap",
+        "shortage_gap",
+        "tender_pull",
+        "channel_whitespace",
+      ],
+    },
+    validationStatus: {
+      type: "string",
+      enum: ["confirmed", "likely", "insufficient_evidence"],
+    },
+    evidenceSummary: { type: "string" },
+    currentAvailability: {
+      type: "string",
+      enum: ["broad", "limited", "unclear"],
+    },
+    evidenceItems: {
+      type: "array",
+      maxItems: 20,
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          claim: { type: "string" },
+          title: { type: "string" },
+          url: { type: "string" },
+          sourceKind: {
+            type: "string",
+            enum: [
+              "official_registry",
+              "ema",
+              "government_publication",
+              "tender_portal",
+              "who_or_gbd",
+              "market_report",
+            ],
+          },
+          country: { type: ["string", "null"] },
+          productOrClass: { type: ["string", "null"] },
+          confidence: {
+            type: "string",
+            enum: ["confirmed", "likely", "inferred"],
+          },
+        },
+        required: ["claim", "title", "url", "sourceKind", "country", "productOrClass", "confidence"],
+      },
+    },
     gapSummary: { type: "string" },
     gapScore: { type: "number" },
     suggestedDrugClasses: {
@@ -121,6 +173,11 @@ const GAP_SUPPLY_SCHEMA = {
     "registeredDrugs",
     "unregisteredEuDrugs",
     "tenderSignals",
+    "gapType",
+    "validationStatus",
+    "evidenceSummary",
+    "currentAvailability",
+    "evidenceItems",
     "gapSummary",
     "gapScore",
     "suggestedDrugClasses",
@@ -129,6 +186,30 @@ const GAP_SUPPLY_SCHEMA = {
 } as const;
 
 interface SupplyGapResult {
+  gapType:
+    | "regulatory_gap"
+    | "formulary_gap"
+    | "shortage_gap"
+    | "tender_pull"
+    | "channel_whitespace";
+  validationStatus: "confirmed" | "likely" | "insufficient_evidence";
+  evidenceSummary: string;
+  currentAvailability: "broad" | "limited" | "unclear";
+  evidenceItems: Array<{
+    claim: string;
+    title: string;
+    url: string;
+    sourceKind:
+      | "official_registry"
+      | "ema"
+      | "government_publication"
+      | "tender_portal"
+      | "who_or_gbd"
+      | "market_report";
+    country: string | null;
+    productOrClass: string | null;
+    confidence: "confirmed" | "likely" | "inferred";
+  }>;
   registeredDrugs: Array<{
     brandName: string;
     inn: string;
@@ -209,6 +290,172 @@ interface DemandSignalsResult {
   summary: string;
 }
 
+type GapType = SupplyGapResult["gapType"];
+type GapValidationStatus = SupplyGapResult["validationStatus"];
+type GapEvidenceItem = SupplyGapResult["evidenceItems"][number];
+
+function clampGapScore(value: number) {
+  return Math.min(10, Math.max(0, value));
+}
+
+function uniqBy<T>(items: T[], keyFn: (item: T) => string) {
+  return [...new Map(items.map((item) => [keyFn(item), item])).values()];
+}
+
+function buildSourceTitle(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function deriveGapNarrative(args: {
+  gapType: GapType;
+  validationStatus: GapValidationStatus;
+  missingList: string;
+  tenderSignals: SupplyGapResult["tenderSignals"];
+  evidenceSummary: string;
+}) {
+  if (args.validationStatus === "insufficient_evidence") {
+    return `Evidence remains insufficient to prove a supply gap. ${args.evidenceSummary}`.trim();
+  }
+
+  switch (args.gapType) {
+    case "regulatory_gap":
+      return `Verified registration gap: ${args.missingList || "specific missing products/classes were identified in official checks."}`;
+    case "formulary_gap":
+      return `Likely formulary gap: ${args.evidenceSummary}`;
+    case "shortage_gap":
+      return `Shortage signal: ${args.evidenceSummary}`;
+    case "tender_pull":
+      return args.tenderSignals.length > 0
+        ? `Tender pull detected: ${args.tenderSignals
+            .slice(0, 2)
+            .map((signal) => `${signal.country}: ${signal.description}`)
+            .join("; ")}`
+        : `Tender pull detected: ${args.evidenceSummary}`;
+    case "channel_whitespace":
+      return `Channel whitespace hypothesis: ${args.evidenceSummary}`;
+    default:
+      return args.evidenceSummary;
+  }
+}
+
+function deriveCompetitorNarrative(registeredDrugs: SupplyGapResult["registeredDrugs"]) {
+  const competitorList = registeredDrugs
+    .slice(0, 5)
+    .map((drug) => `${drug.brandName} (${drug.originator})`)
+    .join("; ");
+  return competitorList || "No competitors identified";
+}
+
+function deriveGapCreationDecision(gap: SupplyGapResult) {
+  const verifiedRegisteredCount = uniqBy(
+    gap.registeredDrugs,
+    (drug) => `${drug.brandName}|${drug.originator}`
+  ).length;
+  const verifiedMissingCount = uniqBy(
+    gap.unregisteredEuDrugs,
+    (drug) => `${drug.brandName}|${drug.inn}|${drug.originator}`
+  ).length;
+  const hasTenderPull = gap.tenderSignals.length > 0;
+  const hasStructuredGap =
+    verifiedMissingCount > 0 ||
+    gap.gapType === "formulary_gap" ||
+    gap.gapType === "shortage_gap" ||
+    gap.gapType === "tender_pull" ||
+    gap.gapType === "channel_whitespace";
+
+  if (gap.validationStatus === "insufficient_evidence") {
+    return {
+      create: false,
+      finalScore: 0,
+      reason: "Evidence was insufficient to verify a real supply gap.",
+      verifiedRegisteredCount,
+      verifiedMissingCount,
+    };
+  }
+
+  if (!hasStructuredGap) {
+    return {
+      create: false,
+      finalScore: 0,
+      reason: "Demand evidence existed, but no verified gap signal was found.",
+      verifiedRegisteredCount,
+      verifiedMissingCount,
+    };
+  }
+
+  if (
+    gap.currentAvailability === "broad" &&
+    verifiedMissingCount === 0 &&
+    !hasTenderPull &&
+    gap.gapType !== "shortage_gap" &&
+    gap.gapType !== "formulary_gap"
+  ) {
+    return {
+      create: false,
+      finalScore: 0,
+      reason: "Existing standard-of-care availability appears broad, so this is not a strict supply gap.",
+      verifiedRegisteredCount,
+      verifiedMissingCount,
+    };
+  }
+
+  let finalScore = clampGapScore(gap.gapScore);
+  if (gap.currentAvailability === "broad" && verifiedMissingCount === 0) {
+    finalScore = clampGapScore(finalScore - 3);
+  }
+  if (verifiedMissingCount === 0 && hasTenderPull) {
+    finalScore = clampGapScore(finalScore - 1);
+  }
+  if (verifiedMissingCount > 0 && gap.validationStatus === "confirmed") {
+    finalScore = clampGapScore(finalScore + 0.5);
+  }
+
+  return {
+    create: finalScore >= 5,
+    finalScore,
+    reason:
+      finalScore >= 5
+        ? "Evidence gate passed."
+        : "Gap score fell below threshold after applying strict evidence gating.",
+    verifiedRegisteredCount,
+    verifiedMissingCount,
+  };
+}
+
+function buildGapSources(args: {
+  evidenceItems: GapEvidenceItem[];
+  responseSources: ResearchSource[];
+  tenderSignals: SupplyGapResult["tenderSignals"];
+  whoSourceUrl: string | null;
+}) {
+  const directSources = args.evidenceItems.map((item) => ({
+    title: item.title,
+    url: item.url,
+  }));
+  const responseSources = args.responseSources.map((source) => ({
+    title: source.title || buildSourceTitle(source.url),
+    url: source.url,
+  }));
+  const tenderSources = args.tenderSignals
+    .filter((signal) => signal.sourceUrl)
+    .map((signal) => ({
+      title: `${signal.country} tender signal`,
+      url: signal.sourceUrl!,
+    }));
+  const whoSources = args.whoSourceUrl
+    ? [{ title: "WHO/GBD disease burden", url: args.whoSourceUrl }]
+    : [];
+
+  return uniqBy(
+    [...directSources, ...responseSources, ...tenderSources, ...whoSources],
+    (source) => source.url
+  ).slice(0, 12);
+}
+
 // ─── Actions ─────────────────────────────────────────────────────────────────
 
 export const analyzeTherapeuticAreaGaps = action({
@@ -284,15 +531,28 @@ Identify up to 6 specific indications with the highest patient burden in these c
           const supplyResponse = await createStructuredWebSearchResponse<SupplyGapResult>(
             client,
             {
-              instructions: `You are a pharmaceutical market access analyst. Identify gaps between European drug supply and MENA market needs. ${KEMEDICA_CONTEXT}`,
+              instructions: `You are a pharmaceutical market access analyst. Identify verifiable gaps between European drug supply and MENA market needs. ${KEMEDICA_CONTEXT} Use official registries and authoritative public sources first. If a claim cannot be verified, mark it as insufficient evidence rather than inferring absence.`,
               input: `For the indication "${indication.name}" (${args.therapeuticArea}) in ${countries.join(", ")}:
 
-1. Which drugs are currently registered and marketed in these MENA countries for this indication? (check SFDA, UAE MOH/MOHAP, MOHP Egypt, Jordan FDA, and other official MENA registries)
-2. Which EMA-approved drugs for the same indication are NOT registered in any of these MENA countries? (search EMA public database and compare)
-3. Any active public tenders or procurement events in the past 24 months for drugs in this category in these countries? (NUPCO Saudi Arabia, UAE government tenders, etc.)
+1. Verify which drugs are currently registered and marketed for this indication using official MENA registries whenever possible.
+2. Compare against EMA-approved therapies for the same indication and list only products/classes that appear missing after checking named registries or authoritative sources.
+3. Identify any active formulary omission, shortage, tender, or procurement pull in the past 24 months.
+4. Decide whether there is a real gap and classify it as one of:
+   - regulatory_gap
+   - formulary_gap
+   - shortage_gap
+   - tender_pull
+   - channel_whitespace
 
-Return a gapScore 0-10 where 10 = large unmet demand + many EU drugs available but none registered + active tenders.
-suggestedDrugClasses should list EU drug classes that could fill the gap.`,
+Rules:
+- Prefer SFDA, UAE MoHAP, EDA, JFDA, GCC, EMA, WHO/GBD, and named government tender portals.
+- Do not convert disease burden alone into a gap.
+- If current standard of care appears broadly available, say so.
+- Use validationStatus = "insufficient_evidence" when checks are inconclusive.
+- For every evidence item include a concrete title and URL.
+
+Return gapScore 0-10 where 10 = verifiable unmet need with specific missing products/classes or active shortage/tender evidence.
+suggestedDrugClasses should list drug classes that are actually implicated by the verified evidence.`,
               formatName: "gap_supply",
               schema: GAP_SUPPLY_SCHEMA,
               maxOutputTokens: 2500,
@@ -302,61 +562,73 @@ suggestedDrugClasses should list EU drug classes that could fill the gap.`,
           );
 
           const gap = supplyResponse.data;
-          const score = Math.min(10, Math.max(0, gap.gapScore));
+          const decision = deriveGapCreationDecision(gap);
+          const score = decision.finalScore;
 
-          if (score >= 5) {
-            const competitorList = gap.registeredDrugs
-              .slice(0, 5)
-              .map((d: { brandName: string; originator: string }) => `${d.brandName} (${d.originator})`)
-              .join("; ");
-
+          if (decision.create) {
+            const competitorList = deriveCompetitorNarrative(gap.registeredDrugs);
             const unregisteredList = gap.unregisteredEuDrugs
               .slice(0, 5)
               .map((d: { brandName: string; inn: string; originator: string }) => `${d.brandName}/${d.inn} (${d.originator})`)
               .join("; ");
-
             const tenderText =
               gap.tenderSignals.length > 0
                 ? gap.tenderSignals
-                    .map(
-                      (t) =>
-                        `${t.country} (${t.year ?? "recent"}): ${t.description}`
-                    )
+                    .map((t) => `${t.country} (${t.year ?? "recent"}): ${t.description}`)
                     .join("\n")
                 : undefined;
-
-            const sources = gap.tenderSignals
-              .filter((t) => t.sourceUrl)
-              .map((t) => ({ title: `${t.country} tender signal`, url: t.sourceUrl! }))
-              .concat(
-                indication.whoSourceUrl
-                  ? [{ title: "WHO/GBD disease burden", url: indication.whoSourceUrl }]
-                  : []
-              );
-
+            const evidenceItems = gap.evidenceItems
+              .filter((item) => item.url && item.title && item.claim)
+              .map((item) => ({
+                claim: item.claim,
+                title: item.title,
+                url: item.url,
+                sourceKind: item.sourceKind,
+                country: item.country ?? undefined,
+                productOrClass: item.productOrClass ?? undefined,
+                confidence: item.confidence,
+              }));
+            const sources = buildGapSources({
+              evidenceItems: gap.evidenceItems,
+              responseSources: supplyResponse.sources,
+              tenderSignals: gap.tenderSignals,
+              whoSourceUrl: indication.whoSourceUrl,
+            });
             await ctx.runMutation(api.gapOpportunities.create, {
               therapeuticArea: args.therapeuticArea,
               indication: indication.name,
               targetCountries: countries,
               gapScore: score,
+              gapType: gap.gapType,
+              validationStatus: gap.validationStatus,
+              evidenceSummary: gap.evidenceSummary,
+              verifiedRegisteredCount: decision.verifiedRegisteredCount,
+              verifiedMissingCount: decision.verifiedMissingCount,
               demandEvidence: `${indication.burden}\n\nGovernment priority: ${indication.govPriority}`,
-              supplyGap: `EU drugs not in MENA: ${unregisteredList || "None identified yet"}`,
-              competitorLandscape: competitorList || "No competitors identified",
+              supplyGap: deriveGapNarrative({
+                gapType: gap.gapType,
+                validationStatus: gap.validationStatus,
+                missingList: unregisteredList,
+                tenderSignals: gap.tenderSignals,
+                evidenceSummary: gap.evidenceSummary,
+              }),
+              competitorLandscape: competitorList,
               suggestedDrugClasses: gap.suggestedDrugClasses,
               tenderSignals: tenderText,
               whoDiseaseBurden: indication.burden,
               regulatoryFeasibility: gap.regulatoryFeasibility,
-              sources: sources.slice(0, 10),
+              sources,
+              evidenceItems,
             });
 
             gapsCreated++;
             await log(
-              `Gap opportunity created: ${indication.name} (score: ${score}/10)`,
+              `Gap opportunity created: ${indication.name} (${gap.gapType}, ${gap.validationStatus}, score: ${score}/10)`,
               "success"
             );
           } else {
             await log(
-              `Low gap score for ${indication.name} (${score}/10), skipping`
+              `Skipped ${indication.name}: ${decision.reason}`
             );
           }
         } catch (err) {
@@ -469,6 +741,50 @@ Focus on branded/specialty medicines, NOT generics. For each signal identify: th
           10,
           3 + highUrgency.length * 2 + Math.min(areaSignals.length, 2)
         );
+        const strongestSignal =
+          areaSignals.find((s) => s.signalType === "shortage") ??
+          areaSignals.find((s) => s.signalType === "formulary_gap") ??
+          areaSignals.find((s) => s.signalType === "tender") ??
+          areaSignals.find((s) => s.signalType === "procurement_list") ??
+          areaSignals[0];
+        const gapType: GapType =
+          strongestSignal?.signalType === "shortage"
+            ? "shortage_gap"
+            : strongestSignal?.signalType === "formulary_gap"
+              ? "formulary_gap"
+              : "tender_pull";
+        const evidenceItems = areaSignals
+          .filter((s) => s.sourceUrl)
+          .slice(0, 10)
+          .map((s) => ({
+            claim: s.description,
+            title: `${s.country} ${s.signalType.replace("_", " ")}`,
+            url: s.sourceUrl!,
+            sourceKind:
+              s.signalType === "tender" || s.signalType === "procurement_list"
+                ? ("tender_portal" as const)
+                : ("government_publication" as const),
+            country: s.country,
+            productOrClass: s.drugOrClass,
+            confidence:
+              s.signalType === "tender" || s.signalType === "shortage"
+                ? ("confirmed" as const)
+                : ("likely" as const),
+          }));
+        const validationStatus: GapValidationStatus =
+          evidenceItems.length === 0
+            ? "insufficient_evidence"
+            : areaSignals.some((s) => s.signalType === "tender" || s.signalType === "shortage")
+              ? "confirmed"
+              : "likely";
+
+        if (validationStatus === "insufficient_evidence") {
+          await log(
+            `Skipped demand-only signal for ${ta}: no source-backed shortage, formulary, or tender evidence was captured.`,
+            "warning"
+          );
+          continue;
+        }
 
         const sources = areaSignals
           .filter((s) => s.sourceUrl)
@@ -485,12 +801,23 @@ Focus on branded/specialty medicines, NOT generics. For each signal identify: th
           indication: areaSignals[0]?.drugOrClass ?? ta,
           targetCountries: countries,
           gapScore,
+          gapType,
+          validationStatus,
+          evidenceSummary: `${areaSignals.length} source-backed demand signal(s) indicate ${gapType.replace("_", " ")} conditions in ${countries.join(", ")}.`,
+          verifiedRegisteredCount: 0,
+          verifiedMissingCount: 0,
           demandEvidence: `${areaSignals.length} procurement signal(s) found in: ${countries.join(", ")}`,
-          supplyGap: `Active demand for: ${areaSignals.map((s) => s.drugOrClass).join(", ")}`,
+          supplyGap:
+            gapType === "shortage_gap"
+              ? `Shortage-backed demand for: ${areaSignals.map((s) => s.drugOrClass).join(", ")}`
+              : gapType === "formulary_gap"
+                ? `Formulary gap signals for: ${areaSignals.map((s) => s.drugOrClass).join(", ")}`
+                : `Tender pull for: ${areaSignals.map((s) => s.drugOrClass).join(", ")}`,
           competitorLandscape: "Not yet analyzed - run therapeutic area gap analysis for full picture",
           suggestedDrugClasses: [...new Set(areaSignals.map((s) => s.drugOrClass))].slice(0, 5),
           tenderSignals: tenderText,
           sources,
+          evidenceItems,
         });
         const existed = previous.some((gap: { _id: Id<"gapOpportunities"> }) => gap._id === createdId);
 
@@ -533,16 +860,185 @@ function normalizeTherapeuticArea(area: string): string {
   return match ?? area;
 }
 
+async function runGapAnalysisFlowJob(
+  ctx: ActionCtx,
+  jobId: Id<"discoveryJobs">,
+  args: {
+    mode: "single_area" | "all_areas";
+    therapeuticArea?: string;
+    country?: string;
+  }
+): Promise<void> {
+  const targetCountries = args.country ? [args.country] : [...MENA_COUNTRIES];
+  const areas =
+    args.mode === "all_areas"
+      ? [...THERAPEUTIC_AREAS]
+      : [args.therapeuticArea].filter((value): value is string => Boolean(value));
+
+  if (areas.length === 0) {
+    throw new Error("A therapeutic area is required for single-area analysis.");
+  }
+
+  const log = async (
+    message: string,
+    level: "info" | "success" | "warning" | "error" = "info"
+  ) => appendFlowLog(ctx, jobId, message, level);
+
+  try {
+    await log(
+      `Starting ${args.mode === "all_areas" ? "all-area" : "single-area"} gap analysis flow for ${targetCountries.join(", ")}.`
+    );
+
+    let totalGapsCreated = 0;
+    let totalSuppliersLinked = 0;
+    let totalProductsLinked = 0;
+    let totalPromoted = 0;
+    let nonPromotableGaps = 0;
+
+    for (const area of areas) {
+      const areaStart = Date.now();
+      await log(`Analyzing ${area}...`);
+
+      await ctx.runAction(api.gapAnalysis.analyzeTherapeuticAreaGaps, {
+        therapeuticArea: area,
+        targetCountries,
+      });
+
+      const activeGaps = await ctx.runQuery(api.gapOpportunities.list, {
+        therapeuticArea: area,
+        status: "active",
+      });
+      const freshGaps = activeGaps
+        .filter((gap: { createdAt: number; gapScore: number }) => gap.createdAt >= areaStart && gap.gapScore >= 5)
+        .sort(
+          (
+            left: { gapScore: number },
+            right: { gapScore: number }
+          ) => right.gapScore - left.gapScore
+        );
+
+      totalGapsCreated += freshGaps.length;
+      await log(
+        `${area}: ${freshGaps.length} new gap opportunities created.`,
+        freshGaps.length > 0 ? "success" : "warning"
+      );
+
+      for (const gap of freshGaps) {
+        await log(`Finding suppliers for ${gap.indication}...`);
+
+        const opportunitiesBefore = await ctx.runQuery(
+          api.decisionOpportunities.listByGapOpportunity,
+          {
+            gapOpportunityId: gap._id,
+          }
+        );
+        const linkedDrugCountBefore = gap.linkedDrugIds?.length ?? 0;
+
+        const supplierJobId = await ctx.runMutation(api.discoveryJobs.create, {
+          type: "companies",
+          gapOpportunityId: gap._id,
+        });
+        await runFindCompaniesForGapJob(ctx, gap._id, supplierJobId);
+
+        const refreshedGap = await ctx.runQuery(api.gapOpportunities.get, {
+          id: gap._id,
+        });
+        const opportunitiesAfter = await ctx.runQuery(
+          api.decisionOpportunities.listByGapOpportunity,
+          {
+            gapOpportunityId: gap._id,
+          }
+        );
+        const linkedCompanyIds = refreshedGap?.linkedCompanyIds ?? [];
+        totalSuppliersLinked += linkedCompanyIds.length;
+
+        if (!refreshedGap || linkedCompanyIds.length === 0) {
+          nonPromotableGaps += 1;
+          await log(
+            `${gap.indication}: no suppliers found, so no decision opportunities were promoted.`,
+            "warning"
+          );
+          continue;
+        }
+
+        const productsLinkedDelta = Math.max(
+          0,
+          (refreshedGap.linkedDrugIds?.length ?? 0) - linkedDrugCountBefore
+        );
+        const promotedDelta = Math.max(
+          0,
+          opportunitiesAfter.length - opportunitiesBefore.length
+        );
+
+        totalProductsLinked += productsLinkedDelta;
+        totalPromoted += promotedDelta;
+
+        if (productsLinkedDelta === 0) {
+          nonPromotableGaps += 1;
+          await log(
+            `${gap.indication}: suppliers were found but no relevant drugs were linked, so the gap is research-complete but not promotable yet.`,
+            "warning"
+          );
+        } else if (promotedDelta === 0) {
+          nonPromotableGaps += 1;
+          await log(
+            `${gap.indication}: products were linked, but identity or confidence remained too weak for new promoted opportunities.`,
+            "warning"
+          );
+        } else {
+          await log(
+            `${gap.indication}: ${productsLinkedDelta} products linked and ${promotedDelta} decision opportunities promoted.`,
+            "success"
+          );
+        }
+
+        await log(
+          `${gap.indication}: supplier discovery completed with ${linkedCompanyIds.length} linked suppliers.`,
+          "success"
+        );
+      }
+    }
+
+    const summary = `Gap flow complete — ${totalGapsCreated} gaps created, ${totalSuppliersLinked} suppliers linked, ${totalProductsLinked} products linked, ${totalPromoted} decision opportunities promoted${nonPromotableGaps > 0 ? `, ${nonPromotableGaps} gaps still research-complete but not promotable` : ""}.`;
+
+    await ctx.runMutation(api.discoveryJobs.complete, {
+      id: jobId,
+      newItemsFound: totalPromoted,
+      skippedDuplicates: nonPromotableGaps,
+      summary,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await ctx.runMutation(api.discoveryJobs.fail, {
+      id: jobId,
+      errorMessage: msg,
+    });
+  }
+}
+
+export const executeGapAnalysisFlow = internalAction({
+  args: {
+    jobId: v.id("discoveryJobs"),
+    mode: v.union(v.literal("single_area"), v.literal("all_areas")),
+    therapeuticArea: v.optional(v.string()),
+    country: v.optional(v.string()),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    await runGapAnalysisFlowJob(ctx, args.jobId, {
+      mode: args.mode,
+      therapeuticArea: args.therapeuticArea,
+      country: args.country,
+    });
+  },
+});
+
 export const runGapAnalysisFlow = action({
   args: {
     mode: v.union(v.literal("single_area"), v.literal("all_areas")),
     therapeuticArea: v.optional(v.string()),
     country: v.optional(v.string()),
   },
-  handler: async (
-    ctx,
-    args
-  ): Promise<Id<"discoveryJobs">> => {
+  handler: async (ctx, args): Promise<Id<"discoveryJobs">> => {
     const targetCountries = args.country ? [args.country] : [...MENA_COUNTRIES];
     const areas =
       args.mode === "all_areas"
@@ -560,119 +1056,13 @@ export const runGapAnalysisFlow = action({
       targetCountries,
     });
 
-    const log = async (
-      message: string,
-      level: "info" | "success" | "warning" | "error" = "info"
-    ) => appendFlowLog(ctx, jobId, message, level);
+    await ctx.scheduler.runAfter(0, internal.gapAnalysis.executeGapAnalysisFlow, {
+      jobId,
+      mode: args.mode,
+      therapeuticArea: args.therapeuticArea,
+      country: args.country,
+    });
 
-    try {
-      await log(
-        `Starting ${args.mode === "all_areas" ? "all-area" : "single-area"} gap analysis flow for ${targetCountries.join(", ")}.`
-      );
-
-      let totalGapsCreated = 0;
-      let totalSuppliersLinked = 0;
-      let totalProductsLinked = 0;
-      let totalPromoted = 0;
-      let nonPromotableGaps = 0;
-
-      for (const area of areas) {
-        const areaStart = Date.now();
-        await log(`Analyzing ${area}...`);
-
-        await ctx.runAction(api.gapAnalysis.analyzeTherapeuticAreaGaps, {
-          therapeuticArea: area,
-          targetCountries,
-        });
-
-        const activeGaps = await ctx.runQuery(api.gapOpportunities.list, {
-          therapeuticArea: area,
-          status: "active",
-        });
-        const freshGaps = activeGaps
-          .filter((gap: { createdAt: number; gapScore: number }) => gap.createdAt >= areaStart && gap.gapScore >= 5)
-          .sort(
-            (
-              left: { gapScore: number },
-              right: { gapScore: number }
-            ) => right.gapScore - left.gapScore
-          );
-
-        totalGapsCreated += freshGaps.length;
-        await log(
-          `${area}: ${freshGaps.length} new gap opportunities created.`,
-          freshGaps.length > 0 ? "success" : "warning"
-        );
-
-        for (const gap of freshGaps) {
-          await log(`Finding suppliers for ${gap.indication}...`);
-          await ctx.runAction(api.discovery.findCompaniesForGap, {
-            gapOpportunityId: gap._id,
-          });
-
-          const refreshedGap = await ctx.runQuery(api.gapOpportunities.get, {
-            id: gap._id,
-          });
-          const linkedCompanyIds = refreshedGap?.linkedCompanyIds ?? [];
-          totalSuppliersLinked += linkedCompanyIds.length;
-
-          if (!refreshedGap || linkedCompanyIds.length === 0) {
-            nonPromotableGaps += 1;
-            await log(
-              `${gap.indication}: no suppliers found, so no decision opportunities were promoted.`,
-              "warning"
-            );
-            continue;
-          }
-
-          const promotionResult = await runCompanyDrugLinkAndRebuild({
-            ctx,
-            gap: refreshedGap,
-            companyIds: linkedCompanyIds,
-            log,
-          });
-
-          totalProductsLinked += promotionResult.productsLinked;
-          totalPromoted += promotionResult.promotedDelta;
-
-          if (promotionResult.productsLinked === 0) {
-            nonPromotableGaps += 1;
-            await log(
-              `${gap.indication}: suppliers were found but no relevant drugs were linked, so the gap is research-complete but not promotable yet.`,
-              "warning"
-            );
-          } else if (promotionResult.promotedDelta === 0) {
-            nonPromotableGaps += 1;
-            await log(
-              `${gap.indication}: products were linked, but identity or confidence remained too weak for new promoted opportunities.`,
-              "warning"
-            );
-          } else {
-            await log(
-              `${gap.indication}: ${promotionResult.productsLinked} products linked and ${promotionResult.promotedDelta} decision opportunities promoted.`,
-              "success"
-            );
-          }
-        }
-      }
-
-      const summary = `Gap flow complete — ${totalGapsCreated} gaps created, ${totalSuppliersLinked} suppliers linked, ${totalProductsLinked} products linked, ${totalPromoted} decision opportunities promoted${nonPromotableGaps > 0 ? `, ${nonPromotableGaps} gaps still research-complete but not promotable` : ""}.`;
-
-      await ctx.runMutation(api.discoveryJobs.complete, {
-        id: jobId,
-        newItemsFound: totalPromoted,
-        skippedDuplicates: nonPromotableGaps,
-        summary,
-      });
-
-      return jobId;
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Unknown error";
-      await ctx.runMutation(api.discoveryJobs.fail, {
-        id: jobId,
-        errorMessage: msg,
-      });
-      return jobId;
-    }
+    return jobId;
   },
 });

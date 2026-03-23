@@ -10,6 +10,8 @@ import {
   GapScoreBadge,
   FeasibilityBadge,
   SupplierSearchDialog,
+  ValidationStatusBadge,
+  formatGapType,
 } from "@/components/gaps/GapsDashboard";
 import { Button } from "@/components/ui/button";
 import {
@@ -75,6 +77,12 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
                   {typedGap.therapeuticArea}
                 </span>
                 <FeasibilityBadge level={typedGap.regulatoryFeasibility} />
+                <ValidationStatusBadge status={typedGap.validationStatus} />
+                {typedGap.gapType && (
+                  <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-300">
+                    {formatGapType(typedGap.gapType)}
+                  </span>
+                )}
               </div>
               <h2 className="text-2xl font-semibold text-white">{typedGap.indication}</h2>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -117,7 +125,11 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
           </div>
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <p className="text-xs uppercase tracking-wider text-zinc-500">Supply Gap</p>
-            <p className="mt-3 text-sm leading-relaxed text-zinc-300">{typedGap.supplyGap}</p>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+              {typedGap.validationStatus === "insufficient_evidence"
+                ? typedGap.evidenceSummary ?? typedGap.supplyGap
+                : typedGap.supplyGap}
+            </p>
           </div>
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <p className="text-xs uppercase tracking-wider text-zinc-500">Competitor Landscape</p>
@@ -137,6 +149,27 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
             </div>
           </div>
         </section>
+
+        {(typedGap.evidenceSummary || typedGap.verifiedMissingCount != null || typedGap.verifiedRegisteredCount != null) && (
+          <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+            <p className="text-xs uppercase tracking-wider text-zinc-500">Validation</p>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+              {typedGap.evidenceSummary ?? "Structured evidence captured for this gap."}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs text-zinc-400">
+              {typedGap.verifiedMissingCount != null && (
+                <span className="rounded bg-zinc-800 px-2 py-1">
+                  {typedGap.verifiedMissingCount} verified missing
+                </span>
+              )}
+              {typedGap.verifiedRegisteredCount != null && (
+                <span className="rounded bg-zinc-800 px-2 py-1">
+                  {typedGap.verifiedRegisteredCount} verified registered
+                </span>
+              )}
+            </div>
+          </section>
+        )}
 
         {(typedGap.whoDiseaseBurden || typedGap.tenderSignals) && (
           <section className="grid gap-4 lg:grid-cols-2">
@@ -173,6 +206,32 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
                   className="block text-sm text-cyan-400 underline hover:text-cyan-300"
                 >
                   {source.title}
+                </a>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {typedGap.evidenceItems && typedGap.evidenceItems.length > 0 && (
+          <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+            <p className="text-xs uppercase tracking-wider text-zinc-500">Supporting Evidence</p>
+            <div className="mt-3 space-y-3">
+              {typedGap.evidenceItems.slice(0, 8).map((item) => (
+                <a
+                  key={`${item.url}-${item.claim}`}
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-lg border border-zinc-800 bg-zinc-950/60 px-4 py-3 hover:border-zinc-700"
+                >
+                  <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
+                    <span className="rounded bg-zinc-800 px-1.5 py-0.5">{item.sourceKind.replace(/_/g, " ")}</span>
+                    <span className="rounded bg-zinc-800 px-1.5 py-0.5">{item.confidence}</span>
+                    {item.country && <span className="rounded bg-zinc-800 px-1.5 py-0.5">{item.country}</span>}
+                    {item.productOrClass && <span className="rounded bg-zinc-800 px-1.5 py-0.5">{item.productOrClass}</span>}
+                  </div>
+                  <p className="mt-2 text-sm font-medium text-white">{item.title}</p>
+                  <p className="mt-1 text-xs text-zinc-400">{item.claim}</p>
                 </a>
               ))}
             </div>

@@ -14,6 +14,49 @@ function mergeSources(
   return [...new Map(all.map((item) => [item.url, item])).values()];
 }
 
+function mergeEvidenceItems(
+  existing?: Array<{
+    claim: string;
+    title: string;
+    url: string;
+    sourceKind:
+      | "official_registry"
+      | "ema"
+      | "government_publication"
+      | "tender_portal"
+      | "who_or_gbd"
+      | "market_report";
+    country?: string;
+    productOrClass?: string;
+    confidence: "confirmed" | "likely" | "inferred";
+  }>,
+  incoming?: Array<{
+    claim: string;
+    title: string;
+    url: string;
+    sourceKind:
+      | "official_registry"
+      | "ema"
+      | "government_publication"
+      | "tender_portal"
+      | "who_or_gbd"
+      | "market_report";
+    country?: string;
+    productOrClass?: string;
+    confidence: "confirmed" | "likely" | "inferred";
+  }>
+) {
+  const all = [...(existing ?? []), ...(incoming ?? [])];
+  return [
+    ...new Map(
+      all.map((item) => [
+        `${item.url}|${item.claim}|${item.country ?? ""}|${item.productOrClass ?? ""}`,
+        item,
+      ])
+    ).values(),
+  ];
+}
+
 export const list = query({
   args: {
     therapeuticArea: v.optional(v.string()),
@@ -87,6 +130,21 @@ export const create = mutation({
     indication: v.string(),
     targetCountries: v.array(v.string()),
     gapScore: v.number(),
+    gapType: v.optional(v.union(
+      v.literal("regulatory_gap"),
+      v.literal("formulary_gap"),
+      v.literal("shortage_gap"),
+      v.literal("tender_pull"),
+      v.literal("channel_whitespace")
+    )),
+    validationStatus: v.optional(v.union(
+      v.literal("confirmed"),
+      v.literal("likely"),
+      v.literal("insufficient_evidence")
+    )),
+    evidenceSummary: v.optional(v.string()),
+    verifiedRegisteredCount: v.optional(v.number()),
+    verifiedMissingCount: v.optional(v.number()),
     demandEvidence: v.string(),
     supplyGap: v.string(),
     competitorLandscape: v.string(),
@@ -99,6 +157,26 @@ export const create = mutation({
     sources: v.optional(
       v.array(v.object({ title: v.string(), url: v.string() }))
     ),
+    evidenceItems: v.optional(v.array(v.object({
+      claim: v.string(),
+      title: v.string(),
+      url: v.string(),
+      sourceKind: v.union(
+        v.literal("official_registry"),
+        v.literal("ema"),
+        v.literal("government_publication"),
+        v.literal("tender_portal"),
+        v.literal("who_or_gbd"),
+        v.literal("market_report")
+      ),
+      country: v.optional(v.string()),
+      productOrClass: v.optional(v.string()),
+      confidence: v.union(
+        v.literal("confirmed"),
+        v.literal("likely"),
+        v.literal("inferred")
+      ),
+    }))),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
@@ -119,6 +197,23 @@ export const create = mutation({
           ...args.targetCountries,
         ]),
         gapScore: Math.max(existing.gapScore, args.gapScore),
+        gapType: args.gapType ?? existing.gapType,
+        validationStatus:
+          args.validationStatus === "confirmed" ||
+          existing.validationStatus !== "confirmed"
+            ? (args.validationStatus ?? existing.validationStatus)
+            : existing.validationStatus,
+        evidenceSummary:
+          mergeMultilineText(existing.evidenceSummary, args.evidenceSummary) ??
+          existing.evidenceSummary,
+        verifiedRegisteredCount: Math.max(
+          existing.verifiedRegisteredCount ?? 0,
+          args.verifiedRegisteredCount ?? 0
+        ),
+        verifiedMissingCount: Math.max(
+          existing.verifiedMissingCount ?? 0,
+          args.verifiedMissingCount ?? 0
+        ),
         demandEvidence: mergeMultilineText(existing.demandEvidence, args.demandEvidence),
         supplyGap: mergeMultilineText(existing.supplyGap, args.supplyGap) ?? existing.supplyGap,
         competitorLandscape:
@@ -132,6 +227,7 @@ export const create = mutation({
         whoDiseaseBurden: mergeMultilineText(existing.whoDiseaseBurden, args.whoDiseaseBurden),
         regulatoryFeasibility: args.regulatoryFeasibility ?? existing.regulatoryFeasibility,
         sources: mergeSources(existing.sources, args.sources),
+        evidenceItems: mergeEvidenceItems(existing.evidenceItems, args.evidenceItems),
         linkedDrugIds: existing.linkedDrugIds,
         linkedCompanyIds: existing.linkedCompanyIds,
         updatedAt: now,
@@ -156,6 +252,21 @@ export const update = mutation({
     indication: v.optional(v.string()),
     targetCountries: v.optional(v.array(v.string())),
     gapScore: v.optional(v.number()),
+    gapType: v.optional(v.union(
+      v.literal("regulatory_gap"),
+      v.literal("formulary_gap"),
+      v.literal("shortage_gap"),
+      v.literal("tender_pull"),
+      v.literal("channel_whitespace")
+    )),
+    validationStatus: v.optional(v.union(
+      v.literal("confirmed"),
+      v.literal("likely"),
+      v.literal("insufficient_evidence")
+    )),
+    evidenceSummary: v.optional(v.string()),
+    verifiedRegisteredCount: v.optional(v.number()),
+    verifiedMissingCount: v.optional(v.number()),
     demandEvidence: v.optional(v.string()),
     supplyGap: v.optional(v.string()),
     competitorLandscape: v.optional(v.string()),
@@ -169,6 +280,26 @@ export const update = mutation({
     sources: v.optional(
       v.array(v.object({ title: v.string(), url: v.string() }))
     ),
+    evidenceItems: v.optional(v.array(v.object({
+      claim: v.string(),
+      title: v.string(),
+      url: v.string(),
+      sourceKind: v.union(
+        v.literal("official_registry"),
+        v.literal("ema"),
+        v.literal("government_publication"),
+        v.literal("tender_portal"),
+        v.literal("who_or_gbd"),
+        v.literal("market_report")
+      ),
+      country: v.optional(v.string()),
+      productOrClass: v.optional(v.string()),
+      confidence: v.union(
+        v.literal("confirmed"),
+        v.literal("likely"),
+        v.literal("inferred")
+      ),
+    }))),
   },
   handler: async (ctx, { id, ...fields }) => {
     const existing = await ctx.db.get(id);

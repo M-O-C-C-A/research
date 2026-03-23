@@ -42,6 +42,11 @@ export type Gap = {
   indication: string;
   targetCountries: string[];
   gapScore: number;
+  gapType?: "regulatory_gap" | "formulary_gap" | "shortage_gap" | "tender_pull" | "channel_whitespace";
+  validationStatus?: "confirmed" | "likely" | "insufficient_evidence";
+  evidenceSummary?: string;
+  verifiedRegisteredCount?: number;
+  verifiedMissingCount?: number;
   demandEvidence: string;
   supplyGap: string;
   competitorLandscape: string;
@@ -52,6 +57,21 @@ export type Gap = {
   linkedCompanyIds?: Id<"companies">[];
   linkedDrugIds?: Id<"drugs">[];
   sources?: { title: string; url: string }[];
+  evidenceItems?: Array<{
+    claim: string;
+    title: string;
+    url: string;
+    sourceKind:
+      | "official_registry"
+      | "ema"
+      | "government_publication"
+      | "tender_portal"
+      | "who_or_gbd"
+      | "market_report";
+    country?: string;
+    productOrClass?: string;
+    confidence: "confirmed" | "likely" | "inferred";
+  }>;
 };
 
 const LOG_LEVEL_COLOR: Record<string, string> = {
@@ -88,6 +108,28 @@ export function FeasibilityBadge({ level }: { level?: "high" | "medium" | "low" 
   return (
     <span className={`text-xs px-2 py-0.5 rounded ${styles[level]}`}>
       reg. {level}
+    </span>
+  );
+}
+
+export function formatGapType(value?: Gap["gapType"]) {
+  return value ? value.replace(/_/g, " ") : "mixed";
+}
+
+export function ValidationStatusBadge({
+  status,
+}: {
+  status?: Gap["validationStatus"];
+}) {
+  if (!status) return null;
+  const styles = {
+    confirmed: "bg-emerald-500/10 text-emerald-300 border border-emerald-500/20",
+    likely: "bg-amber-500/10 text-amber-300 border border-amber-500/20",
+    insufficient_evidence: "bg-zinc-800 text-zinc-300 border border-zinc-700",
+  } as const;
+  return (
+    <span className={`rounded px-2 py-0.5 text-xs ${styles[status]}`}>
+      {status.replace(/_/g, " ")}
     </span>
   );
 }
@@ -320,6 +362,12 @@ export function GapDetailPanel({
                 <GapScoreBadge score={gap.gapScore} />
                 <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">{gap.therapeuticArea}</span>
                 <FeasibilityBadge level={gap.regulatoryFeasibility} />
+                <ValidationStatusBadge status={gap.validationStatus} />
+                {gap.gapType && (
+                  <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-300">
+                    {formatGapType(gap.gapType)}
+                  </span>
+                )}
               </div>
               <h2 className="text-lg font-semibold text-white leading-snug">{gap.indication}</h2>
             </div>
@@ -350,6 +398,27 @@ export function GapDetailPanel({
                 <p className="text-sm text-zinc-300 leading-relaxed">{gap.demandEvidence}</p>
               </div>
 
+              {(gap.evidenceSummary || gap.verifiedMissingCount != null || gap.verifiedRegisteredCount != null) && (
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Validation</p>
+                  <p className="text-sm text-zinc-300 leading-relaxed">
+                    {gap.evidenceSummary ?? "Structured evidence captured for this gap."}
+                  </p>
+                  <div className="mt-2 flex flex-wrap gap-2 text-xs text-zinc-400">
+                    {gap.verifiedMissingCount != null && (
+                      <span className="rounded bg-zinc-800 px-2 py-1">
+                        {gap.verifiedMissingCount} verified missing
+                      </span>
+                    )}
+                    {gap.verifiedRegisteredCount != null && (
+                      <span className="rounded bg-zinc-800 px-2 py-1">
+                        {gap.verifiedRegisteredCount} verified registered
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* WHO disease burden */}
               {gap.whoDiseaseBurden && (
                 <div>
@@ -361,7 +430,11 @@ export function GapDetailPanel({
               {/* Supply gap */}
               <div>
                 <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Supply Gap</p>
-                <p className="text-sm text-zinc-300 leading-relaxed">{gap.supplyGap}</p>
+                <p className="text-sm text-zinc-300 leading-relaxed">
+                  {gap.validationStatus === "insufficient_evidence"
+                    ? gap.evidenceSummary ?? gap.supplyGap
+                    : gap.supplyGap}
+                </p>
               </div>
 
               {/* Competitor landscape */}
@@ -409,6 +482,32 @@ export function GapDetailPanel({
                       </li>
                     ))}
                   </ul>
+                </div>
+              )}
+
+              {gap.evidenceItems && gap.evidenceItems.length > 0 && (
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Evidence Snapshot</p>
+                  <div className="space-y-2">
+                    {gap.evidenceItems.slice(0, 5).map((item) => (
+                      <a
+                        key={`${item.url}-${item.claim}`}
+                        href={item.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="block rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-3 hover:border-zinc-700"
+                      >
+                        <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
+                          <span className="rounded bg-zinc-800 px-1.5 py-0.5">{item.sourceKind.replace(/_/g, " ")}</span>
+                          <span className="rounded bg-zinc-800 px-1.5 py-0.5">{item.confidence}</span>
+                          {item.country && <span className="rounded bg-zinc-800 px-1.5 py-0.5">{item.country}</span>}
+                          {item.productOrClass && <span className="rounded bg-zinc-800 px-1.5 py-0.5">{item.productOrClass}</span>}
+                        </div>
+                        <p className="mt-2 text-sm font-medium text-white">{item.title}</p>
+                        <p className="mt-1 text-xs text-zinc-400">{item.claim}</p>
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -594,6 +693,12 @@ function GapOpportunityCard({
             <GapScoreBadge score={gap.gapScore} />
             <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">{gap.therapeuticArea}</span>
             <FeasibilityBadge level={gap.regulatoryFeasibility} />
+            <ValidationStatusBadge status={gap.validationStatus} />
+            {gap.gapType && (
+              <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300">
+                {formatGapType(gap.gapType)}
+              </span>
+            )}
           </div>
           <h3 className="text-base font-semibold text-white mt-1 group-hover:text-cyan-300 transition-colors">
             {gap.indication}
@@ -617,7 +722,9 @@ function GapOpportunityCard({
       </div>
 
       {/* Demand evidence */}
-      <p className="text-sm text-zinc-400 line-clamp-2">{gap.demandEvidence}</p>
+      <p className="text-sm text-zinc-400 line-clamp-2">
+        {gap.evidenceSummary ?? gap.demandEvidence}
+      </p>
 
       {/* Drug classes */}
       {gap.suggestedDrugClasses.length > 0 && (
@@ -634,6 +741,9 @@ function GapOpportunityCard({
       {/* Footer: tender signals + supplier count */}
       <div className="flex items-center justify-between pt-1 text-xs text-zinc-600">
         <div className="flex items-center gap-3">
+          {(gap.verifiedMissingCount ?? 0) > 0 && (
+            <span className="text-emerald-400">{gap.verifiedMissingCount} verified missing</span>
+          )}
           {gap.tenderSignals && (
             <span className="flex items-center gap-1 text-cyan-500">
               <Zap className="h-3 w-3" /> Tender signals

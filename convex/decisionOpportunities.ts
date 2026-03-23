@@ -46,6 +46,7 @@ const opportunityArgs = {
   gapType: v.union(
     v.literal("formulary_gap"),
     v.literal("regulatory_gap"),
+    v.literal("shortage_gap"),
     v.literal("tender_pull"),
     v.literal("channel_whitespace"),
     v.literal("mixed")
@@ -199,13 +200,25 @@ function collectEvidence(args: {
   reportByDrugId: Map<Id<"drugs">, Doc<"reports">>;
   drugId: Id<"drugs">;
 }) {
-  const gapEvidence = (args.gap.sources ?? []).map((source) => ({
-    title: source.title,
-    url: source.url,
-    claim: args.gap.demandEvidence,
-    evidenceType: "gap" as const,
-    confidence: "likely" as const,
-  }));
+  const gapEvidence =
+    args.gap.evidenceItems && args.gap.evidenceItems.length > 0
+      ? args.gap.evidenceItems.map((item) => ({
+          title: item.title,
+          url: item.url,
+          claim: item.claim,
+          evidenceType:
+            item.sourceKind === "official_registry" || item.sourceKind === "ema"
+              ? ("regulatory" as const)
+              : ("gap" as const),
+          confidence: item.confidence,
+        }))
+      : (args.gap.sources ?? []).map((source) => ({
+          title: source.title,
+          url: source.url,
+          claim: args.gap.demandEvidence,
+          evidenceType: "gap" as const,
+          confidence: "likely" as const,
+        }));
   const matchEvidence = (args.match.evidenceLinks ?? []).map((source) => ({
     title: source.title,
     url: source.url,

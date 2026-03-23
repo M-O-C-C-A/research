@@ -28,6 +28,7 @@ export type DecisionOpportunityDraft = {
   gapType:
     | "formulary_gap"
     | "regulatory_gap"
+    | "shortage_gap"
     | "tender_pull"
     | "channel_whitespace"
     | "mixed";
@@ -88,6 +89,9 @@ function summarizeText(value?: string | null, fallback = "Not yet verified.") {
 }
 
 function deriveGapType(gap: GapDoc): DecisionOpportunityDraft["gapType"] {
+  if (gap.gapType) {
+    return gap.gapType === "shortage_gap" ? "shortage_gap" : gap.gapType;
+  }
   const tender = normalizeText(gap.tenderSignals);
   const supply = normalizeText(gap.supplyGap);
   if (tender) return "tender_pull";
@@ -218,11 +222,15 @@ function buildScoreBreakdown(args: {
   sourceCount: number;
 }) {
   const gapValidityBase =
-    args.identityStatus === "confirmed"
-      ? 8.8
-      : args.identityStatus === "likely"
-        ? 6.9
-        : 4.4;
+    args.gap.validationStatus === "confirmed"
+      ? 9.1
+      : args.gap.validationStatus === "likely"
+        ? args.identityStatus === "confirmed"
+          ? 8.2
+          : args.identityStatus === "likely"
+            ? 6.9
+            : 4.8
+        : 3.2;
   const registrationsPenalty = Math.min(args.drug.menaRegistrationCount ?? 0, 3) * 1.2;
   const gapValidity = clampScore(gapValidityBase - registrationsPenalty);
 
@@ -293,8 +301,10 @@ function averageScore(breakdown: DecisionOpportunityDraft["scoreBreakdown"]) {
 
 function deriveConfidenceLevel(
   scoreBreakdown: DecisionOpportunityDraft["scoreBreakdown"],
-  identityStatus: DecisionOpportunityDraft["productIdentityStatus"]
+  identityStatus: DecisionOpportunityDraft["productIdentityStatus"],
+  gapValidationStatus?: GapDoc["validationStatus"]
 ): DecisionOpportunityDraft["confidenceLevel"] {
+  if (gapValidationStatus === "insufficient_evidence") return "low";
   const avg = averageScore(scoreBreakdown);
   if (identityStatus === "uncertain") return "low";
   if (avg >= 7.5) return "high";
@@ -380,7 +390,11 @@ export function buildDecisionOpportunityDraft(args: {
     sourceCount: args.sourceCount,
   });
   const priorityScore = averageScore(scoreBreakdown);
-  const confidenceLevel = deriveConfidenceLevel(scoreBreakdown, identityStatus);
+  const confidenceLevel = deriveConfidenceLevel(
+    scoreBreakdown,
+    identityStatus,
+    args.gap.validationStatus
+  );
   const whyThisMarket = `${selectedFocusMarkets.join(" and ")} concentrate the clearest near-term whitespace, while ${secondaryMarkets.length > 0 ? secondaryMarkets.slice(0, 2).join(" and ") : "the rest of MENA"} remain secondary follow-on markets.`;
   const whyNow = args.gap.tenderSignals
     ? "Recent procurement and tender pull make this a live rather than hypothetical market-entry window."
@@ -414,7 +428,7 @@ export function buildDecisionOpportunityDraft(args: {
     gapType,
     productIdentityStatus: identityStatus,
     gapSummary: summarizeText(
-      args.gap.supplyGap,
+      args.gap.evidenceSummary ?? args.gap.supplyGap,
       "MENA whitespace needs validation against official registrations."
     ),
     commercialRationale: `${summarizeText(args.gap.demandEvidence, "Demand signal still developing.")} ${args.company?.distributorFitRationale ?? args.company?.bdScoreRationale ?? ""}`.trim(),
@@ -450,7 +464,9 @@ export function buildDecisionOpportunityDraft(args: {
     outreachDraft: outreach.draft,
     confidenceLevel,
     confidenceSummary:
-      identityStatus === "uncertain"
+      args.gap.validationStatus === "insufficient_evidence"
+        ? "Gap evidence is still insufficient, so this opportunity should not be treated as outreach-ready."
+        : identityStatus === "uncertain"
         ? "Product ownership and local white-space need validation before treating this as outreach-ready."
         : `Confidence is ${confidenceLevel} because the opportunity has ${args.sourceCount} supporting evidence item(s) and a persisted partner thesis.`,
     assumptions: [

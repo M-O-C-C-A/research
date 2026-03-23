@@ -449,7 +449,6 @@ async function main() {
   const gaps = buildGaps(ci, hosp);
 
   let created = 0;
-  let updated = 0;
   let failed = 0;
 
   for (const gap of gaps) {

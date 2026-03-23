@@ -1,7 +1,7 @@
 "use node";
 
-import { action, ActionCtx } from "./_generated/server";
-import { api } from "./_generated/api";
+import { action, ActionCtx, internalAction } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { normalizeDrugEntityLinks } from "./drugEntityLinkUtils";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
@@ -1318,27 +1318,31 @@ Return a distributorFitScore (0-10), rationale, exportReadiness, partnerabilityS
  *   - Auto-links every newly discovered company back to the gap record
  *   - Returns the job ID so the caller can show live progress
  */
-export const findCompaniesForGap = action({
-  args: { gapOpportunityId: v.id("gapOpportunities") },
-  handler: async (ctx, { gapOpportunityId }): Promise<Id<"discoveryJobs">> => {
-    const gap = await ctx.runQuery(api.gapOpportunities.get, {
-      id: gapOpportunityId,
+export async function runFindCompaniesForGapJob(
+  ctx: ActionCtx,
+  gapOpportunityId: Id<"gapOpportunities">,
+  jobId: Id<"discoveryJobs">
+): Promise<void> {
+  const gap = await ctx.runQuery(api.gapOpportunities.get, {
+    id: gapOpportunityId,
+  });
+
+  if (!gap) {
+    await ctx.runMutation(api.discoveryJobs.fail, {
+      id: jobId,
+      errorMessage: "Gap opportunity not found",
     });
-    if (!gap) throw new Error("Gap opportunity not found");
+    return;
+  }
 
-    const jobId = await ctx.runMutation(api.discoveryJobs.create, {
-      type: "companies",
-      gapOpportunityId,
-    });
+  const log = async (
+    message: string,
+    level: "info" | "success" | "warning" | "error" = "info"
+  ) => {
+    await ctx.runMutation(api.discoveryJobs.appendLog, { id: jobId, message, level });
+  };
 
-    const log = async (
-      message: string,
-      level: "info" | "success" | "warning" | "error" = "info"
-    ) => {
-      await ctx.runMutation(api.discoveryJobs.appendLog, { id: jobId, message, level });
-    };
-
-    try {
+  try {
       const client = createResearchClient(process.env.OPENAI_API_KEY!);
       let warningCount = 0;
 
@@ -1642,18 +1646,46 @@ Return company name, EU HQ country, website if known, and 1-3 source URLs.`,
       const totalLinked = linkedCompanyIds.length;
       const summary = `Supplier search complete — ${newCount} new companies added, ${totalLinked} total linked to this gap, ${productsLinked} products linked, and ${promotedDelta} decision opportunities promoted (${dupCount} already in registry).${warningCount ? ` ${warningCount} batches had warnings.` : ""}`;
 
-      await ctx.runMutation(api.discoveryJobs.complete, {
-        id: jobId,
-        newItemsFound: newCount,
-        skippedDuplicates: dupCount,
-        summary,
-      });
+    await ctx.runMutation(api.discoveryJobs.complete, {
+      id: jobId,
+      newItemsFound: newCount,
+      skippedDuplicates: dupCount,
+      summary,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown error";
+    await ctx.runMutation(api.discoveryJobs.fail, { id: jobId, errorMessage: msg });
+  }
+}
 
-      return jobId;
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Unknown error";
-      await ctx.runMutation(api.discoveryJobs.fail, { id: jobId, errorMessage: msg });
-      return jobId;
-    }
+export const executeFindCompaniesForGap = internalAction({
+  args: {
+    jobId: v.id("discoveryJobs"),
+    gapOpportunityId: v.id("gapOpportunities"),
+  },
+  handler: async (ctx, args): Promise<void> => {
+    await runFindCompaniesForGapJob(ctx, args.gapOpportunityId, args.jobId);
+  },
+});
+
+export const findCompaniesForGap = action({
+  args: { gapOpportunityId: v.id("gapOpportunities") },
+  handler: async (ctx, { gapOpportunityId }): Promise<Id<"discoveryJobs">> => {
+    const gap = await ctx.runQuery(api.gapOpportunities.get, {
+      id: gapOpportunityId,
+    });
+    if (!gap) throw new Error("Gap opportunity not found");
+
+    const jobId = await ctx.runMutation(api.discoveryJobs.create, {
+      type: "companies",
+      gapOpportunityId,
+    });
+
+    await ctx.scheduler.runAfter(0, internal.discovery.executeFindCompaniesForGap, {
+      jobId,
+      gapOpportunityId,
+    });
+
+    return jobId;
   },
 });

@@ -40,8 +40,8 @@ export function DrugDetailTabs({ drugId }: DrugDetailTabsProps) {
 
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange}>
-      <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+      <div className="mb-6 rounded-xl border border-[color:var(--brand-border)] bg-zinc-900 p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
           Suggested flow
         </p>
         <h2 className="mt-2 text-lg font-semibold text-white">
@@ -61,18 +61,18 @@ export function DrugDetailTabs({ drugId }: DrugDetailTabsProps) {
           </span>
           <Link
             href="/gaps"
-            className="inline-flex items-center gap-1 text-cyan-300 hover:text-cyan-200"
+            className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]"
           >
             3. Compare against all opportunities
             <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </div>
-      <TabsList className="bg-zinc-900 border border-zinc-800 mb-6">
-        <TabsTrigger value="opportunities" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-400">
+      <TabsList className="mb-6 border border-[color:var(--brand-border)] bg-zinc-900">
+        <TabsTrigger value="opportunities" className="text-zinc-400">
           Market Opportunity
         </TabsTrigger>
-        <TabsTrigger value="report" className="data-[state=active]:bg-zinc-800 data-[state=active]:text-white text-zinc-400">
+        <TabsTrigger value="report" className="text-zinc-400">
           Decision Brief
         </TabsTrigger>
       </TabsList>

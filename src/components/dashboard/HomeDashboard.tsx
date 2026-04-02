@@ -35,7 +35,7 @@ export function HomeDashboard() {
 
       <section className="space-y-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--brand-300)]">
             {BRAND_NAME}
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-white">
@@ -61,7 +61,7 @@ export function HomeDashboard() {
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-zinc-950 p-3 text-cyan-300">
+            <div className="rounded-xl bg-[color:var(--brand-surface)] p-3 text-[var(--brand-300)]">
               <Building2 className="h-5 w-5" />
             </div>
             <div>
@@ -76,7 +76,7 @@ export function HomeDashboard() {
           </div>
           <Link
             href="/companies"
-            className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-cyan-300 hover:text-cyan-200"
+            className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-300)] hover:text-[var(--brand-400)]"
           >
             Open company directory
             <ArrowRight className="h-4 w-4" />
@@ -85,7 +85,7 @@ export function HomeDashboard() {
 
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <div className="flex items-start gap-3">
-            <div className="rounded-xl bg-zinc-950 p-3 text-cyan-300">
+            <div className="rounded-xl bg-[color:var(--brand-surface)] p-3 text-[var(--brand-300)]">
               <Pill className="h-5 w-5" />
             </div>
             <div>
@@ -100,7 +100,7 @@ export function HomeDashboard() {
           </div>
           <Link
             href="/drugs"
-            className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-cyan-300 hover:text-cyan-200"
+            className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-300)] hover:text-[var(--brand-400)]"
           >
             Open product directory
             <ArrowRight className="h-4 w-4" />
@@ -125,7 +125,7 @@ export function HomeDashboard() {
             <p className="mt-2 text-sm text-zinc-400">{primaryAction.description}</p>
             <Link
               href={primaryAction.href}
-              className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-cyan-300 hover:text-cyan-200"
+              className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-300)] hover:text-[var(--brand-400)]"
             >
               Open next step
               <ArrowRight className="h-4 w-4" />
@@ -150,7 +150,7 @@ export function HomeDashboard() {
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
               Research More
             </p>
             <h2 className="mt-2 text-xl font-semibold text-white">

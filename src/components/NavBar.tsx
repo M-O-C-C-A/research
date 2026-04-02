@@ -59,16 +59,16 @@ export function NavBar() {
   }, [mobileOpen]);
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-md">
+    <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[color:var(--brand-border)] bg-zinc-950/85 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between">
           <div className="flex items-center gap-4 md:gap-8">
             <Link
               href="/"
-              className="flex items-center gap-2 transition-opacity hover:opacity-80"
+              className="flex items-center gap-2 transition-opacity hover:opacity-90"
             >
-              <div className="h-8 w-8 rounded bg-gradient-to-br from-white to-zinc-500 shadow-[0_0_15px_rgba(255,255,255,0.1)]" />
-              <span className="text-base font-bold tracking-tight text-white uppercase sm:text-lg">
+              <div className="h-8 w-8 rounded bg-gradient-to-br from-[var(--brand-400)] to-[var(--brand-600)] shadow-[0_0_24px_var(--brand-glow)]" />
+              <span className="text-base font-semibold tracking-[0.08em] text-white uppercase sm:text-lg">
                 {BRAND_NAME}
               </span>
             </Link>
@@ -86,8 +86,8 @@ export function NavBar() {
                     className={cn(
                       "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
                       active
-                        ? "bg-zinc-800 text-white"
-                        : "text-zinc-400 hover:text-white hover:bg-zinc-800/50"
+                        ? "bg-[color:var(--brand-surface)] text-white ring-1 ring-[color:var(--brand-border)]"
+                        : "text-zinc-400 hover:text-white hover:bg-[color:var(--brand-surface)]"
                     )}
                   >
                     {item.label}
@@ -100,7 +100,7 @@ export function NavBar() {
             <span className="text-xs text-zinc-600 hidden sm:block">{BRAND_TAGLINE}</span>
             <Link
               href={startProcessHref}
-              className="hidden md:inline-flex items-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+              className="hidden md:inline-flex items-center rounded-lg bg-[color:var(--brand-500)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[color:var(--brand-600)]"
             >
               {startProcessLabel}
             </Link>
@@ -109,7 +109,7 @@ export function NavBar() {
               aria-expanded={mobileOpen}
               aria-controls="mobile-navigation"
               aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-zinc-800 bg-zinc-900 text-zinc-200 transition-colors hover:bg-zinc-800 md:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[color:var(--brand-border)] bg-zinc-900 text-zinc-200 transition-colors hover:bg-[color:var(--brand-surface)] md:hidden"
               onClick={() => setMobileOpen((open) => !open)}
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -119,7 +119,7 @@ export function NavBar() {
       </div>
       <div
         className={cn(
-          "md:hidden overflow-hidden border-t border-zinc-800 bg-zinc-950/95 transition-[max-height,opacity] duration-200",
+          "md:hidden overflow-hidden border-t border-[color:var(--brand-border)] bg-zinc-950/95 transition-[max-height,opacity] duration-200",
           mobileOpen ? "max-h-[24rem] opacity-100" : "max-h-0 opacity-0"
         )}
       >
@@ -128,7 +128,7 @@ export function NavBar() {
             <Link
               href={startProcessHref}
               onClick={() => setMobileOpen(false)}
-              className="rounded-lg bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+              className="rounded-lg bg-[color:var(--brand-500)] px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-[color:var(--brand-600)]"
             >
               {startProcessLabel}
             </Link>
@@ -146,8 +146,8 @@ export function NavBar() {
                   className={cn(
                     "rounded-lg px-4 py-3 text-sm font-medium transition-colors",
                     active
-                      ? "bg-zinc-800 text-white"
-                      : "text-zinc-300 hover:bg-zinc-900 hover:text-white"
+                      ? "bg-[color:var(--brand-surface)] text-white ring-1 ring-[color:var(--brand-border)]"
+                      : "text-zinc-300 hover:bg-[color:var(--brand-surface)] hover:text-white"
                   )}
                 >
                   {item.label}

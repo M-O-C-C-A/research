@@ -105,7 +105,7 @@ export function DecisionOpportunityCards({
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
-                  <MapPinned className="mt-0.5 h-3.5 w-3.5 text-cyan-400" />
+                  <MapPinned className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                       Why it matters
@@ -137,7 +137,7 @@ export function DecisionOpportunityCards({
                 </div>
               </div>
 
-              <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-cyan-400">
+              <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-300)]">
                 Review recommendation
                 <ArrowRight className="h-3 w-3" />
               </div>

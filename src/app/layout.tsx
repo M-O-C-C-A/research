@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono, Montserrat } from "next/font/google";
 import "./globals.css";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const montserrat = Montserrat({
+  variable: "--font-montserrat",
   subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -29,11 +30,11 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
+      className={`${montserrat.variable} ${geistMono.variable} h-full antialiased dark`}
       suppressHydrationWarning
     >
       <body
-        className="min-h-full flex flex-col bg-zinc-950 font-sans selection:bg-zinc-500/30"
+        className="min-h-full flex flex-col bg-zinc-950 font-sans selection:bg-[color:var(--brand-selection)]"
         suppressHydrationWarning
       >
         <ConvexClientProvider>

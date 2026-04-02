@@ -20,13 +20,13 @@ export function WorkflowCallout({
 }: WorkflowCalloutProps) {
   const toneClass =
     tone === "emphasis"
-      ? "border-cyan-500/30 bg-cyan-500/5"
+      ? "border-[color:var(--brand-border)] bg-[color:var(--brand-surface)]"
       : "border-zinc-800 bg-zinc-900";
 
   return (
     <div className={`rounded-xl border p-5 ${toneClass}`}>
       {eyebrow && (
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
           {eyebrow}
         </p>
       )}
@@ -37,7 +37,7 @@ export function WorkflowCallout({
       {href && actionLabel ? (
         <Link
           href={href}
-          className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-cyan-300 hover:text-cyan-200"
+          className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-300)] hover:text-[var(--brand-400)]"
         >
           {actionLabel}
           <ArrowRight className="h-4 w-4" />

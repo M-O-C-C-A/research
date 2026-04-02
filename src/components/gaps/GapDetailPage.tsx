@@ -89,7 +89,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
                 <FeasibilityBadge level={typedGap.regulatoryFeasibility} />
                 <ValidationStatusBadge status={typedGap.validationStatus} />
                 {typedGap.gapType && (
-                  <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-300">
+                  <span className="rounded bg-[color:var(--brand-surface)] px-2 py-0.5 text-xs text-[var(--brand-300)]">
                     {formatGapType(typedGap.gapType)}
                   </span>
                 )}
@@ -110,7 +110,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
             <div className="flex flex-wrap gap-2">
               <Button
                 size="sm"
-                className="bg-cyan-600 text-white hover:bg-cyan-500"
+                className="bg-[color:var(--brand-500)] text-white hover:bg-[color:var(--brand-600)]"
                 onClick={() => setShowSupplierDialog(true)}
               >
                 <Search className="mr-1.5 h-3.5 w-3.5" />
@@ -160,7 +160,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
               {typedGap.suggestedDrugClasses.map((cls) => (
                 <span
                   key={cls}
-                  className="rounded border border-cyan-500/20 bg-cyan-500/10 px-2 py-1 text-xs text-cyan-300"
+                  className="rounded border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] px-2 py-1 text-xs text-[var(--brand-300)]"
                 >
                   {cls}
                 </span>
@@ -201,7 +201,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
             {typedGap.tenderSignals && (
               <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
                 <p className="flex items-center gap-1 text-xs uppercase tracking-wider text-zinc-500">
-                  <Zap className="h-3 w-3 text-cyan-400" />
+                  <Zap className="h-3 w-3 text-[var(--brand-300)]" />
                   Tender Signals
                 </p>
                 <pre className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
@@ -222,7 +222,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
                   href={normalizeExternalUrl(source.url) ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block text-sm text-cyan-400 underline hover:text-cyan-300"
+                  className="block text-sm text-[var(--brand-300)] underline hover:text-[var(--brand-400)]"
                 >
                   {source.title}
                 </a>

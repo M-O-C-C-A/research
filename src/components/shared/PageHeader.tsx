@@ -22,7 +22,7 @@ export function PageHeader({ title, description, breadcrumbs, action }: PageHead
             <span key={i} className="flex items-center gap-1">
               {i > 0 && <ChevronRight className="h-3.5 w-3.5" />}
               {crumb.href ? (
-                <Link href={crumb.href} className="hover:text-zinc-300 transition-colors">
+                <Link href={crumb.href} className="hover:text-[var(--brand-300)] transition-colors">
                   {crumb.label}
                 </Link>
               ) : (
@@ -34,9 +34,9 @@ export function PageHeader({ title, description, breadcrumbs, action }: PageHead
       )}
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-white">{title}</h1>
+          <h1 className="font-heading text-3xl font-semibold text-white">{title}</h1>
           {description && (
-            <p className="mt-1 text-sm text-zinc-400">{description}</p>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">{description}</p>
           )}
         </div>
         {action && <div className="shrink-0">{action}</div>}

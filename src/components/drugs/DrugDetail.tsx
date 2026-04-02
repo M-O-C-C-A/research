@@ -85,11 +85,16 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
                 {drug.approvalStatus}
               </Badge>
             </div>
-            <p className="text-sm text-zinc-500">
-              {drug.genericName}
-              {primaryEntityLabel ? (
-                <span>
-                  {" · "}
+          <p className="text-sm text-zinc-500">
+              <Link
+                href={`/drugs/inn/${encodeURIComponent(drug.genericName)}`}
+                className="text-zinc-400 hover:text-cyan-300"
+              >
+                {drug.genericName}
+              </Link>
+            {primaryEntityLabel ? (
+              <span>
+                {" · "}
                   <span className="text-zinc-400">{primaryEntityLabel}</span>
                   {primaryEntityCountry ? (
                     <>
@@ -101,10 +106,17 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
               ) : null}
             </p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <Link
-              href={`/drugs/${drugId}?tab=report`}
-              className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+        <div className="flex flex-col items-end gap-2">
+          <Link
+            href={`/drugs/inn/${encodeURIComponent(drug.genericName)}`}
+            className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+          >
+            View all INN manufacturers
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href={`/drugs/${drugId}?tab=report`}
+            className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
             >
               Research this product
               <ArrowRight className="h-4 w-4" />

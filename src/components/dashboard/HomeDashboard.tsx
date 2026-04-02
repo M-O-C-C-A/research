@@ -6,13 +6,11 @@ import { api } from "../../../convex/_generated/api";
 import { DecisionOpportunityCards } from "@/components/opportunities/DecisionOpportunityCards";
 import { ActionQueueWidget } from "@/components/dashboard/ActionQueueWidget";
 import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompaniesButton";
-import { buttonVariants } from "@/components/ui/button";
 import { NextActionCard } from "@/components/shared/NextActionCard";
 import { WorkflowCallout } from "@/components/shared/WorkflowCallout";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { StatsBar } from "@/components/dashboard/StatsBar";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
-import { cn } from "@/lib/utils";
 import { ArrowRight, Building2, Pill } from "lucide-react";
 
 export function HomeDashboard() {
@@ -184,14 +182,11 @@ export function HomeDashboard() {
           </Link>
           <Link
             href="/gaps"
-            className={cn(
-              "rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 transition-colors hover:border-zinc-700",
-              buttonVariants({ variant: "ghost" })
-            )}
+            className="block rounded-xl border border-zinc-800 bg-zinc-950/60 p-4 transition-colors hover:border-zinc-700 hover:bg-[color:var(--brand-surface)]/40"
           >
-            <div className="w-full text-left">
+            <div className="min-w-0 text-left">
               <p className="text-sm font-semibold text-white">Check market opportunity</p>
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="mt-1 text-sm leading-relaxed text-zinc-400">
                 Go straight to the best opportunity shortlist and review which products are most actionable now.
               </p>
             </div>

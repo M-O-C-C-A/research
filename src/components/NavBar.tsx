@@ -61,18 +61,18 @@ export function NavBar() {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-[color:var(--brand-border)] bg-zinc-950/85 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 items-center justify-between">
-          <div className="flex items-center gap-4 md:gap-8">
+        <div className="flex h-16 items-center justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4 md:gap-8">
             <Link
               href="/"
-              className="flex items-center gap-2 transition-opacity hover:opacity-90"
+              className="flex shrink-0 items-center gap-2 transition-opacity hover:opacity-90"
             >
               <div className="h-8 w-8 rounded bg-gradient-to-br from-[var(--brand-400)] to-[var(--brand-600)] shadow-[0_0_24px_var(--brand-glow)]" />
               <span className="text-base font-semibold tracking-[0.08em] text-white uppercase sm:text-lg">
                 {BRAND_NAME}
               </span>
             </Link>
-            <div className="hidden md:flex items-center gap-1">
+            <div className="hidden min-w-0 md:flex md:items-center md:gap-1">
               {NAV_LINKS.map((item) => {
                 const active =
                   item.href === "/"
@@ -84,7 +84,7 @@ export function NavBar() {
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
                     className={cn(
-                      "px-3 py-1.5 rounded-md text-sm font-medium transition-colors",
+                      "rounded-md px-3 py-1.5 text-sm font-medium leading-tight transition-colors",
                       active
                         ? "bg-[color:var(--brand-surface)] text-white ring-1 ring-[color:var(--brand-border)]"
                         : "text-zinc-400 hover:text-white hover:bg-[color:var(--brand-surface)]"
@@ -96,8 +96,10 @@ export function NavBar() {
               })}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-600 hidden sm:block">{BRAND_TAGLINE}</span>
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="hidden max-w-[18rem] truncate text-right text-xs leading-tight text-zinc-600 xl:block">
+              {BRAND_TAGLINE}
+            </span>
             <Link
               href={startProcessHref}
               className="hidden md:inline-flex items-center rounded-lg bg-[color:var(--brand-500)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[color:var(--brand-600)]"

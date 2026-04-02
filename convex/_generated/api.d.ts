@@ -12,6 +12,7 @@ import type * as ai from "../ai.js";
 import type * as bdActivities from "../bdActivities.js";
 import type * as companies from "../companies.js";
 import type * as constants from "../constants.js";
+import type * as countryCapabilityProfiles from "../countryCapabilityProfiles.js";
 import type * as dashboard from "../dashboard.js";
 import type * as decisionOpportunities from "../decisionOpportunities.js";
 import type * as decisionOpportunityEngine from "../decisionOpportunityEngine.js";
@@ -49,6 +50,7 @@ declare const fullApi: ApiFromModules<{
   bdActivities: typeof bdActivities;
   companies: typeof companies;
   constants: typeof constants;
+  countryCapabilityProfiles: typeof countryCapabilityProfiles;
   dashboard: typeof dashboard;
   decisionOpportunities: typeof decisionOpportunities;
   decisionOpportunityEngine: typeof decisionOpportunityEngine;

@@ -25,6 +25,36 @@ const LEGACY_OR_NEW_STAGE_VALIDATOR = v.union(
   v.literal("disqualified")
 );
 
+const CONTACT_ROLE_TYPE_VALIDATOR = v.union(
+  v.literal("business_development"),
+  v.literal("international_markets"),
+  v.literal("regional_commercial"),
+  v.literal("regulatory"),
+  v.literal("licensing"),
+  v.literal("other")
+);
+
+const CONTACT_SENIORITY_VALIDATOR = v.union(
+  v.literal("executive"),
+  v.literal("director"),
+  v.literal("manager"),
+  v.literal("individual_contributor"),
+  v.literal("unknown")
+);
+
+const KEY_CONTACT_VALIDATOR = v.object({
+  name: v.string(),
+  title: v.string(),
+  roleType: v.optional(CONTACT_ROLE_TYPE_VALIDATOR),
+  seniority: v.optional(CONTACT_SENIORITY_VALIDATOR),
+  geographies: v.optional(v.array(v.string())),
+  email: v.optional(v.string()),
+  linkedinUrl: v.optional(v.string()),
+  confidence: v.union(v.literal("confirmed"), v.literal("likely"), v.literal("inferred")),
+  source: v.optional(v.string()),
+  lastVerifiedAt: v.optional(v.number()),
+});
+
 export const list = query({
   args: { search: v.optional(v.string()) },
   handler: async (ctx, { search }) => {
@@ -193,14 +223,7 @@ export const update = mutation({
       source: v.string(),
       url: v.optional(v.string()),
     }))),
-    keyContacts: v.optional(v.array(v.object({
-      name: v.string(),
-      title: v.string(),
-      email: v.optional(v.string()),
-      linkedinUrl: v.optional(v.string()),
-      confidence: v.union(v.literal("confirmed"), v.literal("likely"), v.literal("inferred")),
-      source: v.optional(v.string()),
-    }))),
+    keyContacts: v.optional(v.array(KEY_CONTACT_VALIDATOR)),
     distributorFitScore: v.optional(v.number()),
     distributorFitRationale: v.optional(v.string()),
     targetSegment: v.optional(v.union(

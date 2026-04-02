@@ -39,7 +39,9 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
 
   return (
     <div className="grid gap-4">
-      {opportunities.map((item) => (
+      {opportunities.map((item) => {
+        const readyToSend = item.outreachReadiness?.readyToSend ?? false;
+        return (
         <Link
           key={item._id}
           href={`/opportunities/${item._id}`}
@@ -56,6 +58,15 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
                 </span>
                 <span className={`inline-flex rounded-md px-2 py-1 text-xs ${confidenceBadgeClass(item.confidenceLevel)}`}>
                   {item.confidenceLevel} confidence
+                </span>
+                <span
+                  className={`inline-flex rounded-md px-2 py-1 text-xs ${
+                    readyToSend
+                      ? "bg-emerald-500/15 text-emerald-300"
+                      : "bg-amber-500/15 text-amber-300"
+                  }`}
+                >
+                  {readyToSend ? "ready to send" : "needs work"}
                 </span>
               </div>
               <p className="text-lg font-semibold text-white">{item.title}</p>
@@ -109,7 +120,8 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
             <ArrowRight className="h-3 w-3" />
           </div>
         </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }

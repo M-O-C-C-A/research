@@ -7,7 +7,9 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { AddCompanyDialog } from "./AddCompanyDialog";
+import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompaniesButton";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { CardGridSkeleton } from "@/components/shared/LoadingSkeleton";
 import { Search, Building2, Globe, ArrowRight } from "lucide-react";
 
@@ -17,7 +19,12 @@ export function CompanyList() {
 
   return (
     <div>
-      <div className="flex gap-3 mb-6">
+      <GuidedFlowBanner
+        hereLabel="Company directory"
+        helperText="Use this list to choose a manufacturer, then either research the company further or connect it to products and opportunities."
+      />
+
+      <div className="mt-6 flex gap-3 mb-6">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input
@@ -27,14 +34,15 @@ export function CompanyList() {
             className="pl-9 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
           />
         </div>
+        <DiscoverCompaniesButton size="sm" variant="outline" label="Research more" />
         <AddCompanyDialog />
       </div>
 
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
         <p className="text-sm text-zinc-300">
-          Use this page to keep a clean list of manufacturers you may want to approach. The next
-          step after adding a company is usually to add one or more drugs, then review the
-          recommended opportunities.
+          Use this page as your working directory of target manufacturers. A simple flow is:
+          choose a company, research it further if needed, find the relevant products, then move
+          into the best-opportunity and outreach flow.
         </p>
       </div>
 

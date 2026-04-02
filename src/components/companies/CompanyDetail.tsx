@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { FindDrugsButton } from "@/components/discovery/FindDrugsButton";
+import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import {
   Globe,
   MapPin,
@@ -244,6 +245,11 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
 
   return (
     <div className="space-y-6 mb-8">
+      <GuidedFlowBanner
+        hereLabel="Company detail"
+        helperText="Use this page to judge whether a target manufacturer is worth pursuing, then research the portfolio and move into the best opportunity."
+      />
+
       {/* Main company card */}
       <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
         <div className="flex items-start justify-between gap-4 mb-4">
@@ -275,7 +281,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
               Review opportunities
               <ArrowRight className="h-4 w-4" />
             </Link>
-            <FindDrugsButton companyId={companyId} />
+            <FindDrugsButton companyId={companyId} label="Find products" />
             <Badge
               variant={company.status === "active" ? "default" : "secondary"}
               className={
@@ -596,10 +602,14 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                       ? [{
                           name: company.contactName,
                           title: company.contactTitle ?? "",
+                          roleType: "business_development" as const,
+                          seniority: "unknown" as const,
+                          geographies: [],
                           email: company.contactEmail,
                           linkedinUrl: company.linkedinUrl,
                           confidence: "likely" as const,
                           source: undefined,
+                          lastVerifiedAt: undefined,
                         }]
                       : []
                   ).map((contact, i) => (
@@ -620,8 +630,23 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                           </span>
                         </div>
                         <p className="text-xs text-zinc-500 mt-0.5">{contact.title}</p>
+                        {(contact.roleType || (contact.geographies?.length ?? 0) > 0) && (
+                          <p className="text-xs text-zinc-600 mt-0.5">
+                            {contact.roleType
+                              ? contact.roleType.replaceAll("_", " ")
+                              : "contact"}
+                            {(contact.geographies?.length ?? 0) > 0
+                              ? ` · ${contact.geographies?.join(", ")}`
+                              : ""}
+                          </p>
+                        )}
                         {contact.source && (
                           <p className="text-xs text-zinc-700 mt-0.5 truncate">via {contact.source}</p>
+                        )}
+                        {contact.lastVerifiedAt && (
+                          <p className="text-xs text-zinc-700 mt-0.5">
+                            verified {new Date(contact.lastVerifiedAt).toLocaleDateString()}
+                          </p>
                         )}
                         <div className="flex items-center gap-3 mt-1.5">
                           {contact.email && (
@@ -678,7 +703,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                 {isDossierRunning ? (
                   <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Building dossier…</>
                 ) : (
-                  <><Zap className="h-3 w-3 mr-1.5" />Build Full Dossier</>
+                  <><Zap className="h-3 w-3 mr-1.5" />Research this company</>
                 )}
               </Button>
               <Button
@@ -691,7 +716,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                 {isScoring ? (
                   <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Scoring…</>
                 ) : (
-                  <><Star className="h-3 w-3 mr-1.5" />Quick Fit Score</>
+                  <><Star className="h-3 w-3 mr-1.5" />Quick fit check</>
                 )}
               </Button>
               <div className="flex items-center gap-3 ml-auto">

@@ -10,32 +10,33 @@ import { WorkflowCallout } from "@/components/shared/WorkflowCallout";
 
 export function OpportunityWorkbench() {
   const stats = useQuery(api.decisionOpportunities.stats, {});
+  const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
-            Opportunity decisions
+            Best Opportunities
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-white">
-            Choose what to pursue next
+            Review the strongest opportunities first
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
-            Start with the recommended shortlist below. Each card combines market need,
-            route to market, and contact direction so you can decide whether to move
-            forward without digging through every research screen first.
+            This page is your shortlist of the best opportunities in the system. Start here when
+            you want to see what looks commercially attractive, what is blocked, and what is ready
+            for outreach.
           </p>
         </div>
         <RebuildOpportunityEngineButton />
       </div>
 
       <WorkflowCallout
-        eyebrow="How To Use This Page"
-        title="Read left to right: what it is, why it matters, and what to do next"
-        description="A higher priority score means the opportunity looks more commercially attractive overall. Confidence shows how solid the supporting evidence is. Open any opportunity to see the recommended next action, outreach direction, and supporting evidence."
-        href="/pipeline"
-        actionLabel="Open outreach pipeline"
+        eyebrow="What To Do Here"
+        title="Open the top card, confirm blockers, then prepare outreach"
+        description="A higher priority score means the opportunity looks more commercially attractive overall. Open any card to see plain-language reasoning, blockers, and the outreach package."
+        href={guidedFlow?.resumeHref ?? "/workflow"}
+        actionLabel="Return to guided process"
       />
 
       <div className="mb-8 grid gap-4 md:grid-cols-4">
@@ -44,19 +45,19 @@ export function OpportunityWorkbench() {
             label: "Active Opportunities",
             value: stats?.active ?? 0,
             icon: Target,
-            sublabel: "shortlisted and promoted",
+            sublabel: "best current opportunities",
           },
           {
-            label: "Need Validation",
+            label: "Blocked",
             value: stats?.needsValidation ?? 0,
             icon: FileSearch,
-            sublabel: "identity or whitespace still uncertain",
+            sublabel: "still need confirmation before outreach",
           },
           {
             label: "KSA/UAE Focused",
             value: stats?.topFocus ?? 0,
             icon: DatabaseZap,
-            sublabel: "phase 1 launch-market opportunities",
+            sublabel: "top launch-market opportunities",
           },
           {
             label: "Avg Priority",
@@ -82,19 +83,19 @@ export function OpportunityWorkbench() {
 
       <div id="top-opportunities">
         <DecisionOpportunityCards
-          title="Recommended opportunities"
-          description="Start here when you want the strongest opportunities with a clear reason to act and a suggested next move."
+          title="Best opportunities right now"
+          description="The strongest opportunities with the clearest next action."
         />
       </div>
 
       <div className="mt-8 rounded-xl border border-zinc-800 bg-zinc-950/50 p-6">
         <div className="mb-4">
           <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
-            Supporting Research Layer
+            Advanced Research Layer
           </h2>
           <p className="mt-1 text-xs text-zinc-500">
-            Use the research layer below when you need to inspect the raw market gap work behind
-            the recommendations. Most users can make their next decision from the shortlist above.
+            Use the detailed research layer below only when you need to inspect the raw market work
+            behind the shortlist. Most users can stay with the cards above.
           </p>
         </div>
         <GapsDashboard />

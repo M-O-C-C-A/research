@@ -3,21 +3,52 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useQuery } from "convex/react";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
+import { api } from "../../convex/_generated/api";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
-  { label: "Guided Workflow", href: "/workflow" },
-  { label: "Opportunities", href: "/gaps" },
   { label: "Companies", href: "/companies" },
-  { label: "Drugs", href: "/drugs" },
+  { label: "Products", href: "/drugs" },
+  { label: "Best Opportunities", href: "/gaps" },
+  { label: "Outreach", href: "/pipeline" },
+  { label: "Advanced", href: "/discovery" },
 ];
 
 export function NavBar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const companyStats = useQuery(api.companies.stats, {});
+  const drugStats = useQuery(api.drugs.stats, {});
+  const oppStats = useQuery(api.decisionOpportunities.stats, {});
+  const pipelineStats = useQuery(api.companies.pipelineStats, {});
+  const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
+
+  const companies = companyStats?.total ?? 0;
+  const drugs = drugStats?.total ?? 0;
+  const opportunities = oppStats?.active ?? 0;
+  const pipeline = pipelineStats?.activeCount ?? 0;
+
+  const startProcessHref = guidedFlow?.resumeHref
+    ?? (companies === 0
+      ? "/companies"
+      : drugs === 0
+        ? "/drugs"
+        : opportunities === 0
+          ? "/gaps"
+          : pipeline === 0
+            ? "/workflow"
+            : "/pipeline");
+
+  const startProcessLabel =
+    companies === 0
+      ? "Start Process"
+      : pipeline > 0
+        ? "Continue Process"
+        : "Next Step";
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
@@ -67,6 +98,12 @@ export function NavBar() {
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs text-zinc-600 hidden sm:block">{BRAND_TAGLINE}</span>
+            <Link
+              href={startProcessHref}
+              className="hidden md:inline-flex items-center rounded-lg bg-white px-3 py-2 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+            >
+              {startProcessLabel}
+            </Link>
             <button
               type="button"
               aria-expanded={mobileOpen}
@@ -88,6 +125,13 @@ export function NavBar() {
       >
         <div id="mobile-navigation" className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
           <div className="flex flex-col gap-1">
+            <Link
+              href={startProcessHref}
+              onClick={() => setMobileOpen(false)}
+              className="rounded-lg bg-white px-4 py-3 text-sm font-medium text-zinc-950 transition-colors hover:bg-zinc-200"
+            >
+              {startProcessLabel}
+            </Link>
             {NAV_LINKS.map((item) => {
               const active =
                 item.href === "/"

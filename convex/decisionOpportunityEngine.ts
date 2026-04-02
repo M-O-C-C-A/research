@@ -1,4 +1,5 @@
 import { Doc } from "./_generated/dataModel";
+import { getCountryCapabilityProfile } from "./countryCapabilityProfiles";
 
 export const FOCUS_MARKETS = ["Saudi Arabia", "UAE"] as const;
 
@@ -6,6 +7,7 @@ type GapDoc = Doc<"gapOpportunities">;
 type CompanyDoc = Doc<"companies"> | null;
 type DrugDoc = Doc<"drugs">;
 type MatchDoc = Doc<"gapCompanyMatches"> | null;
+type MarketOpportunityDoc = Doc<"opportunities">;
 
 export type DecisionOpportunityDraft = {
   title: string;
@@ -53,8 +55,23 @@ export type DecisionOpportunityDraft = {
   contactEmail?: string;
   contactLinkedinUrl?: string;
   contactConfidence: "confirmed" | "likely" | "inferred" | "none";
+  outreachReadiness: {
+    gapConfirmed: boolean;
+    ownershipConfirmed: boolean;
+    contactConfirmed: boolean;
+    reachableChannelAvailable: boolean;
+    readyToSend: boolean;
+  };
+  outreachBlockers: string[];
   outreachSubject: string;
   outreachDraft: string;
+  outreachPackage: {
+    shortEmail: string;
+    longEmail: string;
+    linkedinMessage: string;
+    callOpening: string;
+    attachmentBrief: string;
+  };
   confidenceLevel: "high" | "medium" | "low";
   confidenceSummary: string;
   assumptions: string[];
@@ -151,6 +168,18 @@ function deriveTimelineRange(level: DecisionOpportunityDraft["regulatoryFeasibil
     default:
       return "Needs validation";
   }
+}
+
+function summarizeCommercialValue(opportunities: MarketOpportunityDoc[]) {
+  const prioritized = opportunities.find((item) => item.annualOpportunityRange)?.annualOpportunityRange;
+  if (prioritized) return prioritized;
+  const fallback = opportunities.find((item) => item.marketSizeEstimate)?.marketSizeEstimate;
+  return fallback;
+}
+
+function summarizeMarketAccess(opportunities: MarketOpportunityDoc[]) {
+  const route = opportunities.find((item) => item.marketAccessRoute)?.marketAccessRoute;
+  return route ?? null;
 }
 
 function deriveKeyConstraint(
@@ -319,6 +348,7 @@ function buildOutreachDraft(args: {
   gap: GapDoc;
   entryStrategy: DecisionOpportunityDraft["entryStrategy"];
   whyNow: string;
+  opportunities: MarketOpportunityDoc[];
 }) {
   const recipient = args.company?.contactName ?? "the international business development team";
   const opener =
@@ -337,14 +367,85 @@ function buildOutreachDraft(args: {
     "Best regards,",
     "KEMEDICA BD Team",
   ];
+  const firstMarket = args.focusMarkets[0];
+  const marketOpportunity =
+    args.opportunities.find((item) => item.country === firstMarket) ??
+    args.opportunities[0];
+  const marketAccessSummary =
+    marketOpportunity?.marketAccessNotes ??
+    (marketOpportunity?.marketAccessRoute
+      ? `Preferred first route: ${marketOpportunity.marketAccessRoute.replaceAll("_", " ")}.`
+      : `Preferred first route: ${args.entryStrategy}.`);
+  const shortEmail = [
+    opener,
+    "",
+    `KEMEDICA is seeing a near-term whitespace opportunity for ${args.drug.name} in ${args.focusMarkets.join(", ")}.`,
+    `If useful, we can share a concise market-entry view covering regulatory path, pricing corridor, and access route.`,
+    "",
+    "Best regards,",
+    "KEMEDICA BD Team",
+  ].join("\n");
+  const linkedinMessage = `KEMEDICA sees a credible MENA entry window for ${args.drug.name} in ${args.focusMarkets.join(", ")}. We have a concise view on regulatory path, market access, and commercial whitespace if an international BD discussion would be useful.`;
+  const callOpening = `We are calling because ${args.drug.name} appears to have a practical MENA whitespace opening in ${args.focusMarkets.join(" and ")}, with ${marketAccessSummary.toLowerCase()}`;
+  const attachmentBrief = [
+    `${args.drug.name} (${args.drug.genericName})`,
+    `Focus markets: ${args.focusMarkets.join(", ")}`,
+    `Why now: ${args.whyNow}`,
+    `Gap summary: ${args.gap.evidenceSummary ?? args.gap.supplyGap}`,
+    `Route to market: ${marketAccessSummary}`,
+  ].join("\n");
 
   return {
     subject: `${args.drug.name} expansion opportunity in ${args.focusMarkets.join(" & ")}`,
     draft: body.join("\n"),
+    shortEmail,
+    longEmail: body.join("\n"),
+    linkedinMessage,
+    callOpening,
+    attachmentBrief,
     targetRole:
       args.company?.contactTitle ??
       "Head of International Business Development / Licensing",
     recipient,
+  };
+}
+
+function buildOutreachReadiness(args: {
+  gap: GapDoc;
+  company: CompanyDoc;
+  identityStatus: DecisionOpportunityDraft["productIdentityStatus"];
+  opportunities: MarketOpportunityDoc[];
+}) {
+  const gapConfirmed = args.gap.validationStatus === "confirmed";
+  const ownershipConfirmed = args.identityStatus === "confirmed";
+  const contactConfirmed = !!args.company?.keyContacts?.some(
+    (contact) => !!contact.email || !!contact.linkedinUrl
+  ) || !!args.company?.contactEmail || !!args.company?.linkedinUrl;
+  const reachableChannelAvailable = args.opportunities.some(
+    (item) =>
+      item.marketAccessRoute != null ||
+      item.marketAccessNotes != null ||
+      item.availabilityStatus === "not_found"
+  );
+  const readyToSend =
+    gapConfirmed && ownershipConfirmed && contactConfirmed && reachableChannelAvailable;
+
+  const blockers = [
+    !gapConfirmed ? "Gap evidence is not yet confirmed from structured market signals." : null,
+    !ownershipConfirmed ? "Product ownership / MAH still needs confirmation." : null,
+    !contactConfirmed ? "No email-ready or LinkedIn-ready contact is verified yet." : null,
+    !reachableChannelAvailable ? "No clear initial market-access route is defined yet." : null,
+  ].filter((item): item is string => item !== null);
+
+  return {
+    readiness: {
+      gapConfirmed,
+      ownershipConfirmed,
+      contactConfirmed,
+      reachableChannelAvailable,
+      readyToSend,
+    },
+    blockers,
   };
 }
 
@@ -354,6 +455,7 @@ export function buildDecisionOpportunityDraft(args: {
   drug: DrugDoc;
   match: MatchDoc;
   sourceCount: number;
+  opportunities: MarketOpportunityDoc[];
 }) : DecisionOpportunityDraft {
   const focusMarkets = FOCUS_MARKETS.filter((country) =>
     args.gap.targetCountries.includes(country)
@@ -369,6 +471,7 @@ export function buildDecisionOpportunityDraft(args: {
   const regulatoryFeasibility = deriveRegulatoryFeasibility(args.gap);
   const entryStrategy = deriveEntryStrategy(args.company);
   const gapType = deriveGapType(args.gap);
+  const primaryCountryProfile = getCountryCapabilityProfile(selectedFocusMarkets[0] ?? "Saudi Arabia");
   const approachEntityName =
     args.company?.name ??
     args.drug.primaryMarketAuthorizationHolderName ??
@@ -409,7 +512,16 @@ export function buildDecisionOpportunityDraft(args: {
     gap: args.gap,
     entryStrategy: entryStrategy.entryStrategy,
     whyNow,
+    opportunities: args.opportunities,
   });
+  const outreachReadiness = buildOutreachReadiness({
+    gap: args.gap,
+    company: args.company,
+    identityStatus,
+    opportunities: args.opportunities,
+  });
+  const bestCommercialRange = summarizeCommercialValue(args.opportunities);
+  const preferredAccessRoute = summarizeMarketAccess(args.opportunities);
 
   return {
     title: `${args.drug.name} -> ${selectedFocusMarkets.join(" / ")}`,
@@ -436,16 +548,21 @@ export function buildDecisionOpportunityDraft(args: {
       args.gap.competitorLandscape,
       "Competitor intensity still needs market-by-market validation."
     ),
-    marketSizeEstimate: args.drug.menaRegistrationCount != null
-      ? `${args.drug.menaRegistrationCount} confirmed MENA registrations in current internal checks`
-      : undefined,
+    marketSizeEstimate:
+      bestCommercialRange ??
+      (args.drug.menaRegistrationCount != null
+        ? `${args.drug.menaRegistrationCount} confirmed MENA registrations in current internal checks`
+        : undefined),
     demandProxy: summarizeText(args.gap.demandEvidence, "Directional demand proxy needs validation."),
     competitivePressure: summarizeText(
       args.gap.competitorLandscape,
       "Competitive pressure not yet structured."
     ),
     regulatoryFeasibility,
-    timelineRange: deriveTimelineRange(regulatoryFeasibility),
+    timelineRange:
+      args.opportunities.find((item) => item.regulatoryTimeline)?.regulatoryTimeline ??
+      primaryCountryProfile.expectedTimeline ??
+      deriveTimelineRange(regulatoryFeasibility),
     keyConstraint: deriveKeyConstraint(args.company, args.match, identityStatus),
     entryStrategy: entryStrategy.entryStrategy,
     entryStrategyRationale: entryStrategy.rationale,
@@ -460,15 +577,24 @@ export function buildDecisionOpportunityDraft(args: {
     contactConfidence: args.company?.contactName
       ? (args.company.keyContacts?.[0]?.confidence ?? "likely")
       : "none",
+    outreachReadiness: outreachReadiness.readiness,
+    outreachBlockers: outreachReadiness.blockers,
     outreachSubject: outreach.subject,
     outreachDraft: outreach.draft,
+    outreachPackage: {
+      shortEmail: outreach.shortEmail,
+      longEmail: outreach.longEmail,
+      linkedinMessage: outreach.linkedinMessage,
+      callOpening: outreach.callOpening,
+      attachmentBrief: outreach.attachmentBrief,
+    },
     confidenceLevel,
     confidenceSummary:
       args.gap.validationStatus === "insufficient_evidence"
         ? "Gap evidence is still insufficient, so this opportunity should not be treated as outreach-ready."
         : identityStatus === "uncertain"
         ? "Product ownership and local white-space need validation before treating this as outreach-ready."
-        : `Confidence is ${confidenceLevel} because the opportunity has ${args.sourceCount} supporting evidence item(s) and a persisted partner thesis.`,
+        : `Confidence is ${confidenceLevel} because the opportunity has ${args.sourceCount} supporting evidence item(s), a persisted partner thesis, and ${preferredAccessRoute ? `a ${preferredAccessRoute.replaceAll("_", " ")} route` : "an initial route-to-market view"}.`,
     assumptions: [
       "Phase 1 ranking prioritizes Saudi Arabia and UAE over wider MENA coverage.",
       "Directional regulatory and commercial signals are not a substitute for final human validation.",

@@ -31,6 +31,7 @@ interface DiscoverCompaniesButtonProps {
   size?: "sm" | "default";
   variant?: "default" | "outline";
   onJobStarted?: (jobId: string) => void;
+  label?: string;
 }
 
 interface DiscoveryContextItem {
@@ -52,6 +53,7 @@ export function DiscoverCompaniesButton({
   size = "default",
   variant = "default",
   onJobStarted,
+  label = "Discover Manufacturers",
 }: DiscoverCompaniesButtonProps) {
   const findCompanies = useAction(api.discovery.findCompanies);
   const processCompanyDiscoveryUpload = useAction(
@@ -183,14 +185,14 @@ export function DiscoverCompaniesButton({
           ) : (
             <Radar className="mr-2 h-4 w-4" />
           )}
-          {loading ? "Scanning..." : "Discover Manufacturers"}
+          {loading ? "Researching..." : label}
         </Button>
         {lastJobId && (
           <a
             href={`/discovery?job=${lastJobId}`}
             className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
           >
-            View latest discovery job
+            View latest research
           </a>
         )}
       </div>

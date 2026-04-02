@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { AddDrugButton } from "./AddDrugDialog";
 import { EmptyState } from "@/components/shared/EmptyState";
+import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { TableSkeleton } from "@/components/shared/LoadingSkeleton";
 import { THERAPEUTIC_AREAS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,11 @@ export function DrugList() {
 
   return (
     <div>
+      <GuidedFlowBanner
+        hereLabel="Product directory"
+        helperText="Use this list to review products, then open the product detail or best-opportunity view to decide what KEMEDICA should pursue next."
+      />
+
       <div className="flex gap-3 mb-6 flex-wrap">
         <div className="relative flex-1 min-w-48 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
@@ -82,9 +88,8 @@ export function DrugList() {
 
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
         <p className="text-sm text-zinc-300">
-          Use this page to review the products you may want to pursue. Opening a drug lets you
-          assess market opportunity, generate a decision brief, and move into the recommended
-          opportunity flow.
+          Use this page as your product directory. Open a product to review ownership,
+          manufacturer coverage, market whitespace, and the next commercial move before outreach.
         </p>
       </div>
 
@@ -105,17 +110,23 @@ export function DrugList() {
           <Table>
             <TableHeader>
               <TableRow className="border-zinc-800 hover:bg-transparent">
-                <TableHead className="text-zinc-500">Drug Name</TableHead>
+                <TableHead className="text-zinc-500">Product Name</TableHead>
                 <TableHead className="text-zinc-500">Generic Name</TableHead>
                 <TableHead className="text-zinc-500">Manufacturer</TableHead>
                 <TableHead className="text-zinc-500">MAH / Owner</TableHead>
                 <TableHead className="text-zinc-500">Therapeutic Area</TableHead>
                 <TableHead className="text-zinc-500">Status</TableHead>
-                <TableHead className="w-8" />
+                <TableHead className="text-zinc-500">Next Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {drugs.map((drug) => (
+              {drugs.map((drug) => {
+                const additionalManufacturers = Math.max(
+                  (drug.manufacturerNames?.length ?? 0) - 1,
+                  0
+                );
+
+                return (
                 <TableRow
                   key={drug._id}
                   className="border-zinc-800 hover:bg-zinc-800/50"
@@ -132,7 +143,14 @@ export function DrugList() {
                     {drug.genericName}
                   </TableCell>
                   <TableCell className="text-zinc-400 text-sm">
-                    {drug.primaryManufacturerName}
+                    <div className="flex flex-col gap-1">
+                      <span>{drug.primaryManufacturerName}</span>
+                      {additionalManufacturers > 0 && (
+                        <span className="text-xs text-zinc-500">
+                          +{additionalManufacturers} more
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-zinc-400 text-sm">
                     {drug.primaryMarketAuthorizationHolderName}
@@ -149,12 +167,17 @@ export function DrugList() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Link href={`/drugs/${drug._id}`}>
-                      <ArrowRight className="h-4 w-4 text-zinc-600 hover:text-zinc-400" />
+                    <Link
+                      href={`/drugs/${drug._id}`}
+                      className="inline-flex items-center gap-1 text-sm text-cyan-300 hover:text-cyan-200"
+                    >
+                      Check market opportunity
+                      <ArrowRight className="h-4 w-4" />
                     </Link>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         </div>

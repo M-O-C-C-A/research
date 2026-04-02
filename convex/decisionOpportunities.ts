@@ -16,6 +16,22 @@ const scoreBreakdownValidator = v.object({
   evidenceConfidence: v.number(),
 });
 
+const outreachReadinessValidator = v.object({
+  gapConfirmed: v.boolean(),
+  ownershipConfirmed: v.boolean(),
+  contactConfirmed: v.boolean(),
+  reachableChannelAvailable: v.boolean(),
+  readyToSend: v.boolean(),
+});
+
+const outreachPackageValidator = v.object({
+  shortEmail: v.string(),
+  longEmail: v.string(),
+  linkedinMessage: v.string(),
+  callOpening: v.string(),
+  attachmentBrief: v.string(),
+});
+
 const opportunityArgs = {
   drugId: v.id("drugs"),
   companyId: v.optional(v.id("companies")),
@@ -91,8 +107,11 @@ const opportunityArgs = {
     v.literal("inferred"),
     v.literal("none")
   ),
+  outreachReadiness: outreachReadinessValidator,
+  outreachBlockers: v.array(v.string()),
   outreachSubject: v.string(),
   outreachDraft: v.string(),
+  outreachPackage: outreachPackageValidator,
   confidenceLevel: v.union(
     v.literal("high"),
     v.literal("medium"),
@@ -470,20 +489,31 @@ export const archiveUntouched = mutation({
 export const rebuildFromResearch = action({
   args: {},
   handler: async (ctx): Promise<{ rebuilt: number; focusMarkets: string[] }> => {
-    const [companies, drugs, gaps, matches, reports, entityLinks] = await Promise.all([
+    const [companies, drugs, gaps, matches, reports, entityLinks, opportunities] = await Promise.all([
       ctx.runQuery(api.companies.list, {}),
       ctx.runQuery(api.drugs.list, {}),
       ctx.runQuery(api.gapOpportunities.list, { status: "active" }),
       ctx.runQuery(api.gapCompanyMatches.listAllForEngine, {}),
       ctx.runQuery(api.reports.listAllForEngine, {}),
       ctx.runQuery(api.drugEntityLinks.listAllForEngine, {}),
+      ctx.runQuery(api.opportunities.listAllForEngine, {}),
     ]);
 
     const companiesById = new Map(companies.map((item) => [item._id, item]));
     const gapsById = new Map(gaps.map((item) => [item._id, item]));
     const reportByDrugId = new Map(reports.map((item) => [item.drugId, item]));
+    const opportunitiesByDrugId = new Map<
+      Id<"drugs">,
+      Array<(typeof opportunities)[number]>
+    >();
     const drugIdsByCompanyId = new Map<Id<"companies">, Set<Id<"drugs">>>();
     const touchedIds: Id<"decisionOpportunities">[] = [];
+
+    for (const opportunity of opportunities) {
+      const current = opportunitiesByDrugId.get(opportunity.drugId) ?? [];
+      current.push(opportunity);
+      opportunitiesByDrugId.set(opportunity.drugId, current);
+    }
 
     for (const link of entityLinks) {
       if (!link.companyId) continue;
@@ -572,6 +602,7 @@ export const rebuildFromResearch = action({
         drug,
         match,
         sourceCount: evidence.length,
+        opportunities: opportunitiesByDrugId.get(drug._id) ?? [],
       });
 
       const opportunityId = await ctx.runMutation(api.decisionOpportunities.upsert, {

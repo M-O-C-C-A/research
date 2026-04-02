@@ -10,9 +10,14 @@ import { Loader2, ScanSearch } from "lucide-react";
 interface FindDrugsButtonProps {
   companyId: string;
   size?: "sm" | "default";
+  label?: string;
 }
 
-export function FindDrugsButton({ companyId, size = "sm" }: FindDrugsButtonProps) {
+export function FindDrugsButton({
+  companyId,
+  size = "sm",
+  label = "Find products",
+}: FindDrugsButtonProps) {
   const findDrugs = useAction(api.discovery.findDrugsForCompany);
   const [loading, setLoading] = useState(false);
   const [lastJobId, setLastJobId] = useState<string | null>(null);
@@ -38,14 +43,14 @@ export function FindDrugsButton({ companyId, size = "sm" }: FindDrugsButtonProps
         ) : (
           <ScanSearch className="h-4 w-4 mr-2" />
         )}
-        {loading ? "Scanning..." : "Find Drugs"}
+        {loading ? "Researching..." : label}
       </Button>
       {lastJobId && (
         <a
           href={`/discovery?job=${lastJobId}`}
           className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
         >
-          View latest discovery job
+          View research in progress
         </a>
       )}
     </div>

@@ -33,29 +33,40 @@ export function RecentDrugs() {
 
   return (
     <div className="divide-y divide-zinc-800">
-      {recent.map((drug) => (
-        <Link
-          key={drug._id}
-          href={`/drugs/${drug._id}`}
-          className="group flex items-center justify-between py-3 hover:text-white transition-colors"
-        >
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-white truncate">{drug.name}</p>
-            <p className="text-xs text-zinc-500 truncate">
-              {drug.genericName} · {drug.companyName}
-            </p>
-          </div>
-          <div className="flex items-center gap-3 ml-4 shrink-0">
-            <Badge
-              variant="secondary"
-              className={`text-xs border-0 ${STATUS_STYLES[drug.approvalStatus] ?? "bg-zinc-800 text-zinc-400"}`}
-            >
-              {drug.therapeuticArea}
-            </Badge>
-            <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400" />
-          </div>
-        </Link>
-      ))}
+      {recent.map((drug) => {
+        const additionalManufacturers = Math.max(
+          (drug.manufacturerNames?.length ?? 0) - 1,
+          0
+        );
+        const manufacturerSummary =
+          additionalManufacturers > 0
+            ? `${drug.primaryManufacturerName} +${additionalManufacturers} more`
+            : drug.primaryManufacturerName;
+
+        return (
+          <Link
+            key={drug._id}
+            href={`/drugs/${drug._id}`}
+            className="group flex items-center justify-between py-3 hover:text-white transition-colors"
+          >
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-white truncate">{drug.name}</p>
+              <p className="text-xs text-zinc-500 truncate">
+                {drug.genericName} · {manufacturerSummary}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 ml-4 shrink-0">
+              <Badge
+                variant="secondary"
+                className={`text-xs border-0 ${STATUS_STYLES[drug.approvalStatus] ?? "bg-zinc-800 text-zinc-400"}`}
+              >
+                {drug.therapeuticArea}
+              </Badge>
+              <ArrowRight className="h-4 w-4 text-zinc-700 group-hover:text-zinc-400" />
+            </div>
+          </Link>
+        );
+      })}
     </div>
   );
 }

@@ -21,7 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  AVAILABILITY_STATUS_OPTIONS,
   COMPETITOR_PRESENCE_OPTIONS,
+  MARKET_ACCESS_ROUTE_OPTIONS,
   REGULATORY_STATUS_OPTIONS,
 } from "@/lib/constants";
 
@@ -32,6 +34,11 @@ interface CountryOpportunity {
   regulatoryStatus?: string;
   competitorPresence?: string;
   marketSizeEstimate?: string;
+  availabilityStatus?: string;
+  treatmentVolumeProxy?: string;
+  priceCorridor?: string;
+  annualOpportunityRange?: string;
+  marketAccessRoute?: string;
   notes?: string;
 }
 
@@ -46,6 +53,11 @@ export function CountryCellEditor({ open, onClose, opportunity }: CountryCellEdi
   const [regulatoryStatus, setRegulatoryStatus] = useState(opportunity.regulatoryStatus ?? "");
   const [competitorPresence, setCompetitorPresence] = useState(opportunity.competitorPresence ?? "");
   const [marketSize, setMarketSize] = useState(opportunity.marketSizeEstimate ?? "");
+  const [availabilityStatus, setAvailabilityStatus] = useState(opportunity.availabilityStatus ?? "");
+  const [treatmentVolumeProxy, setTreatmentVolumeProxy] = useState(opportunity.treatmentVolumeProxy ?? "");
+  const [priceCorridor, setPriceCorridor] = useState(opportunity.priceCorridor ?? "");
+  const [annualOpportunityRange, setAnnualOpportunityRange] = useState(opportunity.annualOpportunityRange ?? "");
+  const [marketAccessRoute, setMarketAccessRoute] = useState(opportunity.marketAccessRoute ?? "");
   const [notes, setNotes] = useState(opportunity.notes ?? "");
   const [loading, setLoading] = useState(false);
 
@@ -63,6 +75,11 @@ export function CountryCellEditor({ open, onClose, opportunity }: CountryCellEdi
         regulatoryStatus: regulatoryStatus || undefined,
         competitorPresence: competitorPresence || undefined,
         marketSizeEstimate: marketSize || undefined,
+        availabilityStatus: availabilityStatus || undefined,
+        treatmentVolumeProxy: treatmentVolumeProxy || undefined,
+        priceCorridor: priceCorridor || undefined,
+        annualOpportunityRange: annualOpportunityRange || undefined,
+        marketAccessRoute: marketAccessRoute || undefined,
         notes: notes || undefined,
       });
       onClose();
@@ -126,12 +143,75 @@ export function CountryCellEditor({ open, onClose, opportunity }: CountryCellEdi
               </Select>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm text-zinc-400">Availability State</label>
+              <Select value={availabilityStatus} onValueChange={(v) => setAvailabilityStatus(v ?? "")}>
+                <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectItem value="" className="text-zinc-400 hover:bg-zinc-700">Unknown</SelectItem>
+                  {AVAILABILITY_STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-white hover:bg-zinc-700">
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm text-zinc-400">Access Route</label>
+              <Select value={marketAccessRoute} onValueChange={(v) => setMarketAccessRoute(v ?? "")}>
+                <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                  <SelectValue placeholder="Select..." />
+                </SelectTrigger>
+                <SelectContent className="bg-zinc-800 border-zinc-700">
+                  <SelectItem value="" className="text-zinc-400 hover:bg-zinc-700">Unknown</SelectItem>
+                  {MARKET_ACCESS_ROUTE_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-white hover:bg-zinc-700">
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="space-y-1.5">
             <label className="text-sm text-zinc-400">Market Size Estimate</label>
             <Input
               value={marketSize}
               onChange={(e) => setMarketSize(e.target.value)}
               placeholder="e.g. $50M annually"
+              className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm text-zinc-400">Treatment Volume Proxy</label>
+              <Input
+                value={treatmentVolumeProxy}
+                onChange={(e) => setTreatmentVolumeProxy(e.target.value)}
+                placeholder="e.g. 14k addressable patients"
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm text-zinc-400">Price Corridor</label>
+              <Input
+                value={priceCorridor}
+                onChange={(e) => setPriceCorridor(e.target.value)}
+                placeholder="e.g. $900–1,200 / month"
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm text-zinc-400">Annual Opportunity Range</label>
+            <Input
+              value={annualOpportunityRange}
+              onChange={(e) => setAnnualOpportunityRange(e.target.value)}
+              placeholder="e.g. $8M–12M annual opportunity"
               className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
             />
           </div>

@@ -216,9 +216,9 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
           <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <p className="text-xs uppercase tracking-wider text-zinc-500">Sources</p>
             <div className="mt-3 space-y-2">
-              {typedGap.sources.map((source) => (
+              {typedGap.sources.map((source, index) => (
                 <a
-                  key={source.url}
+                  key={`${source.url}-${source.title}-${index}`}
                   href={normalizeExternalUrl(source.url) ?? undefined}
                   target="_blank"
                   rel="noopener noreferrer"

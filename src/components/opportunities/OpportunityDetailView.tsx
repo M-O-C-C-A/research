@@ -6,6 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
 import { normalizeExternalUrl } from "@/lib/urlUtils";
 import { ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight } from "lucide-react";
@@ -31,8 +32,31 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
 
   if (!opportunity) return null;
 
+  const outreachReadiness = opportunity.outreachReadiness ?? {
+    gapConfirmed: false,
+    ownershipConfirmed: false,
+    contactConfirmed: false,
+    reachableChannelAvailable: false,
+    readyToSend: false,
+  };
+  const outreachBlockers = opportunity.outreachBlockers ?? [
+    "This opportunity was created before outreach-readiness checks were added. Rebuild the opportunity engine to populate them.",
+  ];
+  const outreachPackage = opportunity.outreachPackage ?? {
+    shortEmail: opportunity.outreachDraft,
+    longEmail: opportunity.outreachDraft,
+    linkedinMessage: "Rebuild the opportunity engine to generate a LinkedIn outreach version.",
+    callOpening: "Rebuild the opportunity engine to generate a call-opening script.",
+    attachmentBrief: "Rebuild the opportunity engine to generate a one-page brief.",
+  };
+
   return (
     <div className="space-y-6">
+      <GuidedFlowBanner
+        hereLabel="Best opportunity detail"
+        helperText="Use this page to validate the recommendation, clear blockers, and decide whether KEMEDICA is ready to send outreach now."
+      />
+
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
@@ -153,6 +177,57 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         </div>
       </section>
 
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+              Outreach Readiness
+            </p>
+            <h3 className="mt-2 text-lg font-semibold text-white">
+              Can KEMEDICA send a real first-touch now?
+            </h3>
+          </div>
+          <span
+            className={`inline-flex rounded-full px-3 py-1 text-sm ${
+              outreachReadiness.readyToSend
+                ? "bg-emerald-500/15 text-emerald-300"
+                : "bg-amber-500/15 text-amber-300"
+            }`}
+          >
+            {outreachReadiness.readyToSend ? "Ready to send" : "Blocked"}
+          </span>
+        </div>
+
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "Gap confirmed", complete: outreachReadiness.gapConfirmed },
+            { label: "Ownership confirmed", complete: outreachReadiness.ownershipConfirmed },
+            { label: "Contact confirmed", complete: outreachReadiness.contactConfirmed },
+            { label: "Route available", complete: outreachReadiness.reachableChannelAvailable },
+          ].map(({ label, complete }) => (
+            <div key={label} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+              <p className="text-xs uppercase tracking-wider text-zinc-500">{label}</p>
+              <p className={`mt-2 text-sm font-medium ${complete ? "text-emerald-300" : "text-amber-300"}`}>
+                {complete ? "Yes" : "Needs work"}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {outreachBlockers.length > 0 && (
+          <div className="mt-5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-300">
+              Current blockers
+            </p>
+            <div className="mt-2 space-y-1 text-sm text-zinc-300">
+              {outreachBlockers.map((blocker) => (
+                <p key={blocker}>{blocker}</p>
+              ))}
+            </div>
+          </div>
+        )}
+      </section>
+
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
           <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-6" open>
@@ -206,13 +281,44 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <div className="flex items-center justify-between gap-4">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
-                Outreach Draft
+                Outreach Package
               </h3>
               <span className="text-xs text-zinc-500">{opportunity.outreachSubject}</span>
             </div>
-            <pre className="mt-4 whitespace-pre-wrap rounded-lg bg-zinc-950 p-4 font-sans text-sm leading-relaxed text-zinc-300">
-              {opportunity.outreachDraft}
-            </pre>
+            <div className="mt-4 grid gap-4">
+              <div className="rounded-lg bg-zinc-950 p-4">
+                <p className="text-xs uppercase tracking-wider text-zinc-500">Short email</p>
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-300">
+                  {outreachPackage.shortEmail}
+                </pre>
+              </div>
+              <div className="rounded-lg bg-zinc-950 p-4">
+                <p className="text-xs uppercase tracking-wider text-zinc-500">Long email</p>
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-300">
+                  {outreachPackage.longEmail}
+                </pre>
+              </div>
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-lg bg-zinc-950 p-4">
+                  <p className="text-xs uppercase tracking-wider text-zinc-500">LinkedIn message</p>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                    {outreachPackage.linkedinMessage}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-zinc-950 p-4">
+                  <p className="text-xs uppercase tracking-wider text-zinc-500">Call opening</p>
+                  <p className="mt-2 text-sm leading-relaxed text-zinc-300">
+                    {outreachPackage.callOpening}
+                  </p>
+                </div>
+              </div>
+              <div className="rounded-lg bg-zinc-950 p-4">
+                <p className="text-xs uppercase tracking-wider text-zinc-500">Attachment brief</p>
+                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-300">
+                  {outreachPackage.attachmentBrief}
+                </pre>
+              </div>
+            </div>
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">

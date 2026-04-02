@@ -21,9 +21,9 @@ function DiscoveryPageInner() {
   return (
     <main className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-10">
       <PageHeader
-        title="Advanced Research"
-        description="Review discovery runs and research logs when you want to inspect the raw sourcing activity behind the guided workflow."
-        action={<DiscoverCompaniesButton />}
+        title="Advanced"
+        description="This area is for power users who want to inspect raw research runs, discovery logs, and sourcing activity behind the guided process and directories."
+        action={<DiscoverCompaniesButton label="Research companies" />}
       />
 
       {jobs === undefined ? (

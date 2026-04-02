@@ -69,6 +69,108 @@ const registrationImportApplyState = v.union(
   v.literal("skipped")
 );
 
+const evidenceConfidence = v.union(
+  v.literal("confirmed"),
+  v.literal("likely"),
+  v.literal("inferred")
+);
+
+const companyRoleType = v.union(
+  v.literal("business_development"),
+  v.literal("international_markets"),
+  v.literal("regional_commercial"),
+  v.literal("regulatory"),
+  v.literal("licensing"),
+  v.literal("other")
+);
+
+const contactSeniority = v.union(
+  v.literal("executive"),
+  v.literal("director"),
+  v.literal("manager"),
+  v.literal("individual_contributor"),
+  v.literal("unknown")
+);
+
+const productSourceRegion = v.union(
+  v.literal("eu"),
+  v.literal("us"),
+  v.literal("mena"),
+  v.literal("other")
+);
+
+const productIdentityEvidenceItem = v.object({
+  claim: v.string(),
+  sourceKind: v.union(
+    v.literal("official_registry"),
+    v.literal("regulator"),
+    v.literal("company"),
+    v.literal("market_report"),
+    v.literal("internal")
+  ),
+  title: v.optional(v.string()),
+  url: v.optional(v.string()),
+  confidence: evidenceConfidence,
+});
+
+const opportunityAvailabilityStatus = v.union(
+  v.literal("formally_registered"),
+  v.literal("tender_formulary_only"),
+  v.literal("shortage_listed"),
+  v.literal("hospital_import_only"),
+  v.literal("not_found"),
+  v.literal("ambiguous"),
+  v.literal("unverified")
+);
+
+const marketAccessRoute = v.union(
+  v.literal("public_tender"),
+  v.literal("private_hospital"),
+  v.literal("retail_pharmacy"),
+  v.literal("specialty_center"),
+  v.literal("named_patient")
+);
+
+const marketEvidenceItem = v.object({
+  claim: v.string(),
+  title: v.optional(v.string()),
+  url: v.optional(v.string()),
+  sourceType: v.union(
+    v.literal("official_registry"),
+    v.literal("shortage_list"),
+    v.literal("tender_portal"),
+    v.literal("public_procurement"),
+    v.literal("essential_medicines"),
+    v.literal("market_report"),
+    v.literal("internal")
+  ),
+  confidence: evidenceConfidence,
+});
+
+const countryScoreBreakdown = v.object({
+  demand: v.number(),
+  competition: v.number(),
+  regulatory: v.number(),
+  price: v.number(),
+  partnerability: v.number(),
+});
+
+const outreachReadiness = v.object({
+  gapConfirmed: v.boolean(),
+  ownershipConfirmed: v.boolean(),
+  contactConfirmed: v.boolean(),
+  reachableChannelAvailable: v.boolean(),
+  readyToSend: v.boolean(),
+});
+
+const outreachPackage = v.object({
+  shortEmail: v.string(),
+  longEmail: v.string(),
+  linkedinMessage: v.string(),
+  callOpening: v.string(),
+  attachmentBrief: v.string(),
+});
+
 export default defineSchema({
   companies: defineTable({
     name: v.string(),
@@ -121,10 +223,14 @@ export default defineSchema({
     keyContacts: v.optional(v.array(v.object({
       name: v.string(),
       title: v.string(),
+      roleType: v.optional(companyRoleType),
+      seniority: v.optional(contactSeniority),
+      geographies: v.optional(v.array(v.string())),
       email: v.optional(v.string()),
       linkedinUrl: v.optional(v.string()),
-      confidence: v.union(v.literal("confirmed"), v.literal("likely"), v.literal("inferred")),
+      confidence: evidenceConfidence,
       source: v.optional(v.string()),
+      lastVerifiedAt: v.optional(v.number()),
     }))),
     researchedAt: v.optional(v.number()),
     linkedinCompanyUrl: v.optional(v.string()),
@@ -203,6 +309,20 @@ export default defineSchema({
     therapeuticArea: v.string(),
     indication: v.string(),
     mechanism: v.optional(v.string()),
+    productProfile: v.optional(v.object({
+      strength: v.optional(v.string()),
+      dosageForm: v.optional(v.string()),
+      route: v.optional(v.string()),
+      productFamily: v.optional(v.string()),
+      canonicalKey: v.optional(v.string()),
+      sourceRegions: v.optional(v.array(productSourceRegion)),
+      ownershipConfidence: v.optional(v.union(
+        v.literal("confirmed"),
+        v.literal("likely"),
+        v.literal("uncertain")
+      )),
+    })),
+    identityEvidenceItems: v.optional(v.array(productIdentityEvidenceItem)),
     approvalStatus: v.union(
       v.literal("approved"),
       v.literal("pending"),
@@ -264,6 +384,22 @@ export default defineSchema({
     competitorPresence: v.optional(v.string()),
     regulatoryStatus: v.optional(v.string()),
     marketSizeEstimate: v.optional(v.string()),
+    availabilityStatus: v.optional(opportunityAvailabilityStatus),
+    matchedBrandName: v.optional(v.string()),
+    matchedGenericName: v.optional(v.string()),
+    genericEquivalentDetected: v.optional(v.boolean()),
+    addressablePopulation: v.optional(v.string()),
+    treatmentVolumeProxy: v.optional(v.string()),
+    priceCorridor: v.optional(v.string()),
+    annualOpportunityRange: v.optional(v.string()),
+    publicChannelShare: v.optional(v.number()),
+    privateChannelShare: v.optional(v.number()),
+    countryScoreBreakdown: v.optional(countryScoreBreakdown),
+    marketAccessRoute: v.optional(marketAccessRoute),
+    marketAccessNotes: v.optional(v.string()),
+    regulatoryTimeline: v.optional(v.string()),
+    regulatoryRequirements: v.optional(v.array(v.string())),
+    evidenceItems: v.optional(v.array(marketEvidenceItem)),
     opportunityScore: v.optional(v.number()),
     notes: v.optional(v.string()),
     updatedAt: v.number(),
@@ -589,8 +725,11 @@ export default defineSchema({
       v.literal("inferred"),
       v.literal("none")
     ),
+    outreachReadiness: v.optional(outreachReadiness),
+    outreachBlockers: v.optional(v.array(v.string())),
     outreachSubject: v.string(),
     outreachDraft: v.string(),
+    outreachPackage: v.optional(outreachPackage),
     confidenceLevel: v.union(
       v.literal("high"),
       v.literal("medium"),

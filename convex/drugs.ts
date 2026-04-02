@@ -4,6 +4,108 @@ import { api } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
 import { normalizeDrugEntityLinks } from "./drugEntityLinkUtils";
 
+const PRODUCT_SOURCE_REGION_VALIDATOR = v.union(
+  v.literal("eu"),
+  v.literal("us"),
+  v.literal("mena"),
+  v.literal("other")
+);
+
+const PRODUCT_PROFILE_VALIDATOR = v.object({
+  strength: v.optional(v.string()),
+  dosageForm: v.optional(v.string()),
+  route: v.optional(v.string()),
+  productFamily: v.optional(v.string()),
+  canonicalKey: v.optional(v.string()),
+  sourceRegions: v.optional(v.array(PRODUCT_SOURCE_REGION_VALIDATOR)),
+  ownershipConfidence: v.optional(
+    v.union(v.literal("confirmed"), v.literal("likely"), v.literal("uncertain"))
+  ),
+});
+
+const PRODUCT_IDENTITY_EVIDENCE_VALIDATOR = v.object({
+  claim: v.string(),
+  sourceKind: v.union(
+    v.literal("official_registry"),
+    v.literal("regulator"),
+    v.literal("company"),
+    v.literal("market_report"),
+    v.literal("internal")
+  ),
+  title: v.optional(v.string()),
+  url: v.optional(v.string()),
+  confidence: v.union(
+    v.literal("confirmed"),
+    v.literal("likely"),
+    v.literal("inferred")
+  ),
+});
+
+function getLinkDisplayName(
+  link: {
+    entityName?: string;
+    company?: { name: string } | null;
+  },
+) {
+  return link.company?.name ?? link.entityName ?? undefined;
+}
+
+function getManufacturerNames(
+  linkedCompanies: Array<{
+    link: Doc<"drugEntityLinks">;
+    company: Doc<"companies"> | null;
+  }>,
+  drug: Doc<"drugs">,
+  company: Doc<"companies"> | null,
+) {
+  const manufacturers = linkedCompanies
+    .filter(({ link }) => link.relationshipType === "manufacturer")
+    .map(({ link, company }) =>
+      getLinkDisplayName({ entityName: link.entityName, company })
+    )
+    .filter((value): value is string => !!value);
+
+  if (manufacturers.length > 0) {
+    return manufacturers;
+  }
+
+  const fallback = [
+    drug.primaryManufacturerName,
+    drug.manufacturerName,
+    company?.name,
+  ].filter((value): value is string => !!value);
+
+  return [...new Set(fallback)];
+}
+
+function getPrimaryManufacturerName(
+  linkedCompanies: Array<{
+    link: Doc<"drugEntityLinks">;
+    company: Doc<"companies"> | null;
+  }>,
+  drug: Doc<"drugs">,
+  company: Doc<"companies"> | null,
+) {
+  const primaryManufacturer =
+    linkedCompanies.find(
+      ({ link }) => link.relationshipType === "manufacturer" && link.isPrimary
+    ) ??
+    linkedCompanies.find(({ link }) => link.relationshipType === "manufacturer");
+
+  return (
+    (primaryManufacturer
+      ? getLinkDisplayName({
+          entityName: primaryManufacturer.link.entityName,
+          company: primaryManufacturer.company,
+        })
+      : undefined) ??
+    drug.primaryManufacturerName ??
+    drug.manufacturerName ??
+    company?.name ??
+    "—"
+  );
+}
+
 async function buildEnrichedDrug(ctx: QueryCtx, d: Doc<"drugs">) {
   const company = d.companyId ? await ctx.db.get(d.companyId) : null;
   const entityLinks = await ctx.db
@@ -16,11 +118,6 @@ async function buildEnrichedDrug(ctx: QueryCtx, d: Doc<"drugs">) {
       company: link.companyId ? await ctx.db.get(link.companyId) : null,
     }))
   );
-  const primaryManufacturer =
-    linkedCompanies.find(
-      ({ link }) => link.relationshipType === "manufacturer" && link.isPrimary
-    ) ??
-    linkedCompanies.find(({ link }) => link.relationshipType === "manufacturer");
   const primaryMah =
     linkedCompanies.find(
       ({ link }) =>
@@ -30,15 +127,18 @@ async function buildEnrichedDrug(ctx: QueryCtx, d: Doc<"drugs">) {
       ({ link }) => link.relationshipType === "market_authorization_holder"
     );
 
+  const manufacturerNames = getManufacturerNames(linkedCompanies, d, company);
+  const primaryManufacturerName = getPrimaryManufacturerName(
+    linkedCompanies,
+    d,
+    company
+  );
+
   return {
     ...d,
     companyName: company?.name ?? d.manufacturerName ?? "—",
-    primaryManufacturerName:
-      primaryManufacturer?.company?.name ??
-      primaryManufacturer?.link.entityName ??
-      d.primaryManufacturerName ??
-      d.manufacturerName ??
-      "—",
+    primaryManufacturerName,
+    manufacturerNames,
     primaryMarketAuthorizationHolderName:
       primaryMah?.company?.name ??
       primaryMah?.link.entityName ??
@@ -150,6 +250,8 @@ export const create = mutation({
     therapeuticArea: v.string(),
     indication: v.string(),
     mechanism: v.optional(v.string()),
+    productProfile: v.optional(PRODUCT_PROFILE_VALIDATOR),
+    identityEvidenceItems: v.optional(v.array(PRODUCT_IDENTITY_EVIDENCE_VALIDATOR)),
     approvalStatus: v.union(
       v.literal("approved"),
       v.literal("pending"),
@@ -178,6 +280,8 @@ export const createWithEntities = mutation({
     therapeuticArea: v.string(),
     indication: v.string(),
     mechanism: v.optional(v.string()),
+    productProfile: v.optional(PRODUCT_PROFILE_VALIDATOR),
+    identityEvidenceItems: v.optional(v.array(PRODUCT_IDENTITY_EVIDENCE_VALIDATOR)),
     approvalStatus: v.union(
       v.literal("approved"),
       v.literal("pending"),
@@ -217,8 +321,6 @@ export const createWithEntities = mutation({
     ),
   },
   handler: async (ctx, { entityLinks, ...args }) => {
-    const drugId = await ctx.db.insert("drugs", { ...args, status: "active" });
-
     const links = normalizeDrugEntityLinks([
       ...(entityLinks ?? []),
       ...(args.companyId
@@ -253,6 +355,24 @@ export const createWithEntities = mutation({
         : []),
     ]);
 
+    const primaryManufacturerName =
+      links.find(
+        (link) => link.relationshipType === "manufacturer" && link.isPrimary
+      )?.entityName ??
+      args.primaryManufacturerName ??
+      args.manufacturerName;
+
+    const manufacturerName =
+      args.manufacturerName ??
+      (!args.companyId ? primaryManufacturerName : undefined);
+
+    const drugId = await ctx.db.insert("drugs", {
+      ...args,
+      manufacturerName,
+      primaryManufacturerName,
+      status: "active",
+    });
+
     if (links.length > 0) {
       await ctx.runMutation(api.drugEntityLinks.replaceForDrug, {
         drugId,
@@ -272,6 +392,8 @@ export const update = mutation({
     therapeuticArea: v.optional(v.string()),
     indication: v.optional(v.string()),
     mechanism: v.optional(v.string()),
+    productProfile: v.optional(PRODUCT_PROFILE_VALIDATOR),
+    identityEvidenceItems: v.optional(v.array(PRODUCT_IDENTITY_EVIDENCE_VALIDATOR)),
     approvalStatus: v.optional(
       v.union(
         v.literal("approved"),
@@ -304,6 +426,8 @@ export const updateWithEntities = mutation({
     therapeuticArea: v.optional(v.string()),
     indication: v.optional(v.string()),
     mechanism: v.optional(v.string()),
+    productProfile: v.optional(PRODUCT_PROFILE_VALIDATOR),
+    identityEvidenceItems: v.optional(v.array(PRODUCT_IDENTITY_EVIDENCE_VALIDATOR)),
     approvalStatus: v.optional(
       v.union(
         v.literal("approved"),
@@ -349,11 +473,34 @@ export const updateWithEntities = mutation({
     ),
   },
   handler: async (ctx, { id, entityLinks, ...patch }) => {
-    await ctx.db.patch(id, patch);
-    if (entityLinks) {
+    const existingDrug = await ctx.db.get(id);
+    if (!existingDrug) {
+      throw new Error("Drug not found");
+    }
+
+    const normalizedLinks = entityLinks
+      ? normalizeDrugEntityLinks(entityLinks)
+      : undefined;
+
+    const primaryManufacturerName =
+      normalizedLinks?.find(
+        (link) => link.relationshipType === "manufacturer" && link.isPrimary
+      )?.entityName ?? patch.primaryManufacturerName;
+    const manufacturerName =
+      patch.manufacturerName ??
+      (!existingDrug.companyId ? primaryManufacturerName : undefined);
+
+    await ctx.db.patch(id, {
+      ...patch,
+      ...(primaryManufacturerName !== undefined
+        ? { primaryManufacturerName }
+        : {}),
+      ...(manufacturerName !== undefined ? { manufacturerName } : {}),
+    });
+    if (normalizedLinks) {
       await ctx.runMutation(api.drugEntityLinks.replaceForDrug, {
         drugId: id,
-        links: normalizeDrugEntityLinks(entityLinks),
+        links: normalizedLinks,
       });
     }
   },

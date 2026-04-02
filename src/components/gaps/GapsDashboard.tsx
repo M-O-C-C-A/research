@@ -960,6 +960,20 @@ export function GapsDashboard() {
     if (selectedCountry && !g.targetCountries.includes(selectedCountry)) return false;
     return true;
   });
+  const isUsingSlice = analysisScope === "use_filters";
+  const hasVisibleFilters = Boolean(selectedTA || selectedCountry || minScore > 0);
+  const analysisModeLabel = isUsingSlice ? "Current visible slice" : "All therapeutic areas";
+  const analysisSummary = isUsingSlice
+    ? selectedTA && selectedCountry
+      ? `This run will analyze ${selectedTA} for ${selectedCountry}.`
+      : selectedTA
+        ? `This run will analyze ${selectedTA} across MENA markets.`
+        : selectedCountry
+          ? `This run will analyze all therapeutic areas for ${selectedCountry}.`
+          : "This run will analyze the same slice you are viewing now."
+    : selectedCountry
+      ? `This run will analyze all therapeutic areas for ${selectedCountry}.`
+      : "This run will analyze all therapeutic areas across MENA markets.";
 
   async function handleAnalyzeFlow() {
     if (isRunningFlow) return;
@@ -992,17 +1006,19 @@ export function GapsDashboard() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-4 mb-6">
-          <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr]">
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 mb-6">
+          <div className="grid gap-5 xl:grid-cols-[1.15fr_1fr]">
             <div className="space-y-3">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Filters</p>
-                <p className="mt-1 text-xs text-zinc-600">These only change the visible gap list below.</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Filter The List</p>
+                <p className="mt-1 text-sm text-zinc-400">
+                  These controls only change which gaps you see below. They do not automatically control the analysis run unless you choose <span className="text-white">Current visible slice</span>.
+                </p>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="min-w-[180px]">
-                  <label className="block text-xs text-zinc-500 mb-1.5">Filter therapeutic area</label>
+                  <label className="block text-xs text-zinc-500 mb-1.5">Therapeutic area</label>
                   <Select value={selectedTA} onValueChange={(v) => setSelectedTA(v ?? "")}>
                     <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
                       <SelectValue placeholder="All areas" />
@@ -1017,7 +1033,7 @@ export function GapsDashboard() {
                 </div>
 
                 <div className="min-w-[160px]">
-                  <label className="block text-xs text-zinc-500 mb-1.5">Filter country</label>
+                  <label className="block text-xs text-zinc-500 mb-1.5">Country</label>
                   <Select value={selectedCountry} onValueChange={(v) => setSelectedCountry(v ?? "")}>
                     <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
                       <SelectValue placeholder="All MENA" />
@@ -1031,19 +1047,45 @@ export function GapsDashboard() {
                   </Select>
                 </div>
               </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-zinc-500">Visible list:</span>
+                <span className="rounded-full bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  {selectedTA || "All therapeutic areas"}
+                </span>
+                <span className="rounded-full bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  {selectedCountry || "All MENA countries"}
+                </span>
+                <span className="rounded-full bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  Min score {minScore}
+                </span>
+                {hasVisibleFilters && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedTA("");
+                      setSelectedCountry("");
+                      setMinScore(0);
+                    }}
+                    className="text-xs text-cyan-300 hover:text-cyan-200 transition-colors"
+                  >
+                    Clear filters
+                  </button>
+                )}
+              </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Run analysis</p>
-                <p className="mt-1 text-xs text-zinc-600">
-                  Gap analysis creates research gaps. Promoted opportunities appear after supplier and product linking complete.
+                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Run Analysis</p>
+                <p className="mt-1 text-sm text-zinc-400">
+                  Run a fresh gap analysis to create or update research gaps. Promoted opportunities appear later after supplier and product linking complete.
                 </p>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+              <div className="grid gap-3 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                 <div className="min-w-[180px]">
-                  <label className="block text-xs text-zinc-500 mb-1.5">Analysis scope</label>
+                  <label className="block text-xs text-zinc-500 mb-1.5">What should this run cover?</label>
                   <Select
                     value={analysisScope}
                     onValueChange={(v) =>
@@ -1055,43 +1097,51 @@ export function GapsDashboard() {
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-800 border-zinc-700">
                       <SelectItem value="all_areas">All therapeutic areas</SelectItem>
-                      <SelectItem value="use_filters">Use current filters</SelectItem>
+                      <SelectItem value="use_filters">Current visible slice</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
 
                 <div className="min-w-[180px]">
-                  <label className="block text-xs text-zinc-500 mb-1.5">Analysis countries</label>
+                  <label className="block text-xs text-zinc-500 mb-1.5">Country scope</label>
                   <div className="h-9 rounded-md border border-zinc-700 bg-zinc-800 px-3 flex items-center text-sm text-zinc-300">
-                    {selectedCountry || "All MENA"}
+                    {selectedCountry || "All MENA countries"}
                   </div>
                 </div>
+              </div>
 
+              <div className="rounded-lg border border-zinc-800 bg-zinc-900/80 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+                  This run will do
+                </p>
+                <p className="mt-2 text-sm text-white">{analysisModeLabel}</p>
+                <p className="mt-1 text-sm text-zinc-400">{analysisSummary}</p>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="text-xs text-zinc-500">
+                  Recommended default: run all therapeutic areas, then use filters to review the shortlist.
+                </p>
                 <Button
                   onClick={handleAnalyzeFlow}
-                  disabled={isRunningFlow || (analysisScope === "use_filters" && !selectedTA)}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white h-9 shrink-0"
+                  disabled={isRunningFlow}
+                  className="bg-cyan-600 hover:bg-cyan-500 text-white h-10 px-4 shrink-0"
                 >
                   {isRunningFlow ? (
-                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Running flow…</>
+                    <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Running analysis…</>
                   ) : (
-                    "Analyze Gaps"
+                    "Analyze gaps"
                   )}
                 </Button>
               </div>
-
-              <p className="text-xs text-zinc-500">
-                {analysisScope === "all_areas"
-                  ? "Recommended: run all therapeutic areas sequentially."
-                  : selectedTA
-                    ? `This run will analyze ${selectedTA}${selectedCountry ? ` in ${selectedCountry}` : " using the current country scope"}.`
-                    : "Select a therapeutic-area filter to run only the current slice."}
-              </p>
             </div>
           </div>
 
-          <div className="mt-4 min-w-[120px]">
-            <label className="block text-xs text-zinc-500 mb-1.5">Min Score: {minScore}</label>
+          <div className="mt-5 min-w-[120px]">
+            <div className="flex items-center justify-between gap-3 mb-1.5">
+              <label className="block text-xs text-zinc-500">Minimum visible score</label>
+              <span className="text-xs text-zinc-400">{minScore}</span>
+            </div>
             <input
               type="range" min={0} max={9} step={1} value={minScore}
               onChange={(e) => setMinScore(Number(e.target.value))}
@@ -1171,10 +1221,9 @@ export function GapsDashboard() {
         ) : filteredGaps.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <Target className="h-12 w-12 text-zinc-700 mb-4" />
-            <h3 className="text-lg font-semibold text-white mb-2">No gap opportunities found</h3>
+            <h3 className="text-lg font-semibold text-white mb-2">No gaps match this view yet</h3>
             <p className="text-sm text-zinc-500 mb-6 max-w-sm">
-              Select a therapeutic area above and click &ldquo;Analyze Gaps&rdquo; to discover
-              where EU drugs could fill MENA market gaps.
+              Run analysis to create fresh gaps, or widen the filters above if this view is too narrow.
             </p>
             <TrendingUp className="h-6 w-6 text-zinc-700" />
           </div>

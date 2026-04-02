@@ -25,7 +25,16 @@ import {
   APPROVAL_STATUSES,
   DRUG_CATEGORIES,
 } from "@/lib/constants";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
+
+type ManufacturerEntry = {
+  companyId: string;
+  entityName: string;
+};
+
+function createManufacturerEntry(companyId = "", entityName = ""): ManufacturerEntry {
+  return { companyId, entityName };
+}
 
 interface AddDrugDialogProps {
   companyId?: string;
@@ -46,12 +55,38 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
   const [category, setCategory] = useState("");
   // For standalone entry (no company pre-selected)
   const [selectedCompanyId, setSelectedCompanyId] = useState(companyId ?? "");
-  const [manufacturerName, setManufacturerName] = useState("");
+  const [manufacturers, setManufacturers] = useState<ManufacturerEntry[]>([
+    createManufacturerEntry(companyId ?? ""),
+  ]);
   const [marketAuthorizationHolderName, setMarketAuthorizationHolderName] = useState("");
   const [loading, setLoading] = useState(false);
 
   const companies = useQuery(api.companies.list, {});
   const createDrug = useMutation(api.drugs.createWithEntities);
+
+  function updateManufacturer(
+    index: number,
+    patch: Partial<ManufacturerEntry>
+  ) {
+    setManufacturers((current) =>
+      current.map((entry, entryIndex) =>
+        entryIndex === index ? { ...entry, ...patch } : entry
+      )
+    );
+  }
+
+  function addManufacturer() {
+    setManufacturers((current) => [...current, createManufacturerEntry()]);
+  }
+
+  function removeManufacturer(index: number) {
+    setManufacturers((current) => {
+      if (current.length === 1) {
+        return [createManufacturerEntry(selectedCompanyId)];
+      }
+      return current.filter((_, entryIndex) => entryIndex !== index);
+    });
+  }
 
   function reset() {
     setName("");
@@ -62,7 +97,7 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
     setApprovalStatus("approved");
     setApprovalDate("");
     setCategory("");
-    setManufacturerName("");
+    setManufacturers([createManufacturerEntry(companyId ?? "")]);
     setMarketAuthorizationHolderName("");
     if (!companyId) setSelectedCompanyId("");
   }
@@ -70,16 +105,35 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!name || !genericName || !therapeuticArea || !indication) return;
+
+    const manufacturerEntries = manufacturers.filter(
+      (entry) => entry.companyId || entry.entityName.trim()
+    );
+    const effectiveManufacturers =
+      manufacturerEntries.length > 0
+        ? manufacturerEntries
+        : selectedCompanyId
+          ? [createManufacturerEntry(selectedCompanyId)]
+          : [];
+    const primaryManufacturer = effectiveManufacturers[0];
+    const primaryManufacturerName = primaryManufacturer
+      ? primaryManufacturer.companyId
+        ? (companies ?? []).find((company) => company._id === primaryManufacturer.companyId)
+            ?.name
+        : primaryManufacturer.entityName.trim()
+      : undefined;
+
     setLoading(true);
     try {
       await createDrug({
         companyId: selectedCompanyId
           ? (selectedCompanyId as Id<"companies">)
           : undefined,
-        manufacturerName: !selectedCompanyId && manufacturerName
-          ? manufacturerName
-          : undefined,
-        primaryManufacturerName: manufacturerName || undefined,
+        manufacturerName:
+          !selectedCompanyId && primaryManufacturerName
+            ? primaryManufacturerName
+            : undefined,
+        primaryManufacturerName: primaryManufacturerName || undefined,
         primaryMarketAuthorizationHolderName:
           marketAuthorizationHolderName || undefined,
         name,
@@ -91,29 +145,20 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
         approvalDate: approvalDate || undefined,
         category: category || undefined,
         entityLinks: [
-          ...(selectedCompanyId
-            ? [
-                {
-                  companyId: selectedCompanyId as Id<"companies">,
-                  relationshipType: "manufacturer" as const,
-                  isPrimary: true,
-                  confidence: "confirmed" as const,
-                },
-              ]
-            : manufacturerName
-              ? [
-                  {
-                    entityName: manufacturerName,
-                    relationshipType: "manufacturer" as const,
-                    isPrimary: true,
-                    confidence: "likely" as const,
-                  },
-                ]
-              : []),
+          ...effectiveManufacturers.map((entry, index) => ({
+            ...(entry.companyId
+              ? { companyId: entry.companyId as Id<"companies"> }
+              : { entityName: entry.entityName.trim() }),
+            relationshipType: "manufacturer" as const,
+            isPrimary: index === 0,
+            confidence: entry.companyId
+              ? ("confirmed" as const)
+              : ("likely" as const),
+          })),
           ...(marketAuthorizationHolderName
             ? [
                 {
-                  entityName: marketAuthorizationHolderName,
+                  entityName: marketAuthorizationHolderName.trim(),
                   relationshipType: "market_authorization_holder" as const,
                   isPrimary: true,
                   confidence: "likely" as const,
@@ -144,7 +189,12 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
                 value={selectedCompanyId}
                 onValueChange={(v) => {
                   setSelectedCompanyId(v ?? "");
-                  if (v) setManufacturerName("");
+                  setManufacturers((current) => {
+                    if (current.length === 0) return [createManufacturerEntry(v ?? "")];
+                    const [first, ...rest] = current;
+                    if (first.companyId || first.entityName.trim()) return current;
+                    return [createManufacturerEntry(v ?? ""), ...rest];
+                  });
                 }}
               >
                 <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
@@ -165,16 +215,96 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
                   ))}
                 </SelectContent>
               </Select>
-              {!selectedCompanyId && (
-                <Input
-                  value={manufacturerName}
-                  onChange={(e) => setManufacturerName(e.target.value)}
-                  placeholder="e.g. Bayer AG, Germany"
-                  className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
-                />
-              )}
+              <p className="text-xs text-zinc-500">
+                This stays the main company anchor for company pages and related workflows.
+              </p>
             </div>
           )}
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <label className="text-sm text-zinc-400">Manufacturers</label>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Add the primary manufacturer first, then any additional manufacturers.
+                </p>
+              </div>
+              <Button type="button" variant="outline" size="sm" onClick={addManufacturer}>
+                <Plus className="h-3.5 w-3.5" />
+                Add manufacturer
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {manufacturers.map((manufacturer, index) => (
+                <div
+                  key={index}
+                  className="rounded-lg border border-zinc-800 bg-zinc-950/50 p-3"
+                >
+                  <div className="mb-2 flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-white">
+                      {index === 0 ? "Primary manufacturer" : `Additional manufacturer ${index}`}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeManufacturer(index)}
+                      disabled={manufacturers.length === 1}
+                      className="text-zinc-400"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Remove
+                    </Button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Select
+                      value={manufacturer.companyId}
+                      onValueChange={(value) =>
+                        updateManufacturer(index, {
+                          companyId: value ?? "",
+                          entityName: value ? "" : manufacturer.entityName,
+                        })
+                      }
+                    >
+                      <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white">
+                        <SelectValue placeholder="Select company from registry (optional)" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-zinc-800 border-zinc-700">
+                        <SelectItem value="" className="text-zinc-400 hover:bg-zinc-700">
+                          — Enter manually —
+                        </SelectItem>
+                        {(companies ?? []).map((company) => (
+                          <SelectItem
+                            key={company._id}
+                            value={company._id}
+                            className="text-white hover:bg-zinc-700"
+                          >
+                            {company.name} ({company.country})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+
+                    {!manufacturer.companyId && (
+                      <Input
+                        value={manufacturer.entityName}
+                        onChange={(e) =>
+                          updateManufacturer(index, {
+                            entityName: e.target.value,
+                            companyId: "",
+                          })
+                        }
+                        placeholder="e.g. Bayer AG"
+                        className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+                      />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
 
           <div className="space-y-1.5">
             <label className="text-sm text-zinc-400">

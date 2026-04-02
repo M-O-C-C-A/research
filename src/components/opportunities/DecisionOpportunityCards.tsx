@@ -45,7 +45,9 @@ export function DecisionOpportunityCards({
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {opportunities.map((item) => (
+          {opportunities.map((item) => {
+            const readyToSend = item.outreachReadiness?.readyToSend ?? false;
+            return (
             <Link
               key={item._id}
               href={`/opportunities/${item._id}`}
@@ -75,6 +77,15 @@ export function DecisionOpportunityCards({
               <div className="mt-4 flex flex-wrap gap-2">
                 <span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-medium ${confidenceBadgeClass(item.confidenceLevel)}`}>
                   {item.confidenceLevel} confidence
+                </span>
+                <span
+                  className={`inline-flex rounded-md px-2 py-1 text-[11px] ${
+                    readyToSend
+                      ? "bg-emerald-500/15 text-emerald-300"
+                      : "bg-amber-500/15 text-amber-300"
+                  }`}
+                >
+                  {readyToSend ? "outreach ready" : "blocked"}
                 </span>
                 <span className="inline-flex rounded-md bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300">
                   {entryStrategyLabel(item.entryStrategy)}
@@ -131,7 +142,8 @@ export function DecisionOpportunityCards({
                 <ArrowRight className="h-3 w-3" />
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

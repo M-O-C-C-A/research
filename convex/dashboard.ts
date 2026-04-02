@@ -103,3 +103,135 @@ export const getCockpit = query({
     };
   },
 });
+
+export const getGuidedFlow = query({
+  args: {},
+  handler: async (ctx) => {
+    const [companies, drugs, opportunities] = await Promise.all([
+      ctx.db.query("companies").collect(),
+      ctx.db.query("drugs").collect(),
+      ctx.db.query("decisionOpportunities").collect(),
+    ]);
+
+    const activePipelineCount = companies.filter((company) => {
+      const stage = company.bdStatus;
+      return (
+        stage === "qualified" ||
+        stage === "contacted" ||
+        stage === "intro_call" ||
+        stage === "data_shared" ||
+        stage === "partner_discussion" ||
+        stage === "negotiating"
+      );
+    }).length;
+
+    const ranked = opportunities
+      .filter((item) => item.status !== "archived")
+      .sort((left, right) => {
+        const rankDelta = (left.rankingPosition ?? 9999) - (right.rankingPosition ?? 9999);
+        if (rankDelta !== 0) return rankDelta;
+        return right.priorityScore - left.priorityScore;
+      });
+
+    const bestOpportunity = ranked[0] ?? null;
+    const blockedOpportunity =
+      ranked.find(
+        (item) =>
+          item.status === "needs_validation" ||
+          !item.outreachReadiness?.readyToSend
+      ) ?? null;
+    const readyOpportunity =
+      ranked.find((item) => item.outreachReadiness?.readyToSend) ?? null;
+
+    const currentStep =
+      companies.length === 0
+        ? "company"
+        : drugs.length === 0
+          ? "product"
+          : ranked.length === 0
+            ? "opportunity"
+            : blockedOpportunity
+              ? "blockers"
+              : readyOpportunity
+                ? "outreach"
+                : activePipelineCount > 0
+                  ? "follow_up"
+                  : "opportunity";
+
+    const primaryAction =
+      currentStep === "company"
+        ? {
+            label: "Start with a company",
+            description:
+              "Add one manufacturer you want to pursue so the rest of the process has something concrete to work with.",
+            href: "/companies",
+          }
+        : currentStep === "product"
+          ? {
+              label: "Add a product",
+              description:
+                "Add one product so the system can assess market whitespace, ownership, and opportunity fit.",
+              href: "/drugs",
+            }
+          : currentStep === "opportunity"
+            ? {
+                label: "Review best opportunity",
+                description:
+                  "Use the shortlist to see where market need, route to entry, and contact direction are strongest.",
+                href: "/gaps",
+              }
+            : currentStep === "blockers"
+              ? {
+                  label: "Resolve blocker",
+                  description:
+                    "A promising opportunity exists, but it still needs confirmation before outreach should begin.",
+                  href: blockedOpportunity
+                    ? `/opportunities/${blockedOpportunity._id}`
+                    : "/gaps",
+                }
+              : currentStep === "outreach"
+                ? {
+                    label: "Prepare first outreach",
+                    description:
+                      "Open the recommended opportunity and use the outreach package to start a real first-touch conversation.",
+                    href: readyOpportunity
+                      ? `/opportunities/${readyOpportunity._id}`
+                      : "/gaps",
+                  }
+                : {
+                    label: "Continue follow-up",
+                    description:
+                      "You already have active outreach in motion. Pick up the next commercial follow-up from the pipeline.",
+                    href: "/pipeline",
+                  };
+
+    const blockers = blockedOpportunity?.outreachBlockers ?? [];
+
+    return {
+      currentStep,
+      primaryAction,
+      secondaryAction:
+        bestOpportunity != null
+          ? {
+              label: "See best opportunities",
+              href: "/gaps",
+            }
+          : {
+              label: "Open guided process",
+              href: "/workflow",
+            },
+      blockers,
+      resumeHref:
+        currentStep === "follow_up"
+          ? "/pipeline"
+          : primaryAction.href,
+      bestOpportunityId: bestOpportunity?._id ?? null,
+      snapshot: {
+        companyCount: companies.length,
+        productCount: drugs.length,
+        opportunityCount: ranked.length,
+        activeOutreachCount: activePipelineCount,
+      },
+    };
+  },
+});

@@ -71,7 +71,7 @@ export function PriorityMatchesWidget() {
                 {match.focusMarkets.map((country) => (
                   <span
                     key={country}
-                    className="inline-flex items-center rounded bg-cyan-500/10 px-2 py-1 text-[11px] text-cyan-300"
+                    className="inline-flex items-center rounded bg-[color:var(--brand-surface)] px-2 py-1 text-[11px] text-[var(--brand-300)]"
                   >
                     <Globe2 className="mr-1 h-3 w-3" />
                     {country}
@@ -83,7 +83,7 @@ export function PriorityMatchesWidget() {
                 <p>{match.whyThisMarket}</p>
                 <p>{match.howToEnter}</p>
                 <p className="inline-flex items-center gap-1">
-                  <Mail className="h-3 w-3 text-blue-400" />
+                  <Mail className="h-3 w-3 text-[var(--brand-300)]" />
                   {match.contactName ?? match.targetRole}
                 </p>
               </div>

@@ -14,7 +14,7 @@ export function confidenceBadgeClass(level?: string | null) {
 export function statusBadgeClass(status?: string | null) {
   switch (status) {
     case "active":
-      return "bg-cyan-500/10 text-cyan-300 border border-cyan-500/20";
+      return "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border border-[color:var(--brand-border)]";
     case "needs_validation":
       return "bg-amber-500/10 text-amber-300 border border-amber-500/20";
     case "archived":

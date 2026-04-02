@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Building2, Pill, ArrowRight } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
-  running: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  running: "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-[color:var(--brand-border)]",
   completed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
   error: "bg-red-500/15 text-red-400 border-red-500/30",
 };
@@ -49,12 +49,12 @@ export function RecentJobs() {
             className="group flex items-center gap-3 py-2.5 hover:text-white transition-colors"
           >
             <div
-              className={`rounded p-1 shrink-0 ${job.type === "companies" ? "bg-blue-500/10" : "bg-violet-500/10"}`}
+              className="rounded p-1 shrink-0 bg-[color:var(--brand-surface)]"
             >
               {job.type === "companies" ? (
-                <Building2 className="h-3.5 w-3.5 text-blue-400" />
+                <Building2 className="h-3.5 w-3.5 text-[var(--brand-300)]" />
               ) : (
-                <Pill className="h-3.5 w-3.5 text-violet-400" />
+                <Pill className="h-3.5 w-3.5 text-[var(--brand-300)]" />
               )}
             </div>
             <div className="flex-1 min-w-0">
@@ -77,7 +77,7 @@ export function RecentJobs() {
               >
                 {job.status === "running" ? (
                   <span className="flex items-center gap-1">
-                    <span className="h-1 w-1 rounded-full bg-blue-400 animate-pulse" />
+                    <span className="h-1 w-1 rounded-full bg-[var(--brand-300)] animate-pulse" />
                     live
                   </span>
                 ) : (

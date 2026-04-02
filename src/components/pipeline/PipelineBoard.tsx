@@ -144,7 +144,7 @@ function CompanyRow({
           <div className="flex items-center gap-2 flex-wrap">
             <Link
               href={`/companies/${company._id}`}
-              className="text-sm font-medium text-white hover:text-cyan-400 transition-colors truncate"
+              className="text-sm font-medium text-white hover:text-[var(--brand-300)] transition-colors truncate"
               onClick={(e) => e.stopPropagation()}
             >
               {company.name}
@@ -153,7 +153,7 @@ function CompanyRow({
               <span className="text-xs text-zinc-600 uppercase shrink-0">{company.targetSegment ?? company.companySize}</span>
             )}
             {company.priorityTier && (
-              <span className="text-xs rounded bg-cyan-500/10 px-1.5 py-0.5 text-cyan-300 shrink-0">
+              <span className="text-xs rounded bg-[color:var(--brand-surface)] px-1.5 py-0.5 text-[var(--brand-300)] shrink-0">
                 {company.priorityTier.replace("_", " ")}
               </span>
             )}

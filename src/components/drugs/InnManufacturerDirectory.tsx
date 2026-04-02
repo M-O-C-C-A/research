@@ -38,7 +38,7 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
   return (
     <div className="space-y-6">
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
-        <p className="text-xs uppercase tracking-wider text-cyan-300">INN Manufacturer Directory</p>
+        <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">INN Manufacturer Directory</p>
         <h2 className="mt-2 text-2xl font-semibold text-white">{data.genericName}</h2>
         <p className="mt-2 text-sm text-zinc-400">
           All known manufacturers and linked brand products for this INN.
@@ -59,7 +59,7 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
                     {manufacturer.companyId ? (
                       <Link
                         href={`/companies/${manufacturer.companyId}`}
-                        className="text-sm font-semibold text-white hover:text-cyan-300"
+                        className="text-sm font-semibold text-white hover:text-[var(--brand-300)]"
                       >
                         {manufacturer.name}
                       </Link>
@@ -73,7 +73,7 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
                   {manufacturer.companyId && (
                     <Link
                       href={`/companies/${manufacturer.companyId}`}
-                      className="inline-flex items-center gap-1 text-xs text-cyan-300 hover:text-cyan-200"
+                      className="inline-flex items-center gap-1 text-xs text-[var(--brand-300)] hover:text-[var(--brand-400)]"
                     >
                       Open company
                       <ArrowRight className="h-3.5 w-3.5" />
@@ -97,7 +97,7 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
                   <div className="min-w-0">
                     <Link
                       href={`/drugs/${product.drugId}`}
-                      className="text-sm font-semibold text-white hover:text-cyan-300"
+                      className="text-sm font-semibold text-white hover:text-[var(--brand-300)]"
                     >
                       {product.name}
                     </Link>
@@ -106,7 +106,7 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
                       {product.primaryManufacturerCompanyId ? (
                         <Link
                           href={`/companies/${product.primaryManufacturerCompanyId}`}
-                          className="text-cyan-300 hover:text-cyan-200"
+                          className="text-[var(--brand-300)] hover:text-[var(--brand-400)]"
                         >
                           {product.primaryManufacturerName}
                         </Link>

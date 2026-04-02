@@ -142,7 +142,7 @@ export function DrugList() {
                   <TableCell className="text-zinc-400 text-sm">
                     <Link
                       href={`/drugs/inn/${encodeURIComponent(drug.genericName)}`}
-                      className="hover:text-cyan-300"
+                      className="hover:text-[var(--brand-300)]"
                     >
                       {drug.genericName}
                     </Link>
@@ -152,7 +152,7 @@ export function DrugList() {
                       {drug.primaryManufacturerCompanyId ? (
                         <Link
                           href={`/companies/${drug.primaryManufacturerCompanyId}`}
-                          className="hover:text-cyan-300"
+                          className="hover:text-[var(--brand-300)]"
                         >
                           {drug.primaryManufacturerName}
                         </Link>
@@ -183,7 +183,7 @@ export function DrugList() {
                   <TableCell>
                     <Link
                       href={`/drugs/${drug._id}`}
-                      className="inline-flex items-center gap-1 text-sm text-cyan-300 hover:text-cyan-200"
+                      className="inline-flex items-center gap-1 text-sm text-[var(--brand-300)] hover:text-[var(--brand-400)]"
                     >
                       Check market opportunity
                       <ArrowRight className="h-4 w-4" />

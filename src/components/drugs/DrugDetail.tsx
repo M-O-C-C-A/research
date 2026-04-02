@@ -88,7 +88,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
           <p className="text-sm text-zinc-500">
               <Link
                 href={`/drugs/inn/${encodeURIComponent(drug.genericName)}`}
-                className="text-zinc-400 hover:text-cyan-300"
+                className="text-zinc-400 hover:text-[var(--brand-300)]"
               >
                 {drug.genericName}
               </Link>
@@ -123,7 +123,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
             </Link>
             <Link
               href="/gaps"
-              className="inline-flex items-center gap-1 text-sm text-cyan-300 hover:text-cyan-200"
+              className="inline-flex items-center gap-1 text-sm text-[var(--brand-300)] hover:text-[var(--brand-400)]"
             >
               Check market opportunity
               <ArrowRight className="h-4 w-4" />
@@ -166,7 +166,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
                     variant="secondary"
                     className={
                       manufacturerName === drug.primaryManufacturerName
-                        ? "bg-cyan-500/10 text-cyan-300 border-0"
+                        ? "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-0"
                         : "bg-zinc-800 text-zinc-300 border-0"
                     }
                   >
@@ -206,7 +206,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
                       {entry.relationshipType.replaceAll("_", " ")}
                     </Badge>
                     {entry.isPrimary && (
-                      <Badge variant="secondary" className="bg-cyan-500/10 text-cyan-300 border-0">
+                      <Badge variant="secondary" className="bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-0">
                         primary
                       </Badge>
                     )}
@@ -266,7 +266,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
                           item.confidence === "confirmed"
                             ? "bg-emerald-500/10 text-emerald-300 border-0"
                             : item.confidence === "likely"
-                              ? "bg-blue-500/10 text-blue-300 border-0"
+                              ? "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-0"
                               : "bg-zinc-800 text-zinc-400 border-0"
                         }
                       >

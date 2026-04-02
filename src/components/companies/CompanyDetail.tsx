@@ -562,7 +562,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                             href={item.url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-cyan-500 hover:text-cyan-400 transition-colors"
+                            className="ml-1.5 inline-flex items-center gap-0.5 text-xs text-[var(--brand-300)] hover:text-[var(--brand-400)] transition-colors"
                           >
                             <ExternalLink className="h-2.5 w-2.5" />
                             {item.source}
@@ -588,7 +588,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                       href={company.linkedinCompanyUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="ml-2 inline-flex items-center gap-1 text-cyan-500 hover:text-cyan-400 transition-colors normal-case"
+                      className="ml-2 inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)] transition-colors normal-case"
                     >
                       <Linkedin className="h-2.5 w-2.5" />
                       Company page
@@ -622,7 +622,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                               contact.confidence === "confirmed"
                                 ? "bg-emerald-500/15 text-emerald-400"
                                 : contact.confidence === "likely"
-                                  ? "bg-blue-500/15 text-blue-400"
+                                  ? "bg-[color:var(--brand-surface)] text-[var(--brand-300)]"
                                   : "bg-zinc-700 text-zinc-500"
                             }`}
                           >
@@ -652,7 +652,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                           {contact.email && (
                             <a
                               href={`mailto:${contact.email}`}
-                              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                              className="flex items-center gap-1 text-xs text-[var(--brand-300)] hover:text-[var(--brand-400)] transition-colors"
                             >
                               <Mail className="h-3 w-3" />
                               {contact.email}
@@ -663,7 +663,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                               href={contact.linkedinUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                              className="flex items-center gap-1 text-xs text-[var(--brand-300)] hover:text-[var(--brand-400)] transition-colors"
                             >
                               <Linkedin className="h-3 w-3" />
                               LinkedIn
@@ -698,7 +698,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                 size="sm"
                 onClick={handleBuildDossier}
                 disabled={isDossierRunning || isScoring}
-                className="bg-cyan-700 hover:bg-cyan-600 text-white"
+                className="bg-[color:var(--brand-500)] hover:bg-[color:var(--brand-600)] text-white"
               >
                 {isDossierRunning ? (
                   <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Building dossier…</>

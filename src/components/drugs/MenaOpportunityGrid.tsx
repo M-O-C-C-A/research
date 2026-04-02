@@ -85,7 +85,7 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
                 {item.focusMarkets.map((country) => (
                   <span
                     key={country}
-                    className="inline-flex items-center rounded bg-cyan-500/10 px-2 py-1 text-[11px] text-cyan-300"
+                    className="inline-flex items-center rounded bg-[color:var(--brand-surface)] px-2 py-1 text-[11px] text-[var(--brand-300)]"
                   >
                     <Globe2 className="mr-1 h-3 w-3" />
                     {country}
@@ -105,7 +105,7 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
                 {item.contactName ?? item.targetRole}
               </p>
               {item.contactEmail && (
-                <p className="mt-1 inline-flex items-center gap-1 text-xs text-blue-400">
+                <p className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--brand-300)]">
                   <Mail className="h-3 w-3" />
                   {item.contactEmail}
                 </p>
@@ -115,7 +115,7 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
 
           <p className="mt-4 text-sm text-zinc-400">{item.whyThisMarket}</p>
 
-          <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-cyan-400">
+          <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-300)]">
             Open decision opportunity
             <ArrowRight className="h-3 w-3" />
           </div>

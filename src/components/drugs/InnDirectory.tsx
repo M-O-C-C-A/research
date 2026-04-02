@@ -55,7 +55,7 @@ export function InnDirectory() {
                 <div className="min-w-0">
                   <Link
                     href={`/drugs/inn/${encodeURIComponent(inn.genericName)}`}
-                    className="text-lg font-semibold text-white hover:text-cyan-300"
+                    className="text-lg font-semibold text-white hover:text-[var(--brand-300)]"
                   >
                     {inn.genericName}
                   </Link>
@@ -67,7 +67,7 @@ export function InnDirectory() {
                 </div>
                 <Link
                   href={`/drugs/inn/${encodeURIComponent(inn.genericName)}`}
-                  className="inline-flex items-center gap-1 text-sm font-medium text-cyan-300 hover:text-cyan-200"
+                  className="inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-300)] hover:text-[var(--brand-400)]"
                 >
                   View manufacturers
                   <ArrowRight className="h-4 w-4" />
@@ -106,7 +106,7 @@ export function InnDirectory() {
                   <Link
                     key={product.drugId}
                     href={`/drugs/${product.drugId}`}
-                    className="rounded-full bg-cyan-500/10 px-3 py-1 text-xs text-cyan-300 hover:bg-cyan-500/15"
+                    className="rounded-full bg-[color:var(--brand-surface)] px-3 py-1 text-xs text-[var(--brand-300)] hover:bg-[color:var(--brand-surface-strong)]"
                   >
                     {product.name}
                   </Link>

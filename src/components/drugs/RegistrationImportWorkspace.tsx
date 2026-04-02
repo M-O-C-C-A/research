@@ -40,7 +40,7 @@ const STATUS_STYLES: Record<string, string> = {
   parsed: "bg-sky-500/15 text-sky-300 border-sky-500/30",
   needs_review: "bg-amber-500/15 text-amber-300 border-amber-500/30",
   ready: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  applied: "bg-indigo-500/15 text-indigo-300 border-indigo-500/30",
+  applied: "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-[color:var(--brand-border)]",
   failed: "bg-red-500/15 text-red-300 border-red-500/30",
 };
 
@@ -328,7 +328,7 @@ export function RegistrationImportWorkspace() {
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                     <p className="text-xs uppercase tracking-wide text-zinc-500">Applied</p>
-                    <p className="mt-1 text-xl font-semibold text-indigo-300">{selectedImport.appliedRows}</p>
+                    <p className="mt-1 text-xl font-semibold text-[var(--brand-300)]">{selectedImport.appliedRows}</p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                     <p className="text-xs uppercase tracking-wide text-zinc-500">Issues</p>

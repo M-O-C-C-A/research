@@ -16,7 +16,7 @@ export function OpportunityWorkbench() {
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-cyan-300">
+          <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--brand-300)]">
             Best Opportunities
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-white">
@@ -74,7 +74,7 @@ export function OpportunityWorkbench() {
                 <p className="mt-1 text-xs text-zinc-600">{card.sublabel}</p>
               </div>
               <div className="rounded-lg bg-zinc-950 p-2.5">
-                <card.icon className="h-5 w-5 text-cyan-400" />
+                <card.icon className="h-5 w-5 text-[var(--brand-300)]" />
               </div>
             </div>
           </div>

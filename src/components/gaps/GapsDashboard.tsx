@@ -226,7 +226,7 @@ export function SupplierSearchDialog({
                     <p className="text-xs text-zinc-500 uppercase tracking-wider mb-1">Drug classes to source</p>
                     <div className="flex flex-wrap gap-1">
                       {gap.suggestedDrugClasses.map((cls) => (
-                        <span key={cls} className="text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded px-2 py-0.5">
+                        <span key={cls} className="text-xs bg-[color:var(--brand-surface)] text-[var(--brand-300)] border border-[color:var(--brand-border)] rounded px-2 py-0.5">
                           {cls}
                         </span>
                       ))}
@@ -241,8 +241,8 @@ export function SupplierSearchDialog({
                   </p>
                 </div>
               </div>
-              <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/5 p-3">
-                <p className="text-xs text-cyan-300 leading-relaxed">
+              <div className="rounded-lg border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] p-3">
+                <p className="text-xs text-[var(--brand-300)] leading-relaxed">
                   All companies found will be added to your registry, assigned a distributor-fit
                   score, and linked to this gap as potential distribution partners.
                 </p>
@@ -253,7 +253,7 @@ export function SupplierSearchDialog({
           {(phase === "running" || phase === "done") && (
             <>
               <div className="flex items-start gap-2.5">
-                {phase === "running" && <Loader2 className="h-4 w-4 text-cyan-400 animate-spin shrink-0 mt-0.5" />}
+                {phase === "running" && <Loader2 className="h-4 w-4 text-[var(--brand-300)] animate-spin shrink-0 mt-0.5" />}
                 {phase === "done" && job?.status === "completed" && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />}
                 {phase === "done" && job?.status === "error" && <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />}
                 <p className="text-sm text-zinc-300 leading-relaxed">
@@ -298,7 +298,7 @@ export function SupplierSearchDialog({
           {phase === "confirm" && (
             <>
               <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800" onClick={onClose}>Cancel</Button>
-              <Button size="sm" className="bg-cyan-600 hover:bg-cyan-500 text-white" onClick={handleLaunch} disabled={isLaunching}>
+              <Button size="sm" className="bg-[color:var(--brand-500)] hover:bg-[color:var(--brand-600)] text-white" onClick={handleLaunch} disabled={isLaunching}>
                 {isLaunching ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Launching…</> : <><Search className="h-3 w-3 mr-1.5" />Find Suppliers</>}
               </Button>
             </>
@@ -393,11 +393,11 @@ export function EvidenceEnrichmentDialog({
               </p>
               <div className="rounded-lg bg-zinc-800 p-4 space-y-3 text-sm">
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 shrink-0 rounded bg-blue-500/10 px-1.5 py-0.5 text-xs text-blue-300 border border-blue-500/20">PubMed</span>
+                  <span className="mt-0.5 shrink-0 rounded bg-[color:var(--brand-surface)] px-1.5 py-0.5 text-xs text-[var(--brand-300)] border border-[color:var(--brand-border)]">PubMed</span>
                   <p className="text-zinc-300">Disease burden &amp; prevalence literature for {gap.indication} in {gap.targetCountries.slice(0, 3).join(", ")}{gap.targetCountries.length > 3 ? "…" : ""}</p>
                 </div>
                 <div className="flex items-start gap-3">
-                  <span className="mt-0.5 shrink-0 rounded bg-purple-500/10 px-1.5 py-0.5 text-xs text-purple-300 border border-purple-500/20">ClinicalTrials</span>
+                  <span className="mt-0.5 shrink-0 rounded bg-[color:var(--brand-surface)] px-1.5 py-0.5 text-xs text-[var(--brand-300)] border border-[color:var(--brand-border)]">ClinicalTrials</span>
                   <p className="text-zinc-300">Active and completed trials for this indication in MENA markets — reveals pipeline competition</p>
                 </div>
               </div>
@@ -412,7 +412,7 @@ export function EvidenceEnrichmentDialog({
           {(phase === "running" || phase === "done") && (
             <>
               <div className="flex items-start gap-2.5">
-                {phase === "running" && <Loader2 className="h-4 w-4 text-cyan-400 animate-spin shrink-0 mt-0.5" />}
+                {phase === "running" && <Loader2 className="h-4 w-4 text-[var(--brand-300)] animate-spin shrink-0 mt-0.5" />}
                 {phase === "done" && job?.status === "completed" && <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />}
                 {phase === "done" && job?.status === "error" && <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />}
                 <p className="text-sm text-zinc-300 leading-relaxed">
@@ -456,7 +456,7 @@ export function EvidenceEnrichmentDialog({
           {phase === "confirm" && (
             <>
               <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800" onClick={onClose}>Cancel</Button>
-              <Button size="sm" className="bg-indigo-600 hover:bg-indigo-500 text-white" onClick={handleLaunch} disabled={isLaunching}>
+              <Button size="sm" className="bg-[color:var(--brand-500)] hover:bg-[color:var(--brand-600)] text-white" onClick={handleLaunch} disabled={isLaunching}>
                 {isLaunching ? <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Launching…</> : <><TrendingUp className="h-3 w-3 mr-1.5" />Enrich Evidence</>}
               </Button>
             </>
@@ -526,7 +526,7 @@ export function GapDetailPanel({
                 <FeasibilityBadge level={gap.regulatoryFeasibility} />
                 <ValidationStatusBadge status={gap.validationStatus} />
                 {gap.gapType && (
-                  <span className="rounded bg-cyan-500/10 px-2 py-0.5 text-xs text-cyan-300">
+                  <span className="rounded bg-[color:var(--brand-surface)] px-2 py-0.5 text-xs text-[var(--brand-300)]">
                     {formatGapType(gap.gapType)}
                   </span>
                 )}
@@ -611,7 +611,7 @@ export function GapDetailPanel({
               {gap.tenderSignals && (
                 <div>
                   <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1">
-                    <Zap className="h-3 w-3 text-cyan-400" /> Tender Signals
+                    <Zap className="h-3 w-3 text-[var(--brand-300)]" /> Tender Signals
                   </p>
                   <pre className="text-xs text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-lg p-3 whitespace-pre-wrap leading-relaxed">
                     {gap.tenderSignals}
@@ -625,7 +625,7 @@ export function GapDetailPanel({
                   <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Drug Classes to Source</p>
                   <div className="flex flex-wrap gap-1.5">
                     {gap.suggestedDrugClasses.map((cls) => (
-                      <span key={cls} className="text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded px-2 py-1">{cls}</span>
+                      <span key={cls} className="text-xs bg-[color:var(--brand-surface)] text-[var(--brand-300)] border border-[color:var(--brand-border)] rounded px-2 py-1">{cls}</span>
                     ))}
                   </div>
                 </div>
@@ -639,7 +639,7 @@ export function GapDetailPanel({
                     {gap.sources.map((s, i) => (
                       <li key={i}>
                         {normalizeExternalUrl(s.url) ? (
-                          <a href={normalizeExternalUrl(s.url)!} target="_blank" rel="noopener noreferrer" className="text-xs text-cyan-400 hover:text-cyan-300 underline transition-colors">
+                          <a href={normalizeExternalUrl(s.url)!} target="_blank" rel="noopener noreferrer" className="text-xs text-[var(--brand-300)] hover:text-[var(--brand-400)] underline transition-colors">
                             {s.title}
                           </a>
                         ) : (
@@ -688,7 +688,7 @@ export function GapDetailPanel({
                   </p>
                   <Button
                     size="sm"
-                    className="h-7 text-xs bg-cyan-600 hover:bg-cyan-500 text-white"
+                    className="h-7 text-xs bg-[color:var(--brand-500)] hover:bg-[color:var(--brand-600)] text-white"
                     onClick={() => setShowSupplierDialog(true)}
                   >
                     <Search className="h-3 w-3 mr-1" />
@@ -739,7 +739,7 @@ export function GapDetailPanel({
                                 </span>
                               )}
                               {priorityLabel && (
-                                <span className="text-xs rounded bg-cyan-500/10 px-1.5 py-0.5 text-cyan-300">
+                                <span className="text-xs rounded bg-[color:var(--brand-surface)] px-1.5 py-0.5 text-[var(--brand-300)]">
                                   {priorityLabel}
                                 </span>
                               )}
@@ -777,7 +777,7 @@ export function GapDetailPanel({
                         <Link
                           key={opportunity._id}
                           href={`/opportunities/${opportunity._id}`}
-                          className="text-xs text-cyan-400 underline hover:text-cyan-300"
+                          className="text-xs text-[var(--brand-300)] underline hover:text-[var(--brand-400)]"
                         >
                           #{opportunity.rankingPosition ?? "—"} {opportunity.productName}
                         </Link>
@@ -861,12 +861,12 @@ function GapOpportunityCard({
             <FeasibilityBadge level={gap.regulatoryFeasibility} />
             <ValidationStatusBadge status={gap.validationStatus} />
             {gap.gapType && (
-              <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-300">
+              <span className="text-xs px-2 py-0.5 rounded bg-[color:var(--brand-surface)] text-[var(--brand-300)]">
                 {formatGapType(gap.gapType)}
               </span>
             )}
           </div>
-          <h3 className="text-base font-semibold text-white mt-1 group-hover:text-cyan-300 transition-colors">
+          <h3 className="text-base font-semibold text-white mt-1 group-hover:text-[var(--brand-300)] transition-colors">
             {gap.indication}
           </h3>
           <div className="flex flex-wrap gap-1 mt-1">
@@ -896,7 +896,7 @@ function GapOpportunityCard({
       {gap.suggestedDrugClasses.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {gap.suggestedDrugClasses.slice(0, 4).map((cls) => (
-            <span key={cls} className="text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded px-2 py-0.5">{cls}</span>
+            <span key={cls} className="text-xs bg-[color:var(--brand-surface)] text-[var(--brand-300)] border border-[color:var(--brand-border)] rounded px-2 py-0.5">{cls}</span>
           ))}
           {gap.suggestedDrugClasses.length > 4 && (
             <span className="text-xs text-zinc-600">+{gap.suggestedDrugClasses.length - 4}</span>
@@ -911,7 +911,7 @@ function GapOpportunityCard({
             <span className="text-emerald-400">{gap.verifiedMissingCount} verified missing</span>
           )}
           {gap.tenderSignals && (
-            <span className="flex items-center gap-1 text-cyan-500">
+            <span className="flex items-center gap-1 text-[var(--brand-300)]">
               <Zap className="h-3 w-3" /> Tender signals
             </span>
           )}
@@ -1067,7 +1067,7 @@ export function GapsDashboard() {
                       setSelectedCountry("");
                       setMinScore(0);
                     }}
-                    className="text-xs text-cyan-300 hover:text-cyan-200 transition-colors"
+                    className="text-xs text-[var(--brand-300)] hover:text-[var(--brand-400)] transition-colors"
                   >
                     Clear filters
                   </button>
@@ -1077,7 +1077,7 @@ export function GapsDashboard() {
 
             <div className="space-y-4 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-cyan-300">Run Analysis</p>
+                <p className="text-xs font-semibold uppercase tracking-wider text-[var(--brand-300)]">Run Analysis</p>
                 <p className="mt-1 text-sm text-zinc-400">
                   Run a fresh gap analysis to create or update research gaps. Promoted opportunities appear later after supplier and product linking complete.
                 </p>
@@ -1125,7 +1125,7 @@ export function GapsDashboard() {
                 <Button
                   onClick={handleAnalyzeFlow}
                   disabled={isRunningFlow}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white h-10 px-4 shrink-0"
+                  className="bg-[color:var(--brand-500)] hover:bg-[color:var(--brand-600)] text-white h-10 px-4 shrink-0"
                 >
                   {isRunningFlow ? (
                     <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Running analysis…</>
@@ -1145,7 +1145,7 @@ export function GapsDashboard() {
             <input
               type="range" min={0} max={9} step={1} value={minScore}
               onChange={(e) => setMinScore(Number(e.target.value))}
-              className="w-full accent-cyan-500 h-9"
+              className="h-9 w-full accent-[color:var(--brand-500)]"
             />
           </div>
         </div>
@@ -1166,7 +1166,7 @@ export function GapsDashboard() {
                   ? "bg-emerald-500/10 text-emerald-300"
                   : flowJob.status === "error"
                     ? "bg-red-500/10 text-red-300"
-                    : "bg-cyan-500/10 text-cyan-300"
+                    : "bg-[color:var(--brand-surface)] text-[var(--brand-300)]"
               }`}>
                 {flowJob.status}
               </span>
@@ -1200,7 +1200,7 @@ export function GapsDashboard() {
                 {(flowJob.newItemsFound ?? 0) > 0 && (
                   <Link
                     href="/gaps#top-opportunities"
-                    className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 transition-colors"
+                    className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)] transition-colors"
                   >
                     View promoted opportunities
                     <ArrowRight className="h-3 w-3" />

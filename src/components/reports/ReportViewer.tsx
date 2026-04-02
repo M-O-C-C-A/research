@@ -21,7 +21,7 @@ export function ReportViewer({ content }: ReportViewerProps) {
       prose-table:text-sm
       prose-th:text-zinc-300 prose-th:font-semibold prose-th:border prose-th:border-zinc-700 prose-th:px-3 prose-th:py-2
       prose-td:text-zinc-400 prose-td:border prose-td:border-zinc-800 prose-td:px-3 prose-td:py-2
-      prose-a:text-blue-400 prose-a:no-underline hover:prose-a:underline
+      prose-a:text-[var(--brand-300)] prose-a:no-underline hover:prose-a:text-[var(--brand-400)] hover:prose-a:underline
     ">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
     </div>

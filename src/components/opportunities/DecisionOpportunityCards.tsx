@@ -123,7 +123,7 @@ export function DecisionOpportunityCards({
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <Mail className="mt-0.5 h-3.5 w-3.5 text-blue-400" />
+                  <Mail className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                       Who to contact

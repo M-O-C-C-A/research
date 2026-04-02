@@ -26,8 +26,8 @@ export function TopGapsWidget() {
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <div className="rounded bg-cyan-500/10 p-1.5">
-            <Target className="h-4 w-4 text-cyan-400" />
+          <div className="rounded bg-[color:var(--brand-surface)] p-1.5">
+            <Target className="h-4 w-4 text-[var(--brand-300)]" />
           </div>
           <h2 className="text-sm font-semibold text-zinc-300 uppercase tracking-wider">
             Top Gap Opportunities
@@ -53,7 +53,7 @@ export function TopGapsWidget() {
           <p className="text-sm text-zinc-500">No gap opportunities yet</p>
           <Link
             href="/gaps"
-            className="mt-2 inline-block text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+            className="mt-2 inline-block text-xs text-[var(--brand-300)] hover:text-[var(--brand-400)] transition-colors"
           >
             Run Gap Analysis →
           </Link>

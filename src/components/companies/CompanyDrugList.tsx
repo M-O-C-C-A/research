@@ -98,7 +98,7 @@ export function CompanyDrugList({ companyId }: CompanyDrugListProps) {
                     <TableCell className="text-zinc-400 text-sm">
                       <Link
                         href={`/drugs/inn/${encodeURIComponent(drug.genericName)}`}
-                        className="hover:text-cyan-300"
+                        className="hover:text-[var(--brand-300)]"
                       >
                         {drug.genericName}
                       </Link>
@@ -108,7 +108,7 @@ export function CompanyDrugList({ companyId }: CompanyDrugListProps) {
                         {drug.primaryManufacturerCompanyId ? (
                           <Link
                             href={`/companies/${drug.primaryManufacturerCompanyId}`}
-                            className="hover:text-cyan-300"
+                            className="hover:text-[var(--brand-300)]"
                           >
                             {drug.primaryManufacturerName}
                           </Link>

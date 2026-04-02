@@ -28,7 +28,7 @@ function timeAgo(ts: number): string {
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  running: "bg-blue-500/15 text-blue-400 border-blue-500/30",
+  running: "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-[color:var(--brand-border)]",
   completed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
   error: "bg-red-500/15 text-red-400 border-red-500/30",
 };
@@ -50,7 +50,7 @@ export function JobCard({ jobId, defaultExpanded = false }: JobCardProps) {
     <div
       className={cn(
         "rounded-lg border bg-zinc-900 transition-colors",
-        isRunning ? "border-blue-800/50" : "border-zinc-800"
+        isRunning ? "border-[color:var(--brand-border-strong)]" : "border-zinc-800"
       )}
     >
       {/* Header */}
@@ -61,15 +61,13 @@ export function JobCard({ jobId, defaultExpanded = false }: JobCardProps) {
         <div
           className={cn(
             "rounded p-1.5",
-            job.type === "companies"
-              ? "bg-blue-500/10"
-              : "bg-violet-500/10"
+            "bg-[color:var(--brand-surface)]"
           )}
         >
           {job.type === "companies" ? (
-            <Building2 className="h-4 w-4 text-blue-400" />
+            <Building2 className="h-4 w-4 text-[var(--brand-300)]" />
           ) : (
-            <Pill className="h-4 w-4 text-violet-400" />
+            <Pill className="h-4 w-4 text-[var(--brand-300)]" />
           )}
         </div>
 
@@ -110,7 +108,7 @@ export function JobCard({ jobId, defaultExpanded = false }: JobCardProps) {
           >
             {isRunning ? (
               <span className="flex items-center gap-1.5">
-                <span className="h-1.5 w-1.5 rounded-full bg-blue-400 animate-pulse" />
+                <span className="h-1.5 w-1.5 rounded-full bg-[var(--brand-300)] animate-pulse" />
                 running
               </span>
             ) : (

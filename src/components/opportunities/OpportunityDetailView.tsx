@@ -80,18 +80,18 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </p>
           </div>
 
-          <div className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 text-right">
-            <p className="text-xs uppercase tracking-wider text-cyan-300">Priority Score</p>
+          <div className="rounded-xl border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] px-4 py-3 text-right">
+            <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">Priority Score</p>
             <p className="mt-1 text-3xl font-bold text-white">{opportunity.priorityScore.toFixed(1)}</p>
             <p className="text-xs text-zinc-500">Focus: {opportunity.focusMarkets.join(", ")}</p>
           </div>
         </div>
       </section>
 
-      <section className="rounded-xl border border-cyan-500/20 bg-cyan-500/5 p-6">
+      <section className="rounded-xl border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
               Decision Summary
             </p>
             <h3 className="mt-2 text-xl font-semibold text-white">
@@ -180,7 +180,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
               Outreach Readiness
             </p>
             <h3 className="mt-2 text-lg font-semibold text-white">
@@ -371,7 +371,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                 )}
                 <div className="mt-3 flex flex-wrap gap-3 text-xs">
                   {opportunity.contactEmail && (
-                    <a href={`mailto:${opportunity.contactEmail}`} className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300">
+                    <a href={`mailto:${opportunity.contactEmail}`} className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]">
                       <Mail className="h-3 w-3" />
                       {opportunity.contactEmail}
                     </a>
@@ -381,7 +381,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                       href={normalizeExternalUrl(opportunity.contactLinkedinUrl) ?? undefined}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300"
+                      className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]"
                     >
                       <Linkedin className="h-3 w-3" />
                       LinkedIn
@@ -416,7 +416,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                   </div>
                   <div className="h-2 rounded-full bg-zinc-800">
                     <div
-                      className="h-2 rounded-full bg-gradient-to-r from-cyan-500 via-emerald-500 to-amber-400"
+                      className="h-2 rounded-full bg-gradient-to-r from-[var(--brand-500)] via-[var(--brand-400)] to-amber-400"
                       style={{ width: `${Math.max(6, Math.min(100, Number(score) * 10))}%` }}
                     />
                   </div>
@@ -432,7 +432,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </h3>
             <div className="mt-4 space-y-3 text-sm text-zinc-300">
               <div className="flex items-start gap-2">
-                <Target className="mt-0.5 h-4 w-4 text-cyan-400" />
+                <Target className="mt-0.5 h-4 w-4 text-[var(--brand-300)]" />
                 <p>{opportunity.confidenceSummary}</p>
               </div>
               {opportunity.assumptions.map((assumption) => (

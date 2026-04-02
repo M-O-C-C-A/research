@@ -119,7 +119,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
               <Button
                 size="sm"
                 variant="outline"
-                className="border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/10"
+                className="border-[color:var(--brand-border)] text-[var(--brand-300)] hover:bg-[color:var(--brand-surface)]"
                 onClick={() => setShowEnrichDialog(true)}
               >
                 <FlaskConical className="mr-1.5 h-3.5 w-3.5" />
@@ -295,7 +295,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
                             </span>
                           )}
                           {priorityLabel && (
-                            <span className="rounded bg-cyan-500/10 px-1.5 py-0.5 text-xs text-cyan-300">
+                            <span className="rounded bg-[color:var(--brand-surface)] px-1.5 py-0.5 text-xs text-[var(--brand-300)]">
                               {priorityLabel}
                             </span>
                           )}
@@ -333,7 +333,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
                   <Link
                     key={opportunity._id}
                     href={`/opportunities/${opportunity._id}`}
-                    className="block text-sm text-cyan-400 underline hover:text-cyan-300"
+                    className="block text-sm text-[var(--brand-300)] underline hover:text-[var(--brand-400)]"
                   >
                     #{opportunity.rankingPosition ?? "-"} {opportunity.productName}
                   </Link>

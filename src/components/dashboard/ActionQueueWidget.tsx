@@ -13,8 +13,8 @@ export function ActionQueueWidget() {
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="rounded bg-blue-500/10 p-1.5">
-            <ClipboardList className="h-4 w-4 text-blue-400" />
+          <div className="rounded bg-[color:var(--brand-surface-strong)] p-1.5">
+            <ClipboardList className="h-4 w-4 text-[var(--brand-300)]" />
           </div>
           <div>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">

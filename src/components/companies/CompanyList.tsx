@@ -91,7 +91,7 @@ export function CompanyList() {
                   </Badge>
                 )}
                 {company.priorityTier && (
-                  <Badge className="border-0 bg-cyan-500/10 text-cyan-300">
+                  <Badge className="border-0 bg-[color:var(--brand-surface)] text-[var(--brand-300)]">
                     {company.priorityTier.replace("_", " ")}
                   </Badge>
                 )}

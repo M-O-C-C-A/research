@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/shared/PageHeader";
-import { DrugList } from "@/components/drugs/DrugList";
+import { ProductDirectoryTabs } from "@/components/drugs/ProductDirectoryTabs";
 import Link from "next/link";
+import { Suspense } from "react";
 import { BRAND_NAME } from "@/lib/brand";
 
 export const metadata = { title: `Product Directory | ${BRAND_NAME}` };
@@ -20,7 +21,9 @@ export default function DrugsPage() {
           </Link>
         }
       />
-      <DrugList />
+      <Suspense fallback={null}>
+        <ProductDirectoryTabs />
+      </Suspense>
     </main>
   );
 }

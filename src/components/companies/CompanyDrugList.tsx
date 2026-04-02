@@ -67,48 +67,80 @@ export function CompanyDrugList({ companyId }: CompanyDrugListProps) {
           <Table>
             <TableHeader>
               <TableRow className="border-zinc-800 hover:bg-transparent">
-                <TableHead className="text-zinc-500">Drug Name</TableHead>
+                <TableHead className="text-zinc-500">Product Name</TableHead>
                 <TableHead className="text-zinc-500">Generic Name</TableHead>
+                <TableHead className="text-zinc-500">Manufacturers</TableHead>
                 <TableHead className="text-zinc-500">Therapeutic Area</TableHead>
                 <TableHead className="text-zinc-500">Status</TableHead>
                 <TableHead className="w-8" />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {drugs.map((drug) => (
-                <TableRow
-                  key={drug._id}
-                  className="border-zinc-800 hover:bg-zinc-800/50 cursor-pointer"
-                >
-                  <TableCell>
-                    <Link
-                      href={`/drugs/${drug._id}`}
-                      className="font-medium text-white hover:text-zinc-300 flex items-center gap-2"
-                    >
-                      {drug.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-zinc-400 text-sm">
-                    {drug.genericName}
-                  </TableCell>
-                  <TableCell className="text-zinc-400 text-sm">
-                    {drug.therapeuticArea}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="secondary"
-                      className={STATUS_STYLES[drug.approvalStatus] ?? "bg-zinc-800 text-zinc-400"}
-                    >
-                      {drug.approvalStatus}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/drugs/${drug._id}`}>
-                      <ArrowRight className="h-4 w-4 text-zinc-600 hover:text-zinc-400" />
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {drugs.map((drug) => {
+                const additionalManufacturers = Math.max(
+                  (drug.manufacturerNames?.length ?? 0) - 1,
+                  0
+                );
+
+                return (
+                  <TableRow
+                    key={drug._id}
+                    className="border-zinc-800 hover:bg-zinc-800/50 cursor-pointer"
+                  >
+                    <TableCell>
+                      <Link
+                        href={`/drugs/${drug._id}`}
+                        className="font-medium text-white hover:text-zinc-300 flex items-center gap-2"
+                      >
+                        {drug.name}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-zinc-400 text-sm">
+                      <Link
+                        href={`/drugs/inn/${encodeURIComponent(drug.genericName)}`}
+                        className="hover:text-cyan-300"
+                      >
+                        {drug.genericName}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-zinc-400 text-sm">
+                      <div className="flex flex-col gap-1">
+                        {drug.primaryManufacturerCompanyId ? (
+                          <Link
+                            href={`/companies/${drug.primaryManufacturerCompanyId}`}
+                            className="hover:text-cyan-300"
+                          >
+                            {drug.primaryManufacturerName}
+                          </Link>
+                        ) : (
+                          <span>{drug.primaryManufacturerName}</span>
+                        )}
+                        {additionalManufacturers > 0 && (
+                          <span className="text-xs text-zinc-500">
+                            +{additionalManufacturers} more
+                          </span>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-zinc-400 text-sm">
+                      {drug.therapeuticArea}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="secondary"
+                        className={STATUS_STYLES[drug.approvalStatus] ?? "bg-zinc-800 text-zinc-400"}
+                      >
+                        {drug.approvalStatus}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Link href={`/drugs/${drug._id}`}>
+                        <ArrowRight className="h-4 w-4 text-zinc-600 hover:text-zinc-400" />
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>

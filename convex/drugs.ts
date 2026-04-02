@@ -106,6 +106,25 @@ function getPrimaryManufacturerName(
   );
 }
 
+function getPrimaryManufacturerCompany(
+  linkedCompanies: Array<{
+    link: Doc<"drugEntityLinks">;
+    company: Doc<"companies"> | null;
+  }>,
+  company: Doc<"companies"> | null,
+) {
+  const primaryManufacturer =
+    linkedCompanies.find(
+      ({ link, company }) =>
+        link.relationshipType === "manufacturer" && link.isPrimary && company
+    ) ??
+    linkedCompanies.find(
+      ({ link, company }) => link.relationshipType === "manufacturer" && company
+    );
+
+  return primaryManufacturer?.company ?? company ?? null;
+}
+
 async function buildEnrichedDrug(ctx: QueryCtx, d: Doc<"drugs">) {
   const company = d.companyId ? await ctx.db.get(d.companyId) : null;
   const entityLinks = await ctx.db
@@ -133,11 +152,17 @@ async function buildEnrichedDrug(ctx: QueryCtx, d: Doc<"drugs">) {
     d,
     company
   );
+  const primaryManufacturerCompany = getPrimaryManufacturerCompany(
+    linkedCompanies,
+    company
+  );
 
   return {
     ...d,
     companyName: company?.name ?? d.manufacturerName ?? "—",
     primaryManufacturerName,
+    primaryManufacturerCompanyId: primaryManufacturerCompany?._id,
+    primaryManufacturerCompanyName: primaryManufacturerCompany?.name,
     manufacturerNames,
     primaryMarketAuthorizationHolderName:
       primaryMah?.company?.name ??
@@ -152,6 +177,16 @@ async function buildEnrichedDrug(ctx: QueryCtx, d: Doc<"drugs">) {
       entityName: link.entityName,
     })),
   };
+}
+
+function matchesDrugSearch(drug: Doc<"drugs">, search?: string) {
+  if (!search) return true;
+  const term = search.toLowerCase();
+  return (
+    drug.name.toLowerCase().includes(term) ||
+    drug.genericName.toLowerCase().includes(term) ||
+    drug.indication.toLowerCase().includes(term)
+  );
 }
 
 export const list = query({
@@ -195,16 +230,7 @@ export const listEnriched = query({
           .collect()
       : await ctx.db.query("drugs").collect();
 
-    const filtered = search
-      ? rows.filter((d) => {
-          const term = search.toLowerCase();
-          return (
-            d.name.toLowerCase().includes(term) ||
-            d.genericName.toLowerCase().includes(term) ||
-            d.indication.toLowerCase().includes(term)
-          );
-        })
-      : rows;
+    const filtered = rows.filter((d) => matchesDrugSearch(d, search));
 
     return Promise.all(filtered.map(async (d) => buildEnrichedDrug(ctx, d)));
   },
@@ -231,6 +257,204 @@ export const listByCompany = query({
     );
 
     return enriched.sort((left, right) => left.name.localeCompare(right.name));
+  },
+});
+
+export const listInnDirectory = query({
+  args: {
+    search: v.optional(v.string()),
+    therapeuticArea: v.optional(v.string()),
+  },
+  handler: async (ctx, { search, therapeuticArea }) => {
+    const rows = therapeuticArea
+      ? await ctx.db
+          .query("drugs")
+          .withIndex("by_therapeutic_area", (q) =>
+            q.eq("therapeuticArea", therapeuticArea)
+          )
+          .collect()
+      : await ctx.db.query("drugs").collect();
+
+    const filtered = rows.filter((d) => matchesDrugSearch(d, search));
+    const enriched = await Promise.all(filtered.map(async (d) => buildEnrichedDrug(ctx, d)));
+    const groups = new Map<
+      string,
+      {
+        genericName: string;
+        manufacturers: Array<{
+          companyId?: Doc<"companies">["_id"];
+          name: string;
+          country?: string;
+        }>;
+        brandProducts: Array<{
+          drugId: Doc<"drugs">["_id"];
+          name: string;
+          primaryManufacturerName: string;
+          primaryManufacturerCompanyId?: Doc<"companies">["_id"];
+          therapeuticArea: string;
+          approvalStatus: Doc<"drugs">["approvalStatus"];
+        }>;
+        therapeuticAreas: Set<string>;
+      }
+    >();
+
+    for (const drug of enriched) {
+      const key = drug.genericName.trim().toLowerCase();
+      const existing =
+        groups.get(key) ??
+        {
+          genericName: drug.genericName,
+          manufacturers: [],
+          brandProducts: [],
+          therapeuticAreas: new Set<string>(),
+        };
+
+      for (const relationship of drug.entityRelationships) {
+        if (relationship.relationshipType !== "manufacturer") continue;
+        const manufacturerName = relationship.companyName ?? relationship.entityName;
+        if (!manufacturerName) continue;
+
+        const duplicate = existing.manufacturers.some(
+          (manufacturer) =>
+            (relationship.companyId && manufacturer.companyId === relationship.companyId) ||
+            manufacturer.name.toLowerCase() === manufacturerName.toLowerCase()
+        );
+
+        if (!duplicate) {
+          existing.manufacturers.push({
+            companyId: relationship.companyId,
+            name: manufacturerName,
+          });
+        }
+      }
+
+      if (
+        existing.manufacturers.length === 0 &&
+        drug.primaryManufacturerName &&
+        !existing.manufacturers.some(
+          (manufacturer) =>
+            manufacturer.name.toLowerCase() === drug.primaryManufacturerName.toLowerCase()
+        )
+      ) {
+        existing.manufacturers.push({
+          companyId: drug.primaryManufacturerCompanyId,
+          name: drug.primaryManufacturerName,
+        });
+      }
+
+      existing.brandProducts.push({
+        drugId: drug._id,
+        name: drug.name,
+        primaryManufacturerName: drug.primaryManufacturerName,
+        primaryManufacturerCompanyId: drug.primaryManufacturerCompanyId,
+        therapeuticArea: drug.therapeuticArea,
+        approvalStatus: drug.approvalStatus,
+      });
+      existing.therapeuticAreas.add(drug.therapeuticArea);
+      groups.set(key, existing);
+    }
+
+    return [...groups.values()]
+      .map((group) => ({
+        genericName: group.genericName,
+        manufacturerCount: group.manufacturers.length,
+        manufacturers: group.manufacturers.sort((left, right) =>
+          left.name.localeCompare(right.name)
+        ),
+        brandProducts: group.brandProducts.sort((left, right) =>
+          left.name.localeCompare(right.name)
+        ),
+        therapeuticAreas: [...group.therapeuticAreas].sort(),
+      }))
+      .sort((left, right) => left.genericName.localeCompare(right.genericName));
+  },
+});
+
+export const getInnManufacturers = query({
+  args: { genericName: v.string() },
+  handler: async (ctx, { genericName }) => {
+    const rows = await ctx.db.query("drugs").collect();
+    const matches = rows.filter(
+      (drug) => drug.genericName.trim().toLowerCase() === genericName.trim().toLowerCase()
+    );
+    const enriched = await Promise.all(matches.map(async (d) => buildEnrichedDrug(ctx, d)));
+
+    const manufacturers: Array<{
+      companyId?: Doc<"companies">["_id"];
+      name: string;
+      brandNames: string[];
+    }> = [];
+
+    for (const drug of enriched) {
+      const manufacturerRelationships = drug.entityRelationships.filter(
+        (relationship) => relationship.relationshipType === "manufacturer"
+      );
+
+      if (manufacturerRelationships.length === 0 && drug.primaryManufacturerName) {
+        const existing = manufacturers.find(
+          (manufacturer) =>
+            (drug.primaryManufacturerCompanyId &&
+              manufacturer.companyId === drug.primaryManufacturerCompanyId) ||
+            manufacturer.name.toLowerCase() === drug.primaryManufacturerName.toLowerCase()
+        );
+
+        if (existing) {
+          if (!existing.brandNames.includes(drug.name)) {
+            existing.brandNames.push(drug.name);
+          }
+        } else {
+          manufacturers.push({
+            companyId: drug.primaryManufacturerCompanyId,
+            name: drug.primaryManufacturerName,
+            brandNames: [drug.name],
+          });
+        }
+        continue;
+      }
+
+      for (const relationship of manufacturerRelationships) {
+        const manufacturerName = relationship.companyName ?? relationship.entityName;
+        if (!manufacturerName) continue;
+
+        const existing = manufacturers.find(
+          (manufacturer) =>
+            (relationship.companyId && manufacturer.companyId === relationship.companyId) ||
+            manufacturer.name.toLowerCase() === manufacturerName.toLowerCase()
+        );
+
+        if (existing) {
+          if (!existing.brandNames.includes(drug.name)) {
+            existing.brandNames.push(drug.name);
+          }
+        } else {
+          manufacturers.push({
+            companyId: relationship.companyId,
+            name: manufacturerName,
+            brandNames: [drug.name],
+          });
+        }
+      }
+    }
+
+    return {
+      genericName,
+      manufacturers: manufacturers
+        .map((manufacturer) => ({
+          ...manufacturer,
+          brandNames: manufacturer.brandNames.sort(),
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+      brandProducts: enriched
+        .map((drug) => ({
+          drugId: drug._id,
+          name: drug.name,
+          primaryManufacturerName: drug.primaryManufacturerName,
+          primaryManufacturerCompanyId: drug.primaryManufacturerCompanyId,
+          therapeuticArea: drug.therapeuticArea,
+          approvalStatus: drug.approvalStatus,
+        }))
+        .sort((left, right) => left.name.localeCompare(right.name)),
+    };
   },
 });
 

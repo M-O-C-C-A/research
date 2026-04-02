@@ -140,11 +140,25 @@ export function DrugList() {
                     </Link>
                   </TableCell>
                   <TableCell className="text-zinc-400 text-sm">
-                    {drug.genericName}
+                    <Link
+                      href={`/drugs/inn/${encodeURIComponent(drug.genericName)}`}
+                      className="hover:text-cyan-300"
+                    >
+                      {drug.genericName}
+                    </Link>
                   </TableCell>
                   <TableCell className="text-zinc-400 text-sm">
                     <div className="flex flex-col gap-1">
-                      <span>{drug.primaryManufacturerName}</span>
+                      {drug.primaryManufacturerCompanyId ? (
+                        <Link
+                          href={`/companies/${drug.primaryManufacturerCompanyId}`}
+                          className="hover:text-cyan-300"
+                        >
+                          {drug.primaryManufacturerName}
+                        </Link>
+                      ) : (
+                        <span>{drug.primaryManufacturerName}</span>
+                      )}
                       {additionalManufacturers > 0 && (
                         <span className="text-xs text-zinc-500">
                           +{additionalManufacturers} more

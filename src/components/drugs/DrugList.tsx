@@ -75,7 +75,7 @@ export function DrugList() {
   const [syncSearch, setSyncSearch] = useState("");
   const [syncingSource, setSyncingSource] = useState<string | null>(null);
   const [syncMessage, setSyncMessage] = useState<{
-    tone: "success" | "error" | "info";
+    tone: "success" | "error" | "info" | "warning";
     title: string;
     body: string;
   } | null>(null);
@@ -195,9 +195,10 @@ export function DrugList() {
         });
       }
     } catch (error) {
+      const isBfarmNotice = source === "bfarm";
       setSyncMessage({
-        tone: "error",
-        title: "Update failed",
+        tone: isBfarmNotice ? "warning" : "error",
+        title: isBfarmNotice ? "BfArM temporarily unavailable" : "Update failed",
         body: getReadableSyncError(error, source),
       });
     } finally {
@@ -208,6 +209,8 @@ export function DrugList() {
   const syncMessageStyles = syncMessage
     ? syncMessage.tone === "success"
       ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100"
+      : syncMessage.tone === "warning"
+        ? "border-amber-500/25 bg-amber-500/10 text-amber-100"
       : syncMessage.tone === "error"
         ? "border-red-500/25 bg-red-500/10 text-red-100"
         : "border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] text-zinc-100"
@@ -314,6 +317,8 @@ export function DrugList() {
                 <div className="flex items-start gap-3">
                   {syncMessage.tone === "success" ? (
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                  ) : syncMessage.tone === "warning" ? (
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-300" />
                   ) : syncMessage.tone === "error" ? (
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
                   ) : (

@@ -12,7 +12,7 @@ import { TableSkeleton } from "@/components/shared/LoadingSkeleton";
 
 export function InnDirectory() {
   const [search, setSearch] = useState("");
-  const inns = useQuery(api.drugs.listInnDirectory, {
+  const inns = useQuery(api.productIntelligence.listCanonicalInnDirectory, {
     search: search || undefined,
   });
 
@@ -76,23 +76,12 @@ export function InnDirectory() {
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {inn.manufacturers.slice(0, 6).map((manufacturer) =>
-                  manufacturer.companyId ? (
-                    <Link
-                      key={`${inn.genericName}-${manufacturer.name}`}
-                      href={`/companies/${manufacturer.companyId}`}
-                    >
-                      <Badge className="border-0 bg-zinc-800 text-zinc-300 hover:bg-zinc-700">
-                        {manufacturer.name}
-                      </Badge>
-                    </Link>
-                  ) : (
-                    <Badge
-                      key={`${inn.genericName}-${manufacturer.name}`}
-                      className="border-0 bg-zinc-800 text-zinc-300"
-                    >
-                      {manufacturer.name}
-                    </Badge>
-                  )
+                  <Badge
+                    key={`${inn.genericName}-${manufacturer.name}`}
+                    className="border-0 bg-zinc-800 text-zinc-300"
+                  >
+                    {manufacturer.name}
+                  </Badge>
                 )}
                 {inn.manufacturers.length > 6 && (
                   <Badge className="border-0 bg-zinc-800 text-zinc-500">
@@ -104,8 +93,8 @@ export function InnDirectory() {
               <div className="mt-4 flex flex-wrap gap-2">
                 {inn.brandProducts.slice(0, 4).map((product) => (
                   <Link
-                    key={product.drugId}
-                    href={`/drugs/${product.drugId}`}
+                    key={product.canonicalProductId}
+                    href={`/drugs/catalog/${product.canonicalProductId}`}
                     className="rounded-full bg-[color:var(--brand-surface)] px-3 py-1 text-xs text-[var(--brand-300)] hover:bg-[color:var(--brand-surface-strong)]"
                   >
                     {product.name}

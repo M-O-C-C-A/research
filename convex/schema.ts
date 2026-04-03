@@ -99,6 +99,55 @@ const productSourceRegion = v.union(
   v.literal("other")
 );
 
+const productSourceSystem = v.union(
+  v.literal("drugs_fda"),
+  v.literal("openfda_label"),
+  v.literal("orange_book"),
+  v.literal("purple_book"),
+  v.literal("ndc"),
+  v.literal("ema_central"),
+  v.literal("eu_national_bfarm")
+);
+
+const canonicalProductStatus = v.union(
+  v.literal("active"),
+  v.literal("withdrawn"),
+  v.literal("discontinued"),
+  v.literal("under_review"),
+  v.literal("unavailable")
+);
+
+const productApplicationType = v.union(
+  v.literal("NDA"),
+  v.literal("ANDA"),
+  v.literal("BLA"),
+  v.literal("CAP"),
+  v.literal("national")
+);
+
+const canonicalProductType = v.union(
+  v.literal("small_molecule"),
+  v.literal("biologic"),
+  v.literal("biosimilar"),
+  v.literal("generic"),
+  v.literal("unknown")
+);
+
+const canonicalProductLinkRelationship = v.union(
+  v.literal("same_product"),
+  v.literal("presentation_variant"),
+  v.literal("biosimilar_of"),
+  v.literal("reference_product"),
+  v.literal("regional_variant")
+);
+
+const canonicalEntityRole = v.union(
+  v.literal("manufacturer"),
+  v.literal("mah"),
+  v.literal("applicant"),
+  v.literal("licensor")
+);
+
 const productIdentityEvidenceItem = v.object({
   claim: v.string(),
   sourceKind: v.union(
@@ -301,6 +350,7 @@ export default defineSchema({
 
   drugs: defineTable({
     companyId: v.optional(v.id("companies")),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
     manufacturerName: v.optional(v.string()),
     primaryManufacturerName: v.optional(v.string()),
     primaryMarketAuthorizationHolderName: v.optional(v.string()),
@@ -347,7 +397,107 @@ export default defineSchema({
     }))),
   })
     .index("by_company", ["companyId"])
-    .index("by_therapeutic_area", ["therapeuticArea"]),
+    .index("by_therapeutic_area", ["therapeuticArea"])
+    .index("by_canonical_product", ["canonicalProductId"]),
+
+  productSources: defineTable({
+    sourceSystem: productSourceSystem,
+    sourceRecordId: v.string(),
+    sourceUrl: v.optional(v.string()),
+    sourceStatus: canonicalProductStatus,
+    geography: v.string(),
+    sourceUpdatedAt: v.optional(v.number()),
+    sourceSnapshot: v.optional(v.string()),
+    brandName: v.optional(v.string()),
+    inn: v.optional(v.string()),
+    activeIngredient: v.optional(v.string()),
+    strength: v.optional(v.string()),
+    dosageForm: v.optional(v.string()),
+    route: v.optional(v.string()),
+    atcCode: v.optional(v.string()),
+    therapeuticArea: v.optional(v.string()),
+    applicationType: v.optional(productApplicationType),
+    applicantName: v.optional(v.string()),
+    mahName: v.optional(v.string()),
+    manufacturerName: v.optional(v.string()),
+    approvalDate: v.optional(v.string()),
+    productType: v.optional(canonicalProductType),
+    referenceProductSourceRecordId: v.optional(v.string()),
+    patentsSummary: v.optional(v.string()),
+    exclusivitiesSummary: v.optional(v.string()),
+    packageSummary: v.optional(v.string()),
+    interchangeability: v.optional(v.string()),
+    rawSourceUpdatedLabel: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_source_system_and_source_record_id", ["sourceSystem", "sourceRecordId"])
+    .index("by_geography", ["geography"])
+    .index("by_brand_name", ["brandName"])
+    .index("by_inn", ["inn"]),
+
+  canonicalProducts: defineTable({
+    canonicalKey: v.string(),
+    normalizedBrandName: v.optional(v.string()),
+    normalizedInn: v.optional(v.string()),
+    brandName: v.string(),
+    inn: v.string(),
+    activeIngredient: v.optional(v.string()),
+    strength: v.optional(v.string()),
+    dosageForm: v.optional(v.string()),
+    route: v.optional(v.string()),
+    atcCode: v.optional(v.string()),
+    therapeuticArea: v.optional(v.string()),
+    applicationTypes: v.optional(v.array(productApplicationType)),
+    applicationTypeSummary: v.optional(v.string()),
+    status: canonicalProductStatus,
+    productType: canonicalProductType,
+    geographies: v.array(v.string()),
+    primaryManufacturerName: v.optional(v.string()),
+    primaryMahName: v.optional(v.string()),
+    primaryApplicantName: v.optional(v.string()),
+    approvalDate: v.optional(v.string()),
+    sourceSystems: v.array(productSourceSystem),
+    matchConfidence: evidenceConfidence,
+    reviewNeeded: v.optional(v.boolean()),
+    referenceCanonicalProductId: v.optional(v.id("canonicalProducts")),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_canonical_key", ["canonicalKey"])
+    .index("by_brand_name", ["brandName"])
+    .index("by_inn", ["inn"])
+    .index("by_status", ["status"]),
+
+  canonicalProductLinks: defineTable({
+    canonicalProductId: v.id("canonicalProducts"),
+    productSourceId: v.id("productSources"),
+    relationshipType: canonicalProductLinkRelationship,
+    confidence: evidenceConfidence,
+    reviewNeeded: v.optional(v.boolean()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_canonical_product", ["canonicalProductId"])
+    .index("by_product_source", ["productSourceId"])
+    .index("by_canonical_product_and_product_source", ["canonicalProductId", "productSourceId"]),
+
+  canonicalProductEntities: defineTable({
+    canonicalProductId: v.id("canonicalProducts"),
+    companyId: v.optional(v.id("companies")),
+    entityName: v.string(),
+    normalizedEntityName: v.string(),
+    role: canonicalEntityRole,
+    isPrimary: v.boolean(),
+    geography: v.optional(v.string()),
+    sourceSystem: productSourceSystem,
+    confidence: evidenceConfidence,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_canonical_product", ["canonicalProductId"])
+    .index("by_company", ["companyId"])
+    .index("by_canonical_product_and_role", ["canonicalProductId", "role"]),
 
   drugEntityLinks: defineTable({
     drugId: v.id("drugs"),
@@ -456,6 +606,10 @@ export default defineSchema({
       v.literal("demand_signals"),
       v.literal("prospect_research"),
       v.literal("gap_evidence_enrichment"),
+      v.literal("product_sync_fda"),
+      v.literal("product_sync_ema"),
+      v.literal("product_sync_bfarm"),
+      v.literal("canonical_product_linking"),
     ),
     status: v.union(
       v.literal("running"),

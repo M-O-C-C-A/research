@@ -4,7 +4,7 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Pill, ArrowRight } from "lucide-react";
+import { Building2, Pill, ArrowRight, Database, Link2 } from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   running: "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-[color:var(--brand-border)]",
@@ -27,6 +27,40 @@ export function RecentJobs() {
   const jobs = useQuery(api.discoveryJobs.recentStats, {});
 
   if (!jobs || jobs.length === 0) return null;
+
+  function renderLabel(job: (typeof jobs)[number]) {
+    switch (job.type) {
+      case "companies":
+        return "Company scan";
+      case "drugs":
+        return job.companyName ?? "Drug scan";
+      case "product_sync_fda":
+        return "FDA product sync";
+      case "product_sync_ema":
+        return "EMA product sync";
+      case "product_sync_bfarm":
+        return "BfArM product sync";
+      case "canonical_product_linking":
+        return "Canonical product rebuild";
+      default:
+        return job.companyName ?? "Research run";
+    }
+  }
+
+  function renderIcon(job: (typeof jobs)[number]) {
+    switch (job.type) {
+      case "companies":
+        return <Building2 className="h-3.5 w-3.5 text-[var(--brand-300)]" />;
+      case "canonical_product_linking":
+        return <Link2 className="h-3.5 w-3.5 text-[var(--brand-300)]" />;
+      case "product_sync_fda":
+      case "product_sync_ema":
+      case "product_sync_bfarm":
+        return <Database className="h-3.5 w-3.5 text-[var(--brand-300)]" />;
+      default:
+        return <Pill className="h-3.5 w-3.5 text-[var(--brand-300)]" />;
+    }
+  }
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">
@@ -51,17 +85,11 @@ export function RecentJobs() {
             <div
               className="rounded p-1 shrink-0 bg-[color:var(--brand-surface)]"
             >
-              {job.type === "companies" ? (
-                <Building2 className="h-3.5 w-3.5 text-[var(--brand-300)]" />
-              ) : (
-                <Pill className="h-3.5 w-3.5 text-[var(--brand-300)]" />
-              )}
+              {renderIcon(job)}
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-xs font-medium text-zinc-300 truncate">
-                {job.type === "companies"
-                  ? "Company scan"
-                  : job.companyName ?? "Drug scan"}
+                {renderLabel(job)}
               </p>
               <p className="text-xs text-zinc-600">{timeAgo(job.startedAt)}</p>
             </div>

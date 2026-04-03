@@ -6,20 +6,22 @@ import { api } from "../../../convex/_generated/api";
 import { Badge } from "@/components/ui/badge";
 import { TableSkeleton } from "@/components/shared/LoadingSkeleton";
 import { EmptyState } from "@/components/shared/EmptyState";
-import { Building2, ArrowRight } from "lucide-react";
+import { Building2 } from "lucide-react";
 
 interface InnManufacturerDirectoryProps {
   genericName: string;
 }
 
 const STATUS_STYLES: Record<string, string> = {
-  approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
-  pending: "bg-amber-500/15 text-amber-400 border-amber-500/30",
+  active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
+  under_review: "bg-amber-500/15 text-amber-400 border-amber-500/30",
   withdrawn: "bg-red-500/15 text-red-400 border-red-500/30",
+  discontinued: "bg-zinc-800 text-zinc-400 border-zinc-700",
+  unavailable: "bg-zinc-800 text-zinc-400 border-zinc-700",
 };
 
 export function InnManufacturerDirectory({ genericName }: InnManufacturerDirectoryProps) {
-  const data = useQuery(api.drugs.getInnManufacturers, { genericName });
+  const data = useQuery(api.productIntelligence.getCanonicalInnManufacturers, { genericName });
 
   if (data === undefined) {
     return <TableSkeleton rows={4} />;
@@ -30,7 +32,7 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
       <EmptyState
         icon={<Building2 className="h-10 w-10" />}
         title="No manufacturers linked yet"
-        description="This INN does not yet have structured manufacturer links."
+        description="This INN does not yet have canonical manufacturer links."
       />
     );
   }
@@ -56,29 +58,11 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    {manufacturer.companyId ? (
-                      <Link
-                        href={`/companies/${manufacturer.companyId}`}
-                        className="text-sm font-semibold text-white hover:text-[var(--brand-300)]"
-                      >
-                        {manufacturer.name}
-                      </Link>
-                    ) : (
-                      <p className="text-sm font-semibold text-white">{manufacturer.name}</p>
-                    )}
+                    <p className="text-sm font-semibold text-white">{manufacturer.name}</p>
                     <p className="mt-2 text-xs text-zinc-500">
                       Brands: {manufacturer.brandNames.join(", ")}
                     </p>
                   </div>
-                  {manufacturer.companyId && (
-                    <Link
-                      href={`/companies/${manufacturer.companyId}`}
-                      className="inline-flex items-center gap-1 text-xs text-[var(--brand-300)] hover:text-[var(--brand-400)]"
-                    >
-                      Open company
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                  )}
                 </div>
               </div>
             ))}
@@ -90,37 +74,41 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
           <div className="mt-4 space-y-3">
             {data.brandProducts.map((product) => (
               <div
-                key={product.drugId}
+                key={product.canonicalProductId}
                 className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <Link
-                      href={`/drugs/${product.drugId}`}
+                      href={`/drugs/catalog/${product.canonicalProductId}`}
                       className="text-sm font-semibold text-white hover:text-[var(--brand-300)]"
                     >
                       {product.name}
                     </Link>
                     <p className="mt-1 text-sm text-zinc-400">
-                      Primary manufacturer:{" "}
-                      {product.primaryManufacturerCompanyId ? (
-                        <Link
-                          href={`/companies/${product.primaryManufacturerCompanyId}`}
-                          className="text-[var(--brand-300)] hover:text-[var(--brand-400)]"
-                        >
-                          {product.primaryManufacturerName}
-                        </Link>
-                      ) : (
-                        <span>{product.primaryManufacturerName}</span>
-                      )}
+                      Primary manufacturer: <span>{product.primaryManufacturerName ?? "—"}</span>
                     </p>
+                    {product.primaryMahName && (
+                      <p className="mt-1 text-xs text-zinc-500">MAH: {product.primaryMahName}</p>
+                    )}
                     <p className="mt-1 text-xs text-zinc-500">{product.therapeuticArea}</p>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {product.sourceBadges.map((badge) => (
+                        <Badge
+                          key={`${product.canonicalProductId}-${badge}`}
+                          variant="secondary"
+                          className="border-0 bg-[color:var(--brand-surface)] text-[var(--brand-300)]"
+                        >
+                          {badge}
+                        </Badge>
+                      ))}
+                    </div>
                   </div>
                   <Badge
                     variant="secondary"
-                    className={STATUS_STYLES[product.approvalStatus] ?? "bg-zinc-800 text-zinc-400"}
+                    className={STATUS_STYLES[product.status] ?? "bg-zinc-800 text-zinc-400"}
                   >
-                    {product.approvalStatus}
+                    {product.status.replaceAll("_", " ")}
                   </Badge>
                 </div>
               </div>

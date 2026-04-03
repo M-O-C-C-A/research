@@ -107,6 +107,15 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
             </p>
           </div>
         <div className="flex flex-col items-end gap-2">
+          {drug.canonicalProductId && (
+            <Link
+              href={`/drugs/catalog/${drug.canonicalProductId}`}
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+            >
+              Open canonical product intelligence
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
           <Link
             href={`/drugs/inn/${encodeURIComponent(drug.genericName)}`}
             className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"

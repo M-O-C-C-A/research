@@ -48,6 +48,27 @@ const STATUS_STYLES: Record<string, string> = {
   unavailable: "bg-zinc-800 text-zinc-400 border-zinc-700",
 };
 
+function getReadableSyncError(
+  error: unknown,
+  source: "fda" | "ema" | "bfarm" | "rebuild" | "update"
+) {
+  const raw =
+    error instanceof Error
+      ? error.message
+      : "The product directory refresh did not complete.";
+
+  if (source === "bfarm") {
+    return "BfArM is not reliably available right now. Please use FDA or EMA sync for now, or try BfArM again later.";
+  }
+
+  return raw
+    .replace(/\[CONVEX [^\]]+\]\s*/g, "")
+    .replace(/\[Request ID:[^\]]+\]\s*/g, "")
+    .replace(/^Server Error\s*/i, "")
+    .replace(/Called by client$/i, "")
+    .trim();
+}
+
 export function DrugList() {
   const [search, setSearch] = useState("");
   const [area, setArea] = useState<string>("");
@@ -177,10 +198,7 @@ export function DrugList() {
       setSyncMessage({
         tone: "error",
         title: "Update failed",
-        body:
-          error instanceof Error
-            ? error.message
-            : "The product directory refresh did not complete.",
+        body: getReadableSyncError(error, source),
       });
     } finally {
       setSyncingSource(null);

@@ -35,15 +35,13 @@ function escapeOpenFdaTerm(value: string) {
 }
 
 function buildOpenFdaSearch(searchTerm?: string) {
-  if (!searchTerm?.trim()) return undefined;
+  if (!searchTerm?.trim()) return [];
   const escaped = escapeOpenFdaTerm(searchTerm.trim());
   return [
     `products.brand_name:"${escaped}"`,
-    `products.generic_name:"${escaped}"`,
-    `openfda.brand_name:"${escaped}"`,
-    `openfda.generic_name:"${escaped}"`,
+    `products.active_ingredients.name:"${escaped}"`,
     `sponsor_name:"${escaped}"`,
-  ].join("+");
+  ];
 }
 
 async function createJob(
@@ -194,7 +192,14 @@ function mapAtcToTherapeuticArea(atcCode?: string) {
 }
 
 async function getOrangeBookMaps() {
-  const zipBuffer = await fetchBuffer("https://www.fda.gov/media/76860/download?attachment");
+  const orangeBookPage = await fetchText(
+    "https://www.fda.gov/drugs/drug-approvals-and-databases/orange-book-data-files"
+  );
+  const downloadMatch = orangeBookPage.match(/href="(\/media\/\d+\/download\?attachment)"/i);
+  if (!downloadMatch) {
+    throw new Error("Orange Book download link not found on FDA page.");
+  }
+  const zipBuffer = await fetchBuffer(`https://www.fda.gov${downloadMatch[1]}`);
   const zip = await JSZip.loadAsync(zipBuffer);
   const productsFile = zip.file(/Products\.txt$/i)[0];
   const patentsFile = zip.file(/Patent\.txt$/i)[0];
@@ -253,10 +258,18 @@ async function getPurpleBookRows() {
 }
 
 async function getEmaRows() {
-  const data = await fetchJson<Array<Record<string, unknown>>>(
+  const payload = await fetchJson<
+    Array<Record<string, unknown>> | { data?: Array<Record<string, unknown>> }
+  >(
     "https://www.ema.europa.eu/en/documents/report/medicines-output-medicines_json-report_en.json"
   );
-  return data;
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+  if (Array.isArray(payload.data)) {
+    return payload.data;
+  }
+  throw new Error("EMA medicine feed returned an unexpected JSON shape.");
 }
 
 function normalizedSnapshot(source: NormalizedSourceProductInput) {
@@ -520,11 +533,15 @@ export const rebuildCanonicalProductLinks = action({
         0,
         `Canonical product graph rebuilt from ${result.sourceLinksCreated} source links and ${result.entitiesCreated} entity records.`
       );
-      return jobId;
+      return {
+        jobId,
+        status: "completed" as const,
+        ...result,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown rebuild failure";
       await failJob(ctx, jobId, message);
-      return jobId;
+      throw new Error(message);
     }
   },
 });
@@ -538,20 +555,67 @@ export const syncFdaProducts = action({
     const jobId = await createJob(ctx, "product_sync_fda");
     try {
       await appendJobLog(ctx, jobId, "Fetching Drugs@FDA records...");
-      const search = buildOpenFdaSearch(searchTerm);
-      const drugsFdaUrl = new URL("https://api.fda.gov/drug/drugsfda.json");
-      if (search) drugsFdaUrl.searchParams.set("search", search);
-      drugsFdaUrl.searchParams.set("limit", String(Math.min(limit, 50)));
+      const queries = buildOpenFdaSearch(searchTerm);
+      const dedupedRecords = new Map<string, Record<string, unknown>>();
+      if (queries.length === 0) {
+        const drugsFdaUrl = new URL("https://api.fda.gov/drug/drugsfda.json");
+        drugsFdaUrl.searchParams.set("limit", String(Math.min(limit, 50)));
+        const drugsFdaData = await fetchJson<{
+          results: Array<Record<string, unknown>>;
+        }>(drugsFdaUrl.toString());
+        for (const record of drugsFdaData.results ?? []) {
+          const key =
+            compactString(String(record.application_number ?? "")) ??
+            crypto.randomUUID();
+          dedupedRecords.set(key, record);
+        }
+      } else {
+        for (const query of queries) {
+          const drugsFdaUrl = new URL("https://api.fda.gov/drug/drugsfda.json");
+          drugsFdaUrl.searchParams.set("search", query);
+          drugsFdaUrl.searchParams.set("limit", String(Math.min(limit, 50)));
+          const drugsFdaData = await fetchJson<{
+            results: Array<Record<string, unknown>>;
+          }>(drugsFdaUrl.toString()).catch(() => ({ results: [] }));
+          for (const record of drugsFdaData.results ?? []) {
+            const key =
+              compactString(String(record.application_number ?? "")) ??
+              crypto.randomUUID();
+            dedupedRecords.set(key, record);
+          }
+        }
+      }
 
-      const drugsFdaData = await fetchJson<{
-        results: Array<Record<string, unknown>>;
-      }>(drugsFdaUrl.toString());
+      let orangeBook = {
+        productsByApplication: new Map<string, Record<string, string>[]>(),
+        patentsByApplication: new Map<string, string[]>(),
+        exclusivitiesByApplication: new Map<string, string[]>(),
+      };
+      try {
+        orangeBook = await getOrangeBookMaps();
+      } catch (error) {
+        await appendJobLog(
+          ctx,
+          jobId,
+          `Orange Book enrichment unavailable: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "warning"
+        );
+      }
 
-      const orangeBook = await getOrangeBookMaps();
-      const purpleBookRows = await getPurpleBookRows();
+      let purpleBookRows: Record<string, unknown>[] = [];
+      try {
+        purpleBookRows = await getPurpleBookRows();
+      } catch (error) {
+        await appendJobLog(
+          ctx,
+          jobId,
+          `Purple Book enrichment unavailable: ${error instanceof Error ? error.message : "Unknown error"}`,
+          "warning"
+        );
+      }
       let upserted = 0;
 
-      for (const record of drugsFdaData.results ?? []) {
+      for (const record of dedupedRecords.values()) {
         const applicationNumber = compactString(String(record.application_number ?? ""));
         const sponsorName = compactString(String(record.sponsor_name ?? ""));
         const products = Array.isArray(record.products) ? record.products as Array<Record<string, unknown>> : [];
@@ -636,13 +700,13 @@ export const syncFdaProducts = action({
 
       if (searchTerm?.trim()) {
         await appendJobLog(ctx, jobId, "Fetching supplemental openFDA label and NDC records...");
-        const encoded = encodeURIComponent(searchTerm.trim());
+        const escaped = escapeOpenFdaTerm(searchTerm.trim());
         const [labelData, ndcData] = await Promise.all([
           fetchJson<{ results: Array<Record<string, unknown>> }>(
-            `https://api.fda.gov/drug/label.json?search=openfda.brand_name:\"${encoded}\"+openfda.generic_name:\"${encoded}\"&limit=${Math.min(limit, 10)}`
+            `https://api.fda.gov/drug/label.json?search=openfda.brand_name:"${escaped}"&limit=${Math.min(limit, 10)}`
           ).catch(() => ({ results: [] })),
           fetchJson<{ results: Array<Record<string, unknown>> }>(
-            `https://api.fda.gov/drug/ndc.json?search=brand_name:\"${encoded}\"+generic_name:\"${encoded}\"&limit=${Math.min(limit, 10)}`
+            `https://api.fda.gov/drug/ndc.json?search=brand_name:"${escaped}"&limit=${Math.min(limit, 10)}`
           ).catch(() => ({ results: [] })),
         ]);
 
@@ -720,11 +784,15 @@ export const syncFdaProducts = action({
         0,
         `FDA sync complete — ${upserted} source records added or refreshed.`
       );
-      return jobId;
+      return {
+        jobId,
+        status: "completed" as const,
+        upserted,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown FDA sync failure";
       await failJob(ctx, jobId, message);
-      return jobId;
+      throw new Error(message);
     }
   },
 });
@@ -820,11 +888,15 @@ export const syncEmaCentralProducts = action({
         0,
         `EMA sync complete — ${upserted} centrally authorised products added or refreshed.`
       );
-      return jobId;
+      return {
+        jobId,
+        status: "completed" as const,
+        upserted,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown EMA sync failure";
       await failJob(ctx, jobId, message);
-      return jobId;
+      throw new Error(message);
     }
   },
 });
@@ -874,11 +946,15 @@ export const syncBfarmProducts = action({
         0,
         `BfArM integration pattern executed for "${searchTerm}".`
       );
-      return jobId;
+      return {
+        jobId,
+        status: "completed" as const,
+        upserted: 1,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown BfArM sync failure";
       await failJob(ctx, jobId, message);
-      return jobId;
+      throw new Error(message);
     }
   },
 });

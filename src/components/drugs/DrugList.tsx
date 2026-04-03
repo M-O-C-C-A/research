@@ -72,14 +72,13 @@ export function DrugList() {
     api.productIntelligenceActions.rebuildCanonicalProductLinks
   );
 
-  const latestProductJob = recentJobs?.find((job) =>
-    [
-      "product_sync_fda",
-      "product_sync_ema",
-      "product_sync_bfarm",
-      "canonical_product_linking",
-    ].includes(job.type)
-  );
+  const latestImportJob =
+    recentJobs?.find((job) =>
+      ["product_sync_fda", "product_sync_ema", "product_sync_bfarm"].includes(job.type)
+    ) ?? null;
+  const latestRebuildJob =
+    recentJobs?.find((job) => job.type === "canonical_product_linking") ?? null;
+  const latestProductJob = latestImportJob ?? latestRebuildJob;
 
   const isUpdatingDirectory = syncingSource === "update";
 
@@ -107,39 +106,55 @@ export function DrugList() {
     try {
       if (source === "update") {
         const defaultTerm = getDefaultSyncTerm();
-        await syncFdaProducts({
+        const fdaResult = await syncFdaProducts({
           searchTerm: defaultTerm,
           limit: defaultTerm ? 25 : 50,
         });
-        await syncEmaProducts({
+        const emaResult = await syncEmaProducts({
           searchTerm: defaultTerm,
           limit: defaultTerm ? 50 : 100,
         });
-        await rebuildCanonicalProducts({});
-        setSyncMessage({
-          tone: "success",
-          title: "Product directory updated",
-          body: "FDA and EMA records were refreshed and the canonical product graph was rebuilt.",
-        });
+        const rebuildResult = await rebuildCanonicalProducts({});
+        const imported = (fdaResult.upserted ?? 0) + (emaResult.upserted ?? 0);
+        if (imported === 0) {
+          setSyncMessage({
+            tone: "error",
+            title: "No products were imported",
+            body:
+              "The update finished but did not add any FDA or EMA source records. Try a specific product name, or check the latest sync job details below.",
+          });
+        } else {
+          setSyncMessage({
+            tone: "success",
+            title: "Product directory updated",
+            body: `Imported ${imported} source records and rebuilt ${rebuildResult.canonicalProductsCreated} canonical products.`,
+          });
+        }
       } else if (source === "fda") {
-        await syncFdaProducts({
+        const result = await syncFdaProducts({
           searchTerm: syncSearch || undefined,
           limit: 25,
         });
         setSyncMessage({
-          tone: "success",
-          title: "FDA sync completed",
-          body: "FDA-backed product records were refreshed successfully.",
+          tone: result.upserted > 0 ? "success" : "error",
+          title: result.upserted > 0 ? "FDA sync completed" : "No FDA products imported",
+          body:
+            result.upserted > 0
+              ? `FDA-backed product records were refreshed successfully (${result.upserted} source rows).`
+              : "The FDA sync returned zero products for this run.",
         });
       } else if (source === "ema") {
-        await syncEmaProducts({
+        const result = await syncEmaProducts({
           searchTerm: syncSearch || undefined,
           limit: 50,
         });
         setSyncMessage({
-          tone: "success",
-          title: "EMA sync completed",
-          body: "EMA centrally authorised medicine records were refreshed successfully.",
+          tone: result.upserted > 0 ? "success" : "error",
+          title: result.upserted > 0 ? "EMA sync completed" : "No EMA products imported",
+          body:
+            result.upserted > 0
+              ? `EMA centrally authorised medicine records were refreshed successfully (${result.upserted} source rows).`
+              : "The EMA sync returned zero products for this run.",
         });
       } else if (source === "bfarm") {
         await syncBfarmProducts({
@@ -151,11 +166,11 @@ export function DrugList() {
           body: "The Germany national-register pattern ran successfully.",
         });
       } else {
-        await rebuildCanonicalProducts({});
+        const result = await rebuildCanonicalProducts({});
         setSyncMessage({
           tone: "success",
           title: "Canonical graph rebuilt",
-          body: "Equivalent products and source links were rebuilt successfully.",
+          body: `Equivalent products and source links were rebuilt successfully (${result.canonicalProductsCreated} canonical products).`,
         });
       }
     } catch (error) {

@@ -40,9 +40,17 @@ interface AddDrugDialogProps {
   companyId?: string;
   open: boolean;
   onClose: () => void;
+  dialogTitle?: string;
+  submitLabel?: string;
 }
 
-export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) {
+export function AddDrugDialog({
+  companyId,
+  open,
+  onClose,
+  dialogTitle = "Add Product",
+  submitLabel = "Add Product",
+}: AddDrugDialogProps) {
   const [name, setName] = useState("");
   const [genericName, setGenericName] = useState("");
   const [therapeuticArea, setTherapeuticArea] = useState("");
@@ -178,7 +186,7 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg bg-zinc-900 border-zinc-800 text-white max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-white">Add Drug</DialogTitle>
+          <DialogTitle className="text-white">{dialogTitle}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           {/* Company / Manufacturer — only shown when no company pre-set */}
@@ -463,7 +471,7 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
               size="sm"
               disabled={loading || !name || !genericName || !therapeuticArea || !indication}
             >
-              {loading ? "Adding..." : "Add Drug"}
+              {loading ? "Adding..." : submitLabel}
             </Button>
           </div>
         </form>
@@ -475,10 +483,14 @@ export function AddDrugDialog({ companyId, open, onClose }: AddDrugDialogProps) 
 // Trigger button that manages open state — used in various places
 export function AddDrugButton({
   companyId,
-  label = "Add Drug",
+  label = "Add Product",
+  dialogTitle = "Add Product",
+  submitLabel = "Add Product",
 }: {
   companyId?: string;
   label?: string;
+  dialogTitle?: string;
+  submitLabel?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -491,6 +503,8 @@ export function AddDrugButton({
         companyId={companyId}
         open={open}
         onClose={() => setOpen(false)}
+        dialogTitle={dialogTitle}
+        submitLabel={submitLabel}
       />
     </>
   );

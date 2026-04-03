@@ -5,8 +5,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DrugList } from "@/components/drugs/DrugList";
 import { InnDirectory } from "@/components/drugs/InnDirectory";
+import { MedicalDeviceDirectory } from "@/components/drugs/MedicalDeviceDirectory";
 
-type ProductDirectoryTab = "brands" | "inns";
+type ProductDirectoryTab = "brands" | "inns" | "devices";
 
 export function ProductDirectoryTabs() {
   const router = useRouter();
@@ -14,11 +15,15 @@ export function ProductDirectoryTabs() {
   const searchParams = useSearchParams();
 
   const activeTab = useMemo<ProductDirectoryTab>(() => {
-    return searchParams.get("view") === "inns" ? "inns" : "brands";
+    const view = searchParams.get("view");
+    if (view === "inns") return "inns";
+    if (view === "devices") return "devices";
+    return "brands";
   }, [searchParams]);
 
   function handleTabChange(value: string) {
-    const nextTab: ProductDirectoryTab = value === "inns" ? "inns" : "brands";
+    const nextTab: ProductDirectoryTab =
+      value === "inns" ? "inns" : value === "devices" ? "devices" : "brands";
     const params = new URLSearchParams(searchParams.toString());
 
     if (nextTab === "brands") {
@@ -46,6 +51,12 @@ export function ProductDirectoryTabs() {
         >
           INNs
         </TabsTrigger>
+        <TabsTrigger
+          value="devices"
+          className="text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+        >
+          Medical Devices
+        </TabsTrigger>
       </TabsList>
 
       <TabsContent value="brands">
@@ -53,6 +64,9 @@ export function ProductDirectoryTabs() {
       </TabsContent>
       <TabsContent value="inns">
         <InnDirectory />
+      </TabsContent>
+      <TabsContent value="devices">
+        <MedicalDeviceDirectory />
       </TabsContent>
     </Tabs>
   );

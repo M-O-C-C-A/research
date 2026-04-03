@@ -236,6 +236,32 @@ export const listEnriched = query({
   },
 });
 
+export const listMedicalDevicesEnriched = query({
+  args: {
+    search: v.optional(v.string()),
+    therapeuticArea: v.optional(v.string()),
+  },
+  handler: async (ctx, { search, therapeuticArea }) => {
+    const rows = therapeuticArea
+      ? await ctx.db
+          .query("drugs")
+          .withIndex("by_therapeutic_area", (q) =>
+            q.eq("therapeuticArea", therapeuticArea)
+          )
+          .collect()
+      : await ctx.db.query("drugs").collect();
+
+    const filtered = rows.filter(
+      (drug) =>
+        ["medical device", "diagnostic"].includes(
+          drug.category?.trim().toLowerCase() ?? ""
+        ) && matchesDrugSearch(drug, search)
+    );
+
+    return Promise.all(filtered.map(async (drug) => buildEnrichedDrug(ctx, drug)));
+  },
+});
+
 export const listByCompany = query({
   args: { companyId: v.id("companies") },
   handler: async (ctx, { companyId }) => {

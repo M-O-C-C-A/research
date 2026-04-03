@@ -11,7 +11,7 @@ export default function DrugsPage() {
     <main className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-10">
       <PageHeader
         title="Product Directory"
-        description="Browse products to evaluate ownership, manufacturer coverage, and EU-to-MENA whitespace before preparing outreach."
+        description="Browse medicines and medical devices to evaluate ownership, manufacturer coverage, and EU-to-MENA whitespace before preparing outreach."
         action={
           <Link
             href="/gaps"

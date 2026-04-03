@@ -442,6 +442,37 @@ export function DrugList() {
         <p className="text-sm text-zinc-300">
           Use this page as your product directory. It now reads from the canonical FDA/EU product graph so you can compare brand, INN, source geography, ownership, and regulatory identity before outreach.
         </p>
+        <div className="mt-4 rounded-lg border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-300)]">
+            Can&apos;t find the product?
+          </p>
+          <p className="mt-2 text-sm text-zinc-200">
+            If an EU medicine is missing, run a focused directory update with the brand or INN. If
+            the item is a medical device or not yet in the official sync sources, add it manually
+            or switch to the <span className="font-medium text-white">Medical Devices</span> tab.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={() => void runSync("update")}
+              disabled={syncingSource !== null}
+            >
+              {isUpdatingDirectory ? "Updating..." : "Update directory now"}
+            </Button>
+            <Link
+              href="/drugs?view=devices"
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
+            >
+              Open medical devices
+            </Link>
+            <AddDrugButton
+              label="Add product manually"
+              dialogTitle="Add Product Manually"
+              submitLabel="Add Product"
+            />
+          </div>
+        </div>
         {gapActionState && (
           <div
             className={cn(

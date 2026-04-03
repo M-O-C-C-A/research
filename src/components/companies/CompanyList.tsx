@@ -44,6 +44,19 @@ export function CompanyList() {
           choose a company, research it further if needed, find the relevant products, then move
           into the best-opportunity and outreach flow.
         </p>
+        <div className="mt-4 rounded-lg border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] p-4">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-300)]">
+            Can&apos;t find it?
+          </p>
+          <p className="mt-2 text-sm text-zinc-200">
+            If an EU manufacturer is missing from the directory, either research it now or add it
+            manually so the rest of the workflow can continue.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <DiscoverCompaniesButton size="sm" label="Research this company" />
+            <AddCompanyDialog />
+          </div>
+        </div>
       </div>
 
       {companies === undefined ? (

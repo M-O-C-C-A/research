@@ -6,7 +6,7 @@ import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -28,7 +28,17 @@ import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { TableSkeleton } from "@/components/shared/LoadingSkeleton";
 import { THERAPEUTIC_AREAS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
-import { Search, Pill, ArrowRight, Database, RefreshCw } from "lucide-react";
+import {
+  Search,
+  Pill,
+  ArrowRight,
+  Database,
+  RefreshCw,
+  CheckCircle2,
+  AlertCircle,
+  LoaderCircle,
+  Sparkles,
+} from "lucide-react";
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -43,12 +53,18 @@ export function DrugList() {
   const [area, setArea] = useState<string>("");
   const [syncSearch, setSyncSearch] = useState("");
   const [syncingSource, setSyncingSource] = useState<string | null>(null);
+  const [syncMessage, setSyncMessage] = useState<{
+    tone: "success" | "error" | "info";
+    title: string;
+    body: string;
+  } | null>(null);
 
   const products = useQuery(api.productIntelligence.listCanonicalProducts, {
     search: search || undefined,
     therapeuticArea: area || undefined,
   });
   const syncStats = useQuery(api.productIntelligence.syncStats, {});
+  const recentJobs = useQuery(api.discoveryJobs.recentStats, {});
   const syncFdaProducts = useAction(api.productIntelligenceActions.syncFdaProducts);
   const syncEmaProducts = useAction(api.productIntelligenceActions.syncEmaCentralProducts);
   const syncBfarmProducts = useAction(api.productIntelligenceActions.syncBfarmProducts);
@@ -56,32 +72,113 @@ export function DrugList() {
     api.productIntelligenceActions.rebuildCanonicalProductLinks
   );
 
+  const latestProductJob = recentJobs?.find((job) =>
+    [
+      "product_sync_fda",
+      "product_sync_ema",
+      "product_sync_bfarm",
+      "canonical_product_linking",
+    ].includes(job.type)
+  );
+
+  const isUpdatingDirectory = syncingSource === "update";
+
+  function getDefaultSyncTerm() {
+    return syncSearch || search || undefined;
+  }
+
   async function runSync(
-    source: "fda" | "ema" | "bfarm" | "rebuild"
+    source: "fda" | "ema" | "bfarm" | "rebuild" | "update"
   ) {
     setSyncingSource(source);
+    setSyncMessage({
+      tone: "info",
+      title:
+        source === "update"
+          ? "Updating product directory"
+          : source === "rebuild"
+            ? "Rebuilding product directory"
+            : `Running ${source.toUpperCase()} sync`,
+      body:
+        source === "update"
+          ? "Pulling FDA and EMA records, then rebuilding the canonical product graph."
+          : "Your product intelligence refresh is in progress.",
+    });
     try {
-      if (source === "fda") {
+      if (source === "update") {
+        const defaultTerm = getDefaultSyncTerm();
+        await syncFdaProducts({
+          searchTerm: defaultTerm,
+          limit: defaultTerm ? 25 : 50,
+        });
+        await syncEmaProducts({
+          searchTerm: defaultTerm,
+          limit: defaultTerm ? 50 : 100,
+        });
+        await rebuildCanonicalProducts({});
+        setSyncMessage({
+          tone: "success",
+          title: "Product directory updated",
+          body: "FDA and EMA records were refreshed and the canonical product graph was rebuilt.",
+        });
+      } else if (source === "fda") {
         await syncFdaProducts({
           searchTerm: syncSearch || undefined,
           limit: 25,
+        });
+        setSyncMessage({
+          tone: "success",
+          title: "FDA sync completed",
+          body: "FDA-backed product records were refreshed successfully.",
         });
       } else if (source === "ema") {
         await syncEmaProducts({
           searchTerm: syncSearch || undefined,
           limit: 50,
         });
+        setSyncMessage({
+          tone: "success",
+          title: "EMA sync completed",
+          body: "EMA centrally authorised medicine records were refreshed successfully.",
+        });
       } else if (source === "bfarm") {
         await syncBfarmProducts({
           searchTerm: syncSearch || search || "insulin",
         });
+        setSyncMessage({
+          tone: "success",
+          title: "BfArM sync completed",
+          body: "The Germany national-register pattern ran successfully.",
+        });
       } else {
         await rebuildCanonicalProducts({});
+        setSyncMessage({
+          tone: "success",
+          title: "Canonical graph rebuilt",
+          body: "Equivalent products and source links were rebuilt successfully.",
+        });
       }
+    } catch (error) {
+      setSyncMessage({
+        tone: "error",
+        title: "Update failed",
+        body:
+          error instanceof Error
+            ? error.message
+            : "The product directory refresh did not complete.",
+      });
     } finally {
       setSyncingSource(null);
     }
   }
+
+  const syncMessageStyles = syncMessage
+    ? syncMessage.tone === "success"
+      ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100"
+      : syncMessage.tone === "error"
+        ? "border-red-500/25 bg-red-500/10 text-red-100"
+        : "border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] text-zinc-100"
+    : "";
 
   return (
     <div>
@@ -97,10 +194,10 @@ export function DrugList() {
               Product Intelligence Sync
             </p>
             <h2 className="mt-2 text-lg font-semibold text-white">
-              Refresh FDA and EMA product intelligence
+              Update the product directory
             </h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Manual sync brings FDA, EMA, and national-register signals into the canonical product graph.
+              Pull FDA and EMA product records into the directory, then rebuild the canonical product graph automatically.
             </p>
             <p className="mt-2 text-xs text-zinc-500">
               {syncStats
@@ -118,44 +215,111 @@ export function DrugList() {
                 className="border-zinc-800 bg-zinc-950 pl-9 text-white placeholder:text-zinc-600"
               />
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
                 type="button"
-                onClick={() => void runSync("fda")}
+                onClick={() => void runSync("update")}
                 disabled={syncingSource !== null}
-                className="inline-flex items-center gap-2 rounded-lg bg-[color:var(--brand-500)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[color:var(--brand-600)] disabled:opacity-50"
+                className="min-w-44"
               >
-                <Database className="h-4 w-4" />
-                {syncingSource === "fda" ? "Syncing FDA..." : "Sync FDA"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void runSync("ema")}
-                disabled={syncingSource !== null}
-                className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:text-white disabled:opacity-50"
-              >
-                <Database className="h-4 w-4" />
-                {syncingSource === "ema" ? "Syncing EMA..." : "Sync EMA"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void runSync("bfarm")}
-                disabled={syncingSource !== null}
-                className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:text-white disabled:opacity-50"
-              >
-                <Database className="h-4 w-4" />
-                {syncingSource === "bfarm" ? "Checking BfArM..." : "Sync BfArM"}
-              </button>
-              <button
-                type="button"
-                onClick={() => void runSync("rebuild")}
-                disabled={syncingSource !== null}
-                className="inline-flex items-center gap-2 rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:text-white disabled:opacity-50"
-              >
-                <RefreshCw className="h-4 w-4" />
-                {syncingSource === "rebuild" ? "Rebuilding..." : "Rebuild canonical graph"}
-              </button>
+                {isUpdatingDirectory ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {isUpdatingDirectory ? "Updating directory..." : "Update directory"}
+              </Button>
+              <div className="text-xs text-zinc-500">
+                Runs FDA sync, EMA sync, and canonical rebuild in one step.
+              </div>
             </div>
+            <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                Advanced source controls
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void runSync("fda")}
+                  disabled={syncingSource !== null}
+                >
+                  <Database className="h-4 w-4" />
+                  {syncingSource === "fda" ? "Syncing FDA..." : "Sync FDA only"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void runSync("ema")}
+                  disabled={syncingSource !== null}
+                >
+                  <Database className="h-4 w-4" />
+                  {syncingSource === "ema" ? "Syncing EMA..." : "Sync EMA only"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void runSync("bfarm")}
+                  disabled={syncingSource !== null}
+                >
+                  <Database className="h-4 w-4" />
+                  {syncingSource === "bfarm" ? "Checking BfArM..." : "Try BfArM"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void runSync("rebuild")}
+                  disabled={syncingSource !== null}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  {syncingSource === "rebuild" ? "Rebuilding..." : "Rebuild graph only"}
+                </Button>
+              </div>
+            </div>
+            {syncMessage && (
+              <div className={cn("rounded-lg border p-3", syncMessageStyles)}>
+                <div className="flex items-start gap-3">
+                  {syncMessage.tone === "success" ? (
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-300" />
+                  ) : syncMessage.tone === "error" ? (
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-300" />
+                  ) : (
+                    <LoaderCircle className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-[var(--brand-300)]" />
+                  )}
+                  <div>
+                    <p className="text-sm font-medium">{syncMessage.title}</p>
+                    <p className="mt-1 text-sm opacity-90">{syncMessage.body}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {latestProductJob && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-3 text-sm">
+                <p className="font-medium text-white">
+                  Latest sync status:{" "}
+                  <span className="text-[var(--brand-300)]">
+                    {latestProductJob.status === "running"
+                      ? "Running"
+                      : latestProductJob.status === "completed"
+                        ? "Completed"
+                        : "Failed"}
+                  </span>
+                </p>
+                <p className="mt-1 text-zinc-400">
+                  {latestProductJob.summary ??
+                    latestProductJob.errorMessage ??
+                    "The latest job is still running."}
+                </p>
+                <p className="mt-2 text-xs text-zinc-500">
+                  Tip: leave the search box empty for a broader refresh, or enter one product name for a focused update.
+                </p>
+              </div>
+            )}
+            {!latestProductJob && (
+              <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-3 text-sm text-zinc-400">
+                Click <span className="font-medium text-white">Update directory</span> to bring in FDA and EMA products. You only need the advanced buttons when you want to run one source on its own.
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -166,7 +330,7 @@ export function DrugList() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search drugs..."
+            placeholder="Search products..."
             className="pl-9 bg-zinc-900 border-zinc-800 text-white placeholder:text-zinc-600"
           />
         </div>

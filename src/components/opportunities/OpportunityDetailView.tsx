@@ -19,6 +19,10 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
   const opportunity = useQuery(api.decisionOpportunities.get, {
     id: opportunityId as Id<"decisionOpportunities">,
   });
+  const marketOpportunities = useQuery(
+    api.opportunities.listByDrug,
+    opportunity ? { drugId: opportunity.drugId } : "skip"
+  );
 
   if (opportunity === undefined) {
     return (
@@ -176,6 +180,71 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           )}
         </div>
       </section>
+
+      {marketOpportunities && marketOpportunities.length > 0 && (
+        <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
+                Commercial Market View
+              </p>
+              <h3 className="mt-2 text-lg font-semibold text-white">
+                Pricing, tender pull, and competition in the focus markets
+              </h3>
+            </div>
+            <Link
+              href={`/drugs/${opportunity.drugId}`}
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+            >
+              Open product market view
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {marketOpportunities
+              .filter((item) => opportunity.focusMarkets.includes(item.country))
+              .map((item) => (
+                <div
+                  key={`${item.drugId}-${item.country}`}
+                  className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{item.country}</p>
+                      <p className="mt-1 text-xs text-zinc-500">
+                        {item.opportunityKind
+                          ? item.opportunityKind.replaceAll("_", " ")
+                          : "commercial evidence pending"}
+                      </p>
+                    </div>
+                    <p className="text-lg font-semibold text-white">
+                      {(item.commercialOpportunityScore ?? item.opportunityScore)?.toFixed(1) ?? "—"}
+                    </p>
+                  </div>
+                  <div className="mt-3 space-y-2 text-sm text-zinc-300">
+                    <p>
+                      <span className="text-zinc-500">Price benchmark:</span>{" "}
+                      {item.primaryPriceBenchmark ?? item.priceCorridor ?? "Not yet set"}
+                    </p>
+                    <p>
+                      <span className="text-zinc-500">Tender signal:</span>{" "}
+                      {item.tenderSignalStrength ?? "none"}
+                    </p>
+                    <p>
+                      <span className="text-zinc-500">Competition:</span>{" "}
+                      {item.competitionIntensity ?? item.competitorPresence ?? "unknown"}
+                    </p>
+                    {item.competitivePriceSummary && (
+                      <p className="text-xs leading-relaxed text-zinc-400">
+                        {item.competitivePriceSummary}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">

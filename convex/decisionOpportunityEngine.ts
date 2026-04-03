@@ -173,6 +173,8 @@ function deriveTimelineRange(level: DecisionOpportunityDraft["regulatoryFeasibil
 function summarizeCommercialValue(opportunities: MarketOpportunityDoc[]) {
   const prioritized = opportunities.find((item) => item.annualOpportunityRange)?.annualOpportunityRange;
   if (prioritized) return prioritized;
+  const benchmark = opportunities.find((item) => item.primaryPriceBenchmark)?.primaryPriceBenchmark;
+  if (benchmark) return benchmark;
   const fallback = opportunities.find((item) => item.marketSizeEstimate)?.marketSizeEstimate;
   return fallback;
 }
@@ -249,6 +251,7 @@ function buildScoreBreakdown(args: {
   regulatoryFeasibility: DecisionOpportunityDraft["regulatoryFeasibility"];
   focusMarkets: string[];
   sourceCount: number;
+  opportunities: MarketOpportunityDoc[];
 }) {
   const gapValidityBase =
     args.gap.validationStatus === "confirmed"
@@ -263,10 +266,28 @@ function buildScoreBreakdown(args: {
   const registrationsPenalty = Math.min(args.drug.menaRegistrationCount ?? 0, 3) * 1.2;
   const gapValidity = clampScore(gapValidityBase - registrationsPenalty);
 
-  const tenderBoost = args.gap.tenderSignals ? 1.2 : 0;
+  const tenderBoost =
+    args.gap.tenderSignals ||
+    args.opportunities.some((item) => item.tenderOpportunity)
+      ? 1.2
+      : 0;
   const focusMarketBoost = args.focusMarkets.length >= 2 ? 1 : 0.5;
+  const pricingBoost =
+    args.opportunities.find((item) => item.pricingConfidence === "high")
+      ? 1.1
+      : args.opportunities.find((item) => item.pricingConfidence === "medium")
+        ? 0.6
+        : args.opportunities.find((item) => item.pricingConfidence === "low")
+          ? 0.2
+          : -0.4;
+  const competitionDrag =
+    args.opportunities.find((item) => item.competitionIntensity === "high")
+      ? 1
+      : args.opportunities.find((item) => item.competitionIntensity === "medium")
+        ? 0.5
+        : 0;
   const commercialValue = clampScore(
-    args.gap.gapScore * 0.65 + tenderBoost + focusMarketBoost
+    args.gap.gapScore * 0.65 + tenderBoost + focusMarketBoost + pricingBoost - competitionDrag
   );
 
   const patentBoost =
@@ -491,6 +512,7 @@ export function buildDecisionOpportunityDraft(args: {
     regulatoryFeasibility,
     focusMarkets: selectedFocusMarkets,
     sourceCount: args.sourceCount,
+    opportunities: args.opportunities,
   });
   const priorityScore = averageScore(scoreBreakdown);
   const confidenceLevel = deriveConfidenceLevel(
@@ -543,9 +565,13 @@ export function buildDecisionOpportunityDraft(args: {
       args.gap.evidenceSummary ?? args.gap.supplyGap,
       "MENA whitespace needs validation against official registrations."
     ),
-    commercialRationale: `${summarizeText(args.gap.demandEvidence, "Demand signal still developing.")} ${args.company?.distributorFitRationale ?? args.company?.bdScoreRationale ?? ""}`.trim(),
+    commercialRationale: `${summarizeText(args.gap.demandEvidence, "Demand signal still developing.")} ${summarizeText(
+      args.opportunities.find((item) => item.primaryPriceBenchmark)?.primaryPriceBenchmark,
+      ""
+    )} ${args.company?.distributorFitRationale ?? args.company?.bdScoreRationale ?? ""}`.trim(),
     marketAttractiveness: summarizeText(
-      args.gap.competitorLandscape,
+      args.opportunities.find((item) => item.competitivePriceSummary)?.competitivePriceSummary ??
+        args.gap.competitorLandscape,
       "Competitor intensity still needs market-by-market validation."
     ),
     marketSizeEstimate:
@@ -555,7 +581,8 @@ export function buildDecisionOpportunityDraft(args: {
         : undefined),
     demandProxy: summarizeText(args.gap.demandEvidence, "Directional demand proxy needs validation."),
     competitivePressure: summarizeText(
-      args.gap.competitorLandscape,
+      args.opportunities.find((item) => item.competitionIntensity)?.competitionIntensity ??
+        args.gap.competitorLandscape,
       "Competitive pressure not yet structured."
     ),
     regulatoryFeasibility,

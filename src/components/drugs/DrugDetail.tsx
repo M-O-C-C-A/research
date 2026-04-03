@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
@@ -8,6 +9,8 @@ import { Badge } from "@/components/ui/badge";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight } from "lucide-react";
+import { CountryCellEditor } from "./CountryCellEditor";
+import { MENA_COUNTRIES } from "@/lib/constants";
 
 const STATUS_STYLES: Record<string, string> = {
   approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -20,6 +23,7 @@ interface DrugDetailProps {
 }
 
 export function DrugDetail({ drugId }: DrugDetailProps) {
+  const [editingCountry, setEditingCountry] = useState<string | null>(null);
   const drug = useQuery(api.drugs.get, { id: drugId as Id<"drugs"> });
   const company = useQuery(
     api.companies.get,
@@ -27,6 +31,10 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
   );
   const entityLinks = useQuery(
     api.drugEntityLinks.listByDrug,
+    drug ? { drugId: drug._id } : "skip"
+  );
+  const countryOpportunities = useQuery(
+    api.opportunities.listByDrug,
     drug ? { drugId: drug._id } : "skip"
   );
 
@@ -65,9 +73,45 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
         : drug.manufacturerName
           ? [drug.manufacturerName]
           : [];
-
+  const opportunityByCountry = new Map<
+    string,
+    NonNullable<typeof countryOpportunities>[number]
+  >((countryOpportunities ?? []).map((entry) => [entry.country, entry]));
+  const marketRows = MENA_COUNTRIES.map((country) => {
+    const current = opportunityByCountry.get(country);
+    return {
+      drugId: drug._id,
+      country,
+      opportunityScore: current?.commercialOpportunityScore ?? current?.opportunityScore,
+      regulatoryStatus: current?.regulatoryStatus,
+      competitorPresence: current?.competitorPresence,
+      marketSizeEstimate: current?.marketSizeEstimate,
+      availabilityStatus: current?.availabilityStatus,
+      treatmentVolumeProxy: current?.treatmentVolumeProxy,
+      priceCorridor: current?.priceCorridor,
+      primaryPriceBenchmark: current?.primaryPriceBenchmark,
+      pricingConfidence: current?.pricingConfidence,
+      pricePositioning: current?.pricePositioning,
+      competitionIntensity: current?.competitionIntensity,
+      competitivePriceSummary: current?.competitivePriceSummary,
+      opportunityKind: current?.opportunityKind,
+      tenderOpportunity: current?.tenderOpportunity,
+      tenderSignalStrength: current?.tenderSignalStrength,
+      annualOpportunityRange: current?.annualOpportunityRange,
+      marketAccessRoute: current?.marketAccessRoute,
+      notes: current?.notes,
+    };
+  });
+  const activeMarketRow = marketRows.find((row) => row.country === editingCountry) ?? null;
   return (
     <div className="space-y-6 mb-6">
+      {activeMarketRow && (
+        <CountryCellEditor
+          open={Boolean(activeMarketRow)}
+          onClose={() => setEditingCountry(null)}
+          opportunity={activeMarketRow}
+        />
+      )}
       <GuidedFlowBanner
         hereLabel="Product detail"
         helperText="Use this page to confirm who makes and owns the product, then decide whether the next move is whitespace review, a decision brief, or outreach."
@@ -294,6 +338,54 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
             )}
           </div>
         )}
+
+        <div className="mt-4 border-t border-zinc-800 pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs text-zinc-600 uppercase tracking-wider">
+                Commercial Opportunity By Market
+              </p>
+              <p className="mt-1 text-sm text-zinc-400">
+                Review pricing evidence, tender pull, and price competition for each target country.
+              </p>
+            </div>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {marketRows.map((row) => (
+              <button
+                key={row.country}
+                type="button"
+                onClick={() => setEditingCountry(row.country)}
+                className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-950"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-white">{row.country}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {row.opportunityKind
+                        ? row.opportunityKind.replaceAll("_", " ")
+                        : "commercial view not set"}
+                    </p>
+                  </div>
+                  <span className="text-sm font-semibold text-white">
+                    {row.opportunityScore?.toFixed(1) ?? "—"}
+                  </span>
+                </div>
+                <div className="mt-3 space-y-1 text-xs text-zinc-400">
+                  <p>
+                    Price: {row.primaryPriceBenchmark ?? row.priceCorridor ?? "No observed price yet"}
+                  </p>
+                  <p>
+                    Tender: {row.tenderSignalStrength ?? (row.tenderOpportunity ? "present" : "none")}
+                  </p>
+                  <p>
+                    Competition: {row.competitionIntensity ?? row.competitorPresence ?? "unknown"}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

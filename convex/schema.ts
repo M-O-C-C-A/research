@@ -180,6 +180,104 @@ const marketAccessRoute = v.union(
   v.literal("named_patient")
 );
 
+const commercialOpportunityKind = v.union(
+  v.literal("commercial_opportunity"),
+  v.literal("tender_opportunity"),
+  v.literal("commercial_and_tender"),
+  v.literal("no_clear_opportunity"),
+  v.literal("insufficient_commercial_evidence")
+);
+
+const pricingConfidence = v.union(
+  v.literal("high"),
+  v.literal("medium"),
+  v.literal("low"),
+  v.literal("unknown")
+);
+
+const pricePositioning = v.union(
+  v.literal("premium"),
+  v.literal("parity"),
+  v.literal("discount"),
+  v.literal("unknown")
+);
+
+const competitionIntensity = v.union(
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high"),
+  v.literal("unknown")
+);
+
+const commercialEvidenceStatus = v.union(
+  v.literal("strong"),
+  v.literal("partial"),
+  v.literal("proxy_only"),
+  v.literal("insufficient")
+);
+
+const tenderSignalStrength = v.union(
+  v.literal("high"),
+  v.literal("medium"),
+  v.literal("low"),
+  v.literal("none")
+);
+
+const commercialSummaryMode = v.union(
+  v.literal("auto"),
+  v.literal("manual")
+);
+
+const priceSourceCategory = v.union(
+  v.literal("official"),
+  v.literal("commercial_database"),
+  v.literal("proxy")
+);
+
+const priceEvidenceSourceSystem = v.union(
+  v.literal("cms"),
+  v.literal("nhsbsa"),
+  v.literal("sfda"),
+  v.literal("eda_egypt"),
+  v.literal("mohap_uae"),
+  v.literal("bfarm_amice"),
+  v.literal("who"),
+  v.literal("nupco"),
+  v.literal("evaluate"),
+  v.literal("clarivate"),
+  v.literal("lauer_taxe"),
+  v.literal("manual"),
+  v.literal("other")
+);
+
+const priceType = v.union(
+  v.literal("registered"),
+  v.literal("list"),
+  v.literal("tariff"),
+  v.literal("reimbursement"),
+  v.literal("asp"),
+  v.literal("tender"),
+  v.literal("retail"),
+  v.literal("hospital"),
+  v.literal("other")
+);
+
+const commercialSignalType = v.union(
+  v.literal("tender"),
+  v.literal("procurement"),
+  v.literal("reimbursement"),
+  v.literal("tariff"),
+  v.literal("channel"),
+  v.literal("competition"),
+  v.literal("proxy")
+);
+
+const signalStrength = v.union(
+  v.literal("high"),
+  v.literal("medium"),
+  v.literal("low")
+);
+
 const marketEvidenceItem = v.object({
   claim: v.string(),
   title: v.optional(v.string()),
@@ -541,6 +639,17 @@ export default defineSchema({
     addressablePopulation: v.optional(v.string()),
     treatmentVolumeProxy: v.optional(v.string()),
     priceCorridor: v.optional(v.string()),
+    primaryPriceBenchmark: v.optional(v.string()),
+    pricingConfidence: v.optional(pricingConfidence),
+    pricePositioning: v.optional(pricePositioning),
+    competitionIntensity: v.optional(competitionIntensity),
+    competitivePriceSummary: v.optional(v.string()),
+    tenderOpportunity: v.optional(v.boolean()),
+    tenderSignalStrength: v.optional(tenderSignalStrength),
+    commercialEvidenceStatus: v.optional(commercialEvidenceStatus),
+    opportunityKind: v.optional(commercialOpportunityKind),
+    commercialOpportunityScore: v.optional(v.number()),
+    commercialSummaryMode: v.optional(commercialSummaryMode),
     annualOpportunityRange: v.optional(v.string()),
     publicChannelShare: v.optional(v.number()),
     privateChannelShare: v.optional(v.number()),
@@ -557,6 +666,48 @@ export default defineSchema({
     .index("by_drug", ["drugId"])
     .index("by_country", ["country"])
     .index("by_drug_and_country", ["drugId", "country"]),
+
+  priceEvidence: defineTable({
+    drugId: v.id("drugs"),
+    country: v.string(),
+    sourceCategory: priceSourceCategory,
+    sourceSystem: priceEvidenceSourceSystem,
+    priceType,
+    amount: v.number(),
+    currency: v.string(),
+    presentation: v.optional(v.string()),
+    unitBasis: v.optional(v.string()),
+    observedAt: v.number(),
+    sourceTitle: v.string(),
+    sourceUrl: v.optional(v.string()),
+    confidence: evidenceConfidence,
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_drug_and_country", ["drugId", "country"])
+    .index("by_source_system", ["sourceSystem"])
+    .index("by_drug_country_and_observed_at", ["drugId", "country", "observedAt"]),
+
+  commercialSignals: defineTable({
+    drugId: v.id("drugs"),
+    country: v.string(),
+    signalType: commercialSignalType,
+    sourceCategory: priceSourceCategory,
+    sourceSystem: priceEvidenceSourceSystem,
+    summary: v.string(),
+    signalStrength,
+    sourceTitle: v.string(),
+    sourceUrl: v.optional(v.string()),
+    observedAt: v.number(),
+    confidence: evidenceConfidence,
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_drug_and_country", ["drugId", "country"])
+    .index("by_signal_type", ["signalType"])
+    .index("by_source_system", ["sourceSystem"]),
 
   reports: defineTable({
     drugId: v.id("drugs"),

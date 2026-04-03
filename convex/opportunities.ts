@@ -147,9 +147,34 @@ const COMMERCIAL_SUMMARY_MODE_VALIDATOR = v.union(
   v.literal("manual")
 );
 
+const MARKET_MODEL_LEVEL_VALIDATOR = v.union(
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high"),
+  v.literal("unknown")
+);
+
+const ENTRY_STRATEGY_CHANNEL_VALIDATOR = v.union(
+  v.literal("private_hospital"),
+  v.literal("retail_pharmacy"),
+  v.literal("public_tender"),
+  v.literal("specialty_center"),
+  v.literal("hybrid"),
+  v.literal("unknown")
+);
+
+const ENTRY_STRATEGY_SEQUENCING_VALIDATOR = v.union(
+  v.literal("private_first"),
+  v.literal("private_to_tender"),
+  v.literal("tender_led"),
+  v.literal("hybrid_launch"),
+  v.literal("watch")
+);
+
 type OpportunityDoc = Doc<"opportunities">;
 type PriceEvidenceDoc = Doc<"priceEvidence">;
 type CommercialSignalDoc = Doc<"commercialSignals">;
+type MarketSimulationDoc = Doc<"marketSimulations">;
 
 function formatCurrency(amount: number, currency: string) {
   try {
@@ -351,6 +376,239 @@ function summarizeCommercialSignals(signals: CommercialSignalDoc[]) {
     .join(" ");
 }
 
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function pickAnchor(
+  priceRows: PriceEvidenceDoc[],
+  predicate: (row: PriceEvidenceDoc) => boolean
+) {
+  const matches = priceRows.filter(predicate);
+  if (matches.length === 0) return undefined;
+  return [...matches].sort((left, right) => {
+    const categoryDelta =
+      priorityForSourceCategory(right.sourceCategory) -
+      priorityForSourceCategory(left.sourceCategory);
+    if (categoryDelta !== 0) return categoryDelta;
+    const typeDelta =
+      priorityForPriceType(right.priceType) - priorityForPriceType(left.priceType);
+    if (typeDelta !== 0) return typeDelta;
+    return right.observedAt - left.observedAt;
+  })[0];
+}
+
+function formatAnchorLabel(anchor: PriceEvidenceDoc | undefined) {
+  if (!anchor) return undefined;
+  return `${formatCurrency(anchor.amount, anchor.currency)} · ${anchor.sourceTitle}`;
+}
+
+function summarizeAnchorCorridor(anchors: PriceEvidenceDoc[]) {
+  if (anchors.length === 0) return undefined;
+  const currencies = [...new Set(anchors.map((anchor) => anchor.currency))];
+  if (currencies.length !== 1) {
+    return anchors.map((anchor) => formatAnchorLabel(anchor)).filter(Boolean).join(" | ");
+  }
+  const amounts = anchors.map((anchor) => anchor.amount).sort((a, b) => a - b);
+  return `${formatCurrency(amounts[0], currencies[0])} - ${formatCurrency(
+    amounts[amounts.length - 1],
+    currencies[0]
+  )}`;
+}
+
+function getPriceReferencingRisk(args: {
+  euAnchor?: PriceEvidenceDoc;
+  gccAnchors: PriceEvidenceDoc[];
+  opportunity?: OpportunityDoc | null;
+}) {
+  if (args.euAnchor && args.gccAnchors.length > 0) return "high" as const;
+  if (
+    args.gccAnchors.length > 0 ||
+    args.opportunity?.marketAccessRoute === "public_tender" ||
+    args.opportunity?.availabilityStatus === "tender_formulary_only"
+  ) {
+    return "medium" as const;
+  }
+  if (args.euAnchor) return "low" as const;
+  return "unknown" as const;
+}
+
+function getReimbursementConstraintLevel(
+  signals: CommercialSignalDoc[],
+  opportunity?: OpportunityDoc | null
+) {
+  if (
+    signals.some(
+      (signal) =>
+        signal.signalType === "reimbursement" && signal.signalStrength === "high"
+    ) ||
+    opportunity?.regulatoryStatus === "reimbursed"
+  ) {
+    return "high" as const;
+  }
+  if (
+    signals.some(
+      (signal) =>
+        signal.signalType === "reimbursement" && signal.signalStrength === "medium"
+    )
+  ) {
+    return "medium" as const;
+  }
+  if (signals.some((signal) => signal.signalType === "reimbursement")) {
+    return "low" as const;
+  }
+  return "unknown" as const;
+}
+
+function getTenderBarrierLevel(
+  signals: CommercialSignalDoc[],
+  competition: "low" | "medium" | "high" | "unknown"
+) {
+  if (
+    signals.some(
+      (signal) => signal.signalType === "tender" && signal.signalStrength === "high"
+    ) &&
+    competition === "high"
+  ) {
+    return "high" as const;
+  }
+  if (
+    signals.some(
+      (signal) =>
+        signal.signalType === "tender" || signal.signalType === "procurement"
+    )
+  ) {
+    return competition === "high" ? ("high" as const) : ("medium" as const);
+  }
+  return competition === "low" ? ("low" as const) : ("unknown" as const);
+}
+
+function deriveVolumeReality(opportunity?: OpportunityDoc | null) {
+  const estimatedCustomers = opportunity?.estimatedCustomers ?? 0;
+  const accessibleShare = opportunity?.accessibleShare ?? 0;
+  const physicianAdoptionRate = opportunity?.physicianAdoptionRate ?? 0;
+  const publicShare = opportunity?.publicChannelShare ?? 0.5;
+  const privateShare = opportunity?.privateChannelShare ?? 0.5;
+  const reimbursementDrag =
+    opportunity?.reimbursementConstraintLevel === "high"
+      ? 0.75
+      : opportunity?.reimbursementConstraintLevel === "medium"
+        ? 0.88
+        : 1;
+  const tenderDrag =
+    opportunity?.tenderBarrierLevel === "high"
+      ? 0.8
+      : opportunity?.tenderBarrierLevel === "medium"
+        ? 0.9
+        : 1;
+  const accessibleVolume =
+    estimatedCustomers > 0
+      ? estimatedCustomers *
+        Math.max(accessibleShare, 0) *
+        Math.max(physicianAdoptionRate, 0) *
+        reimbursementDrag *
+        tenderDrag
+      : 0;
+  const conservative = accessibleVolume * 0.7;
+  const upside = accessibleVolume * 1.25;
+
+  return {
+    accessibleVolume,
+    baseVolumeCase: accessibleVolume > 0 ? `${Math.round(accessibleVolume)} annual units` : undefined,
+    conservativeVolumeCase:
+      conservative > 0 ? `${Math.round(conservative)} annual units` : undefined,
+    upsideVolumeCase: upside > 0 ? `${Math.round(upside)} annual units` : undefined,
+    accessibleVolumeEstimate:
+      accessibleVolume > 0
+        ? `${Math.round(accessibleVolume)} annual units accessible from ${Math.round(
+            estimatedCustomers
+          )} customers at ${formatPercent(accessibleShare)} access and ${formatPercent(
+            physicianAdoptionRate
+          )} adoption.`
+        : undefined,
+    publicPrivateMixSummary:
+      publicShare > 0 || privateShare > 0
+        ? `Public ${formatPercent(publicShare)} / Private ${formatPercent(privateShare)}`
+        : undefined,
+    physicianAdoptionSummary:
+      physicianAdoptionRate > 0
+        ? `${formatPercent(physicianAdoptionRate)} modeled physician adoption`
+        : undefined,
+    commercialViabilityFlag: accessibleVolume >= 500,
+  };
+}
+
+function getRecommendedPricingBand(args: {
+  corridorBand?: string;
+  benchmark?: string;
+  tenderStrength: "high" | "medium" | "low" | "none";
+  priceReferencingRisk: "low" | "medium" | "high" | "unknown";
+}) {
+  if (args.corridorBand && args.tenderStrength === "high") {
+    return `${args.corridorBand} (bias to lower end for tender access)`;
+  }
+  if (args.corridorBand && args.priceReferencingRisk === "high") {
+    return `${args.corridorBand} (keep near GCC midpoint because referencing risk is high)`;
+  }
+  return args.corridorBand ?? args.benchmark;
+}
+
+function deriveEntryRecommendation(args: {
+  opportunity?: OpportunityDoc | null;
+  tenderStrength: "high" | "medium" | "low" | "none";
+  tenderBarrierLevel: "low" | "medium" | "high" | "unknown";
+  reimbursementConstraintLevel: "low" | "medium" | "high" | "unknown";
+  publicShare: number;
+  privateShare: number;
+  priceReferencingRisk: "low" | "medium" | "high" | "unknown";
+}) {
+  const publicWeighted =
+    args.tenderStrength !== "none" ||
+    args.opportunity?.marketAccessRoute === "public_tender" ||
+    args.publicShare >= args.privateShare;
+
+  let entryStrategyChannel: MarketSimulationDoc["recommendedChannel"] = "unknown";
+  let entryStrategySequencing: MarketSimulationDoc["recommendedSequencing"] = "watch";
+
+  if (publicWeighted && args.tenderBarrierLevel !== "high" && args.publicShare >= 0.6) {
+    entryStrategyChannel = "public_tender";
+    entryStrategySequencing = "tender_led";
+  } else if (publicWeighted && args.privateShare >= 0.3) {
+    entryStrategyChannel = "hybrid";
+    entryStrategySequencing = "private_to_tender";
+  } else if (args.opportunity?.marketAccessRoute === "retail_pharmacy") {
+    entryStrategyChannel = "retail_pharmacy";
+    entryStrategySequencing = "private_first";
+  } else if (
+    args.opportunity?.marketAccessRoute === "specialty_center" ||
+    args.reimbursementConstraintLevel === "high"
+  ) {
+    entryStrategyChannel = "specialty_center";
+    entryStrategySequencing = "private_first";
+  } else {
+    entryStrategyChannel = "private_hospital";
+    entryStrategySequencing = "private_first";
+  }
+
+  const rationale = [
+    publicWeighted
+      ? "Public access and procurement signals matter in this market."
+      : "Private access looks more workable than a pure tender play.",
+    args.priceReferencingRisk === "high"
+      ? "Pricing should stay disciplined because GCC/EU referencing pressure is meaningful."
+      : "Pricing flexibility is not heavily constrained by referencing signals.",
+    args.tenderBarrierLevel === "high"
+      ? "Tender entry barriers are material, so sequencing should de-risk before bidding."
+      : "Tender barriers look manageable from the current evidence.",
+  ].join(" ");
+
+  return {
+    entryStrategyChannel,
+    entryStrategySequencing,
+    entryStrategyRecommendation: rationale,
+  };
+}
+
 function deriveOpportunityKind(args: {
   opportunity?: OpportunityDoc | null;
   priceRows: PriceEvidenceDoc[];
@@ -447,6 +705,38 @@ async function deriveCommercialSummary(
   const competition = getCompetitionIntensity({ opportunity, signals });
   const priceSummary = summarizePriceRows(priceRows);
   const signalSummary = summarizeCommercialSignals(signals);
+  const euReferenceAnchor = pickAnchor(
+    priceRows,
+    (row) =>
+      (row.sourceSystem === "bfarm_amice" || row.sourceSystem === "lauer_taxe") &&
+      row.sourceCategory !== "commercial_database"
+  );
+  const gccAnchorRows = priceRows.filter(
+    (row) =>
+      row.sourceSystem === "mohap_uae" ||
+      row.sourceSystem === "sfda" ||
+      (row.sourceCategory === "official" &&
+        (row.sourceTitle.toLowerCase().includes("uae") ||
+          row.sourceTitle.toLowerCase().includes("saudi") ||
+          row.sourceTitle.toLowerCase().includes("ksa")))
+  );
+  const gccRegisteredAnchor = pickAnchor(gccAnchorRows, () => true);
+  const tenderBenchmarkAnchor = pickAnchor(
+    priceRows,
+    (row) => row.priceType === "tender" || row.sourceSystem === "nupco"
+  );
+  const priceReferencingRisk = getPriceReferencingRisk({
+    euAnchor: euReferenceAnchor,
+    gccAnchors: gccAnchorRows,
+    opportunity,
+  });
+  const reimbursementConstraintLevel = getReimbursementConstraintLevel(signals, opportunity);
+  const tenderBarrierLevel = getTenderBarrierLevel(signals, competition);
+  const volumeReality = deriveVolumeReality({
+    ...opportunity,
+    reimbursementConstraintLevel,
+    tenderBarrierLevel,
+  } as OpportunityDoc);
   const opportunityKind = deriveOpportunityKind({
     opportunity,
     priceRows,
@@ -458,6 +748,27 @@ async function deriveCommercialSummary(
   const competitivePriceSummary = [priceSummary.competitivePriceSummary, signalSummary]
     .filter(Boolean)
     .join(" ");
+  const anchorRows = [
+    euReferenceAnchor,
+    gccRegisteredAnchor,
+    tenderBenchmarkAnchor,
+  ].filter((value): value is PriceEvidenceDoc => Boolean(value));
+  const priceCorridorBand = summarizeAnchorCorridor(anchorRows);
+  const recommendedPricingBand = getRecommendedPricingBand({
+    corridorBand: priceCorridorBand,
+    benchmark: priceSummary.primaryPriceBenchmark,
+    tenderStrength,
+    priceReferencingRisk,
+  });
+  const entryRecommendation = deriveEntryRecommendation({
+    opportunity,
+    tenderStrength,
+    tenderBarrierLevel,
+    reimbursementConstraintLevel,
+    publicShare: opportunity?.publicChannelShare ?? 0.5,
+    privateShare: opportunity?.privateChannelShare ?? 0.5,
+    priceReferencingRisk,
+  });
 
   return {
     priceRows,
@@ -469,10 +780,28 @@ async function deriveCommercialSummary(
       pricePositioning: priceSummary.pricePositioning,
       competitionIntensity: competition,
       competitivePriceSummary: competitivePriceSummary || undefined,
+      euReferenceAnchor: formatAnchorLabel(euReferenceAnchor),
+      gccRegisteredAnchor: formatAnchorLabel(gccRegisteredAnchor),
+      tenderBenchmarkAnchor: formatAnchorLabel(tenderBenchmarkAnchor),
+      priceCorridorBand,
+      recommendedPricingBand,
+      priceReferencingRisk,
       tenderOpportunity: tenderStrength !== "none",
       tenderSignalStrength: tenderStrength,
       commercialEvidenceStatus: evidenceStatus,
       opportunityKind,
+      accessibleVolumeEstimate: volumeReality.accessibleVolumeEstimate,
+      baseVolumeCase: volumeReality.baseVolumeCase,
+      conservativeVolumeCase: volumeReality.conservativeVolumeCase,
+      upsideVolumeCase: volumeReality.upsideVolumeCase,
+      publicPrivateMixSummary: volumeReality.publicPrivateMixSummary,
+      physicianAdoptionSummary: volumeReality.physicianAdoptionSummary,
+      reimbursementConstraintLevel,
+      tenderBarrierLevel,
+      commercialViabilityFlag: volumeReality.commercialViabilityFlag,
+      entryStrategyRecommendation: entryRecommendation.entryStrategyRecommendation,
+      entryStrategyChannel: entryRecommendation.entryStrategyChannel,
+      entryStrategySequencing: entryRecommendation.entryStrategySequencing,
       commercialOpportunityScore: computeCommercialOpportunityScore({
         opportunity,
         pricingConfidence,
@@ -596,6 +925,12 @@ export const upsert = mutation({
     pricePositioning: v.optional(PRICE_POSITIONING_VALIDATOR),
     competitionIntensity: v.optional(COMPETITION_INTENSITY_VALIDATOR),
     competitivePriceSummary: v.optional(v.string()),
+    euReferenceAnchor: v.optional(v.string()),
+    gccRegisteredAnchor: v.optional(v.string()),
+    tenderBenchmarkAnchor: v.optional(v.string()),
+    priceCorridorBand: v.optional(v.string()),
+    recommendedPricingBand: v.optional(v.string()),
+    priceReferencingRisk: v.optional(MARKET_MODEL_LEVEL_VALIDATOR),
     tenderOpportunity: v.optional(v.boolean()),
     tenderSignalStrength: v.optional(TENDER_SIGNAL_STRENGTH_VALIDATOR),
     commercialEvidenceStatus: v.optional(COMMERCIAL_EVIDENCE_STATUS_VALIDATOR),
@@ -605,6 +940,21 @@ export const upsert = mutation({
     annualOpportunityRange: v.optional(v.string()),
     publicChannelShare: v.optional(v.number()),
     privateChannelShare: v.optional(v.number()),
+    estimatedCustomers: v.optional(v.number()),
+    accessibleShare: v.optional(v.number()),
+    physicianAdoptionRate: v.optional(v.number()),
+    accessibleVolumeEstimate: v.optional(v.string()),
+    baseVolumeCase: v.optional(v.string()),
+    conservativeVolumeCase: v.optional(v.string()),
+    upsideVolumeCase: v.optional(v.string()),
+    publicPrivateMixSummary: v.optional(v.string()),
+    physicianAdoptionSummary: v.optional(v.string()),
+    reimbursementConstraintLevel: v.optional(MARKET_MODEL_LEVEL_VALIDATOR),
+    tenderBarrierLevel: v.optional(MARKET_MODEL_LEVEL_VALIDATOR),
+    commercialViabilityFlag: v.optional(v.boolean()),
+    entryStrategyRecommendation: v.optional(v.string()),
+    entryStrategyChannel: v.optional(ENTRY_STRATEGY_CHANNEL_VALIDATOR),
+    entryStrategySequencing: v.optional(ENTRY_STRATEGY_SEQUENCING_VALIDATOR),
     countryScoreBreakdown: v.optional(COUNTRY_SCORE_BREAKDOWN_VALIDATOR),
     marketAccessRoute: v.optional(MARKET_ACCESS_ROUTE_VALIDATOR),
     marketAccessNotes: v.optional(v.string()),
@@ -630,6 +980,10 @@ export const upsert = mutation({
       fields.pricePositioning ||
       fields.competitionIntensity ||
       fields.competitivePriceSummary ||
+      fields.recommendedPricingBand ||
+      fields.entryStrategyRecommendation ||
+      fields.entryStrategyChannel ||
+      fields.entryStrategySequencing ||
       fields.tenderOpportunity !== undefined ||
       fields.tenderSignalStrength ||
       fields.commercialEvidenceStatus ||
@@ -842,6 +1196,202 @@ export const importCommercialSignals = mutation({
       touched.add(`${record.drugId}:${record.country}`);
     }
     return { imported: records.length, touched: touched.size };
+  },
+});
+
+function getDefaultAnchorAmount(anchor?: string) {
+  if (!anchor) return undefined;
+  const match = anchor.match(/(-?\d+(?:,\d{3})*(?:\.\d+)?)/);
+  if (!match) return undefined;
+  return Number(match[1].replaceAll(",", ""));
+}
+
+function buildSimulationResult(args: {
+  opportunity?: OpportunityDoc | null;
+  simulation?: Partial<MarketSimulationDoc> | null;
+}) {
+  const opportunity = args.opportunity;
+  const simulation = args.simulation ?? {};
+  const publicShare =
+    simulation.publicShare ?? opportunity?.publicChannelShare ?? 0.5;
+  const privateShare =
+    simulation.privateShare ?? opportunity?.privateChannelShare ?? 0.5;
+  const accessiblePopulation =
+    simulation.accessiblePopulation ?? opportunity?.estimatedCustomers ?? 0;
+  const adoptionRate =
+    simulation.adoptionRate ?? opportunity?.physicianAdoptionRate ?? 0.2;
+  const unitsPerCustomer = simulation.unitsPerCustomer ?? 1;
+  const accessibleShare = opportunity?.accessibleShare ?? 0.4;
+  const targetSellingPrice =
+    simulation.targetSellingPrice ??
+    getDefaultAnchorAmount(opportunity?.recommendedPricingBand) ??
+    getDefaultAnchorAmount(opportunity?.primaryPriceBenchmark) ??
+    0;
+  const exFactoryPrice = simulation.exFactoryPrice ?? targetSellingPrice * 0.45;
+  const distributorMarginPct = simulation.distributorMarginPct ?? 0.18;
+  const logisticsCostPerUnit = simulation.logisticsCostPerUnit ?? targetSellingPrice * 0.04;
+  const regulatoryCostTotal = simulation.regulatoryCostTotal ?? 25000;
+  const tenderCostTotal = simulation.tenderCostTotal ?? 15000;
+  const effectiveAccessibleCustomers =
+    accessiblePopulation * accessibleShare * adoptionRate;
+  const weightedBarrier =
+    opportunity?.tenderBarrierLevel === "high"
+      ? 0.75
+      : opportunity?.tenderBarrierLevel === "medium"
+        ? 0.88
+        : 1;
+  const baseUnits = effectiveAccessibleCustomers * unitsPerCustomer * weightedBarrier;
+  const conservativeUnits = baseUnits * 0.7;
+  const upsideUnits = baseUnits * 1.3;
+  const netPricePerUnit =
+    targetSellingPrice * (1 - distributorMarginPct) - logisticsCostPerUnit;
+  const unitGrossProfit = netPricePerUnit - exFactoryPrice;
+  const conservativeRevenue = conservativeUnits * targetSellingPrice;
+  const baseRevenue = baseUnits * targetSellingPrice;
+  const upsideRevenue = upsideUnits * targetSellingPrice;
+
+  const buildMarginPct = (units: number, revenue: number) => {
+    const totalCosts =
+      units * (exFactoryPrice + logisticsCostPerUnit) +
+      regulatoryCostTotal +
+      (publicShare > privateShare ? tenderCostTotal : tenderCostTotal * 0.5);
+    if (revenue <= 0) return 0;
+    return ((revenue - totalCosts - revenue * distributorMarginPct) / revenue) * 100;
+  };
+
+  const conservativeGrossMarginPct = buildMarginPct(
+    conservativeUnits,
+    conservativeRevenue
+  );
+  const baseGrossMarginPct = buildMarginPct(baseUnits, baseRevenue);
+  const upsideGrossMarginPct = buildMarginPct(upsideUnits, upsideRevenue);
+
+  const recommendation = deriveEntryRecommendation({
+    opportunity,
+    tenderStrength: opportunity?.tenderSignalStrength ?? "none",
+    tenderBarrierLevel: opportunity?.tenderBarrierLevel ?? "unknown",
+    reimbursementConstraintLevel: opportunity?.reimbursementConstraintLevel ?? "unknown",
+    publicShare,
+    privateShare,
+    priceReferencingRisk: opportunity?.priceReferencingRisk ?? "unknown",
+  });
+
+  return {
+    publicShare,
+    privateShare,
+    adoptionRate,
+    accessiblePopulation,
+    unitsPerCustomer,
+    targetSellingCurrency: simulation.targetSellingCurrency ?? "USD",
+    targetSellingPrice,
+    exFactoryPrice,
+    distributorMarginPct,
+    logisticsCostPerUnit,
+    regulatoryCostTotal,
+    tenderCostTotal,
+    conservativeRevenue,
+    baseRevenue,
+    upsideRevenue,
+    conservativeGrossMarginPct,
+    baseGrossMarginPct,
+    upsideGrossMarginPct,
+    unitEconomicsSummary:
+      targetSellingPrice > 0
+        ? `Net sell-in ${formatCurrency(
+            netPricePerUnit,
+            simulation.targetSellingCurrency ?? "USD"
+          )} per unit after partner margin and logistics; gross profit ${formatCurrency(
+            unitGrossProfit,
+            simulation.targetSellingCurrency ?? "USD"
+          )} before fixed market costs.`
+        : undefined,
+    viabilitySummary:
+      baseRevenue > 0
+        ? `Base case ${formatCurrency(
+            baseRevenue,
+            simulation.targetSellingCurrency ?? "USD"
+          )} revenue at ${baseGrossMarginPct.toFixed(
+            1
+          )}% gross margin. Conservative case ${conservativeGrossMarginPct.toFixed(
+            1
+          )}%, upside ${upsideGrossMarginPct.toFixed(1)}%.`
+        : undefined,
+    recommendedChannel: recommendation.entryStrategyChannel,
+    recommendedSequencing: recommendation.entryStrategySequencing,
+    recommendedPricingBand:
+      opportunity?.recommendedPricingBand ?? opportunity?.priceCorridorBand ?? opportunity?.primaryPriceBenchmark,
+    recommendationRationale: recommendation.entryStrategyRecommendation,
+  };
+}
+
+export const getMarketSimulation = query({
+  args: { drugId: v.id("drugs"), country: v.string() },
+  handler: async (ctx, { drugId, country }) => {
+    const [opportunity, simulation] = await Promise.all([
+      ctx.db
+        .query("opportunities")
+        .withIndex("by_drug_and_country", (q) => q.eq("drugId", drugId).eq("country", country))
+        .unique(),
+      ctx.db
+        .query("marketSimulations")
+        .withIndex("by_drug_and_country", (q) => q.eq("drugId", drugId).eq("country", country))
+        .unique(),
+    ]);
+    return {
+      opportunity,
+      simulation,
+      computed: buildSimulationResult({ opportunity, simulation }),
+    };
+  },
+});
+
+export const upsertMarketSimulation = mutation({
+  args: {
+    drugId: v.id("drugs"),
+    country: v.string(),
+    exFactoryPrice: v.optional(v.number()),
+    targetSellingPrice: v.optional(v.number()),
+    targetSellingCurrency: v.optional(v.string()),
+    distributorMarginPct: v.optional(v.number()),
+    logisticsCostPerUnit: v.optional(v.number()),
+    regulatoryCostTotal: v.optional(v.number()),
+    tenderCostTotal: v.optional(v.number()),
+    publicShare: v.optional(v.number()),
+    privateShare: v.optional(v.number()),
+    adoptionRate: v.optional(v.number()),
+    accessiblePopulation: v.optional(v.number()),
+    unitsPerCustomer: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const opportunity = await ctx.db
+      .query("opportunities")
+      .withIndex("by_drug_and_country", (q) => q.eq("drugId", args.drugId).eq("country", args.country))
+      .unique();
+    const existing = await ctx.db
+      .query("marketSimulations")
+      .withIndex("by_drug_and_country", (q) => q.eq("drugId", args.drugId).eq("country", args.country))
+      .unique();
+    const computed = buildSimulationResult({
+      opportunity,
+      simulation: { ...existing, ...args },
+    });
+    const payload = {
+      ...args,
+      ...computed,
+      updatedAt: now,
+    };
+    let simulationId: Id<"marketSimulations">;
+    if (existing) {
+      await ctx.db.patch(existing._id, payload);
+      simulationId = existing._id;
+    } else {
+      simulationId = await ctx.db.insert("marketSimulations", {
+        ...payload,
+        createdAt: now,
+      });
+    }
+    return simulationId;
   },
 });
 

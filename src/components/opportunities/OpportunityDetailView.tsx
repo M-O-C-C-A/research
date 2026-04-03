@@ -223,8 +223,12 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                   </div>
                   <div className="mt-3 space-y-2 text-sm text-zinc-300">
                     <p>
-                      <span className="text-zinc-500">Price benchmark:</span>{" "}
-                      {item.primaryPriceBenchmark ?? item.priceCorridor ?? "Not yet set"}
+                      <span className="text-zinc-500">Pricing band:</span>{" "}
+                      {item.recommendedPricingBand ??
+                        item.priceCorridorBand ??
+                        item.primaryPriceBenchmark ??
+                        item.priceCorridor ??
+                        "Not yet set"}
                     </p>
                     <p>
                       <span className="text-zinc-500">Tender signal:</span>{" "}
@@ -239,6 +243,29 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                         {item.competitivePriceSummary}
                       </p>
                     )}
+                    {item.accessibleVolumeEstimate && (
+                      <p className="text-xs leading-relaxed text-zinc-400">
+                        {item.accessibleVolumeEstimate}
+                      </p>
+                    )}
+                    {(item.entryStrategyChannel || item.entryStrategySequencing) && (
+                      <p className="text-xs leading-relaxed text-zinc-400">
+                        {item.entryStrategyChannel
+                          ? item.entryStrategyChannel.replaceAll("_", " ")
+                          : "channel pending"}{" "}
+                        ·{" "}
+                        {item.entryStrategySequencing
+                          ? item.entryStrategySequencing.replaceAll("_", " ")
+                          : "sequencing pending"}
+                      </p>
+                    )}
+                    <Link
+                      href={`/drugs/${opportunity.drugId}/markets/${encodeURIComponent(item.country)}`}
+                      className="inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-300)] hover:text-white"
+                    >
+                      Open margin simulator
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
                   </div>
                 </div>
               ))}

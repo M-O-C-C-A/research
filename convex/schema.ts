@@ -228,6 +228,30 @@ const commercialSummaryMode = v.union(
   v.literal("manual")
 );
 
+const marketModelLevel = v.union(
+  v.literal("low"),
+  v.literal("medium"),
+  v.literal("high"),
+  v.literal("unknown")
+);
+
+const entryStrategyChannel = v.union(
+  v.literal("private_hospital"),
+  v.literal("retail_pharmacy"),
+  v.literal("public_tender"),
+  v.literal("specialty_center"),
+  v.literal("hybrid"),
+  v.literal("unknown")
+);
+
+const entryStrategySequencing = v.union(
+  v.literal("private_first"),
+  v.literal("private_to_tender"),
+  v.literal("tender_led"),
+  v.literal("hybrid_launch"),
+  v.literal("watch")
+);
+
 const priceSourceCategory = v.union(
   v.literal("official"),
   v.literal("commercial_database"),
@@ -644,6 +668,12 @@ export default defineSchema({
     pricePositioning: v.optional(pricePositioning),
     competitionIntensity: v.optional(competitionIntensity),
     competitivePriceSummary: v.optional(v.string()),
+    euReferenceAnchor: v.optional(v.string()),
+    gccRegisteredAnchor: v.optional(v.string()),
+    tenderBenchmarkAnchor: v.optional(v.string()),
+    priceCorridorBand: v.optional(v.string()),
+    recommendedPricingBand: v.optional(v.string()),
+    priceReferencingRisk: v.optional(marketModelLevel),
     tenderOpportunity: v.optional(v.boolean()),
     tenderSignalStrength: v.optional(tenderSignalStrength),
     commercialEvidenceStatus: v.optional(commercialEvidenceStatus),
@@ -653,6 +683,21 @@ export default defineSchema({
     annualOpportunityRange: v.optional(v.string()),
     publicChannelShare: v.optional(v.number()),
     privateChannelShare: v.optional(v.number()),
+    estimatedCustomers: v.optional(v.number()),
+    accessibleShare: v.optional(v.number()),
+    physicianAdoptionRate: v.optional(v.number()),
+    accessibleVolumeEstimate: v.optional(v.string()),
+    baseVolumeCase: v.optional(v.string()),
+    conservativeVolumeCase: v.optional(v.string()),
+    upsideVolumeCase: v.optional(v.string()),
+    publicPrivateMixSummary: v.optional(v.string()),
+    physicianAdoptionSummary: v.optional(v.string()),
+    reimbursementConstraintLevel: v.optional(marketModelLevel),
+    tenderBarrierLevel: v.optional(marketModelLevel),
+    commercialViabilityFlag: v.optional(v.boolean()),
+    entryStrategyRecommendation: v.optional(v.string()),
+    entryStrategyChannel: v.optional(entryStrategyChannel),
+    entryStrategySequencing: v.optional(entryStrategySequencing),
     countryScoreBreakdown: v.optional(countryScoreBreakdown),
     marketAccessRoute: v.optional(marketAccessRoute),
     marketAccessNotes: v.optional(v.string()),
@@ -708,6 +753,40 @@ export default defineSchema({
     .index("by_drug_and_country", ["drugId", "country"])
     .index("by_signal_type", ["signalType"])
     .index("by_source_system", ["sourceSystem"]),
+
+  marketSimulations: defineTable({
+    drugId: v.id("drugs"),
+    country: v.string(),
+    exFactoryPrice: v.optional(v.number()),
+    targetSellingPrice: v.optional(v.number()),
+    targetSellingCurrency: v.optional(v.string()),
+    distributorMarginPct: v.optional(v.number()),
+    logisticsCostPerUnit: v.optional(v.number()),
+    regulatoryCostTotal: v.optional(v.number()),
+    tenderCostTotal: v.optional(v.number()),
+    publicShare: v.optional(v.number()),
+    privateShare: v.optional(v.number()),
+    adoptionRate: v.optional(v.number()),
+    accessiblePopulation: v.optional(v.number()),
+    unitsPerCustomer: v.optional(v.number()),
+    conservativeRevenue: v.optional(v.number()),
+    baseRevenue: v.optional(v.number()),
+    upsideRevenue: v.optional(v.number()),
+    conservativeGrossMarginPct: v.optional(v.number()),
+    baseGrossMarginPct: v.optional(v.number()),
+    upsideGrossMarginPct: v.optional(v.number()),
+    unitEconomicsSummary: v.optional(v.string()),
+    viabilitySummary: v.optional(v.string()),
+    recommendedChannel: v.optional(entryStrategyChannel),
+    recommendedPricingBand: v.optional(v.string()),
+    recommendedSequencing: v.optional(entryStrategySequencing),
+    recommendationRationale: v.optional(v.string()),
+    updatedAt: v.number(),
+    createdAt: v.number(),
+  })
+    .index("by_drug", ["drugId"])
+    .index("by_country", ["country"])
+    .index("by_drug_and_country", ["drugId", "country"]),
 
   reports: defineTable({
     drugId: v.id("drugs"),

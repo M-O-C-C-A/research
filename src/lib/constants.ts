@@ -176,6 +176,30 @@ export const SIGNAL_STRENGTH_OPTIONS = [
   { value: "low", label: "Low" },
 ] as const;
 
+export const MARKET_MODEL_LEVEL_OPTIONS = [
+  { value: "high", label: "High" },
+  { value: "medium", label: "Medium" },
+  { value: "low", label: "Low" },
+  { value: "unknown", label: "Unknown" },
+] as const;
+
+export const ENTRY_STRATEGY_CHANNEL_OPTIONS = [
+  { value: "private_hospital", label: "Private Hospital" },
+  { value: "retail_pharmacy", label: "Retail Pharmacy" },
+  { value: "public_tender", label: "Public Tender" },
+  { value: "specialty_center", label: "Specialty Center" },
+  { value: "hybrid", label: "Hybrid" },
+  { value: "unknown", label: "Unknown" },
+] as const;
+
+export const ENTRY_STRATEGY_SEQUENCING_OPTIONS = [
+  { value: "private_first", label: "Private First" },
+  { value: "private_to_tender", label: "Private to Tender" },
+  { value: "tender_led", label: "Tender-Led" },
+  { value: "hybrid_launch", label: "Hybrid Launch" },
+  { value: "watch", label: "Watch" },
+] as const;
+
 export const DRUG_CATEGORIES = [
   "Small Molecule",
   "Biologic",

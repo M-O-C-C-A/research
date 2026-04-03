@@ -94,10 +94,19 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
       pricePositioning: current?.pricePositioning,
       competitionIntensity: current?.competitionIntensity,
       competitivePriceSummary: current?.competitivePriceSummary,
+      euReferenceAnchor: current?.euReferenceAnchor,
+      gccRegisteredAnchor: current?.gccRegisteredAnchor,
+      tenderBenchmarkAnchor: current?.tenderBenchmarkAnchor,
+      priceCorridorBand: current?.priceCorridorBand,
+      recommendedPricingBand: current?.recommendedPricingBand,
+      priceReferencingRisk: current?.priceReferencingRisk,
       opportunityKind: current?.opportunityKind,
       tenderOpportunity: current?.tenderOpportunity,
       tenderSignalStrength: current?.tenderSignalStrength,
       annualOpportunityRange: current?.annualOpportunityRange,
+      accessibleVolumeEstimate: current?.accessibleVolumeEstimate,
+      entryStrategyChannel: current?.entryStrategyChannel,
+      entryStrategySequencing: current?.entryStrategySequencing,
       marketAccessRoute: current?.marketAccessRoute,
       notes: current?.notes,
     };
@@ -352,10 +361,17 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
           </div>
           <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
             {marketRows.map((row) => (
-              <button
+              <div
                 key={row.country}
-                type="button"
+                role="button"
+                tabIndex={0}
                 onClick={() => setEditingCountry(row.country)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    setEditingCountry(row.country);
+                  }
+                }}
                 className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4 text-left transition-colors hover:border-zinc-700 hover:bg-zinc-950"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -373,7 +389,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
                 </div>
                 <div className="mt-3 space-y-1 text-xs text-zinc-400">
                   <p>
-                    Price: {row.primaryPriceBenchmark ?? row.priceCorridor ?? "No observed price yet"}
+                    Price band: {row.recommendedPricingBand ?? row.priceCorridorBand ?? row.primaryPriceBenchmark ?? row.priceCorridor ?? "No observed price yet"}
                   </p>
                   <p>
                     Tender: {row.tenderSignalStrength ?? (row.tenderOpportunity ? "present" : "none")}
@@ -381,8 +397,24 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
                   <p>
                     Competition: {row.competitionIntensity ?? row.competitorPresence ?? "unknown"}
                   </p>
+                  <p>
+                    Volume: {row.accessibleVolumeEstimate ?? "Not modeled yet"}
+                  </p>
+                  <p>
+                    Sequence: {row.entryStrategySequencing?.replaceAll("_", " ") ?? row.entryStrategyChannel?.replaceAll("_", " ") ?? "not set"}
+                  </p>
                 </div>
-              </button>
+                <div className="mt-3">
+                  <Link
+                    href={`/drugs/${drug._id}/markets/${encodeURIComponent(row.country)}`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-300)] hover:text-white"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    Open margin simulator
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+              </div>
             ))}
           </div>
         </div>

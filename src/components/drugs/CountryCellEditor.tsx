@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import { useMutation, useQuery } from "convex/react";
+import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,9 @@ import {
   COMMERCIAL_SIGNAL_TYPE_OPTIONS,
   COMPETITION_INTENSITY_OPTIONS,
   COMPETITOR_PRESENCE_OPTIONS,
+  ENTRY_STRATEGY_CHANNEL_OPTIONS,
+  ENTRY_STRATEGY_SEQUENCING_OPTIONS,
+  MARKET_MODEL_LEVEL_OPTIONS,
   MARKET_ACCESS_ROUTE_OPTIONS,
   PRICE_POSITIONING_OPTIONS,
   PRICE_SOURCE_CATEGORY_OPTIONS,
@@ -51,10 +55,27 @@ interface CountryOpportunity {
   pricePositioning?: string;
   competitionIntensity?: string;
   competitivePriceSummary?: string;
+  euReferenceAnchor?: string;
+  gccRegisteredAnchor?: string;
+  tenderBenchmarkAnchor?: string;
+  priceCorridorBand?: string;
+  recommendedPricingBand?: string;
+  priceReferencingRisk?: string;
   opportunityKind?: string;
   tenderOpportunity?: boolean;
   tenderSignalStrength?: string;
   annualOpportunityRange?: string;
+  estimatedCustomers?: number;
+  accessibleShare?: number;
+  physicianAdoptionRate?: number;
+  accessibleVolumeEstimate?: string;
+  publicPrivateMixSummary?: string;
+  physicianAdoptionSummary?: string;
+  reimbursementConstraintLevel?: string;
+  tenderBarrierLevel?: string;
+  entryStrategyRecommendation?: string;
+  entryStrategyChannel?: string;
+  entryStrategySequencing?: string;
   marketAccessRoute?: string;
   notes?: string;
 }
@@ -104,6 +125,15 @@ export function CountryCellEditor({
   const [competitivePriceSummary, setCompetitivePriceSummary] = useState(
     opportunity.competitivePriceSummary ?? ""
   );
+  const [priceCorridorBand, setPriceCorridorBand] = useState(
+    opportunity.priceCorridorBand ?? ""
+  );
+  const [recommendedPricingBand, setRecommendedPricingBand] = useState(
+    opportunity.recommendedPricingBand ?? ""
+  );
+  const [priceReferencingRisk, setPriceReferencingRisk] = useState(
+    opportunity.priceReferencingRisk ?? ""
+  );
   const [opportunityKind, setOpportunityKind] = useState(
     opportunity.opportunityKind ?? ""
   );
@@ -112,6 +142,39 @@ export function CountryCellEditor({
   );
   const [annualOpportunityRange, setAnnualOpportunityRange] = useState(
     opportunity.annualOpportunityRange ?? ""
+  );
+  const [estimatedCustomers, setEstimatedCustomers] = useState(
+    opportunity.estimatedCustomers?.toString() ?? ""
+  );
+  const [accessibleShare, setAccessibleShare] = useState(
+    opportunity.accessibleShare?.toString() ?? ""
+  );
+  const [physicianAdoptionRate, setPhysicianAdoptionRate] = useState(
+    opportunity.physicianAdoptionRate?.toString() ?? ""
+  );
+  const [accessibleVolumeEstimate, setAccessibleVolumeEstimate] = useState(
+    opportunity.accessibleVolumeEstimate ?? ""
+  );
+  const [publicPrivateMixSummary, setPublicPrivateMixSummary] = useState(
+    opportunity.publicPrivateMixSummary ?? ""
+  );
+  const [physicianAdoptionSummary, setPhysicianAdoptionSummary] = useState(
+    opportunity.physicianAdoptionSummary ?? ""
+  );
+  const [reimbursementConstraintLevel, setReimbursementConstraintLevel] = useState(
+    opportunity.reimbursementConstraintLevel ?? ""
+  );
+  const [tenderBarrierLevel, setTenderBarrierLevel] = useState(
+    opportunity.tenderBarrierLevel ?? ""
+  );
+  const [entryStrategyRecommendation, setEntryStrategyRecommendation] = useState(
+    opportunity.entryStrategyRecommendation ?? ""
+  );
+  const [entryStrategyChannel, setEntryStrategyChannel] = useState(
+    opportunity.entryStrategyChannel ?? ""
+  );
+  const [entryStrategySequencing, setEntryStrategySequencing] = useState(
+    opportunity.entryStrategySequencing ?? ""
   );
   const [marketAccessRoute, setMarketAccessRoute] = useState(
     opportunity.marketAccessRoute ?? ""
@@ -193,11 +256,27 @@ export function CountryCellEditor({
         pricePositioning: pricePositioning || undefined,
         competitionIntensity: competitionIntensity || undefined,
         competitivePriceSummary: competitivePriceSummary || undefined,
+        priceCorridorBand: priceCorridorBand || undefined,
+        recommendedPricingBand: recommendedPricingBand || undefined,
+        priceReferencingRisk: priceReferencingRisk || undefined,
         opportunityKind: opportunityKind || undefined,
         tenderOpportunity:
           tenderSignalStrength.length > 0 ? tenderSignalStrength !== "none" : undefined,
         tenderSignalStrength: tenderSignalStrength || undefined,
         annualOpportunityRange: annualOpportunityRange || undefined,
+        estimatedCustomers: estimatedCustomers ? Number(estimatedCustomers) : undefined,
+        accessibleShare: accessibleShare ? Number(accessibleShare) : undefined,
+        physicianAdoptionRate: physicianAdoptionRate
+          ? Number(physicianAdoptionRate)
+          : undefined,
+        accessibleVolumeEstimate: accessibleVolumeEstimate || undefined,
+        publicPrivateMixSummary: publicPrivateMixSummary || undefined,
+        physicianAdoptionSummary: physicianAdoptionSummary || undefined,
+        reimbursementConstraintLevel: reimbursementConstraintLevel || undefined,
+        tenderBarrierLevel: tenderBarrierLevel || undefined,
+        entryStrategyRecommendation: entryStrategyRecommendation || undefined,
+        entryStrategyChannel: entryStrategyChannel || undefined,
+        entryStrategySequencing: entryStrategySequencing || undefined,
         marketAccessRoute: marketAccessRoute || undefined,
         notes: notes || undefined,
         commercialSummaryMode: "manual",
@@ -344,10 +423,24 @@ export function CountryCellEditor({
         </DialogHeader>
         <div className="space-y-6 mt-2">
           <section className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
-              <span>{observedPriceCount} price record{observedPriceCount === 1 ? "" : "s"}</span>
-              <span>{observedSignalCount} commercial signal{observedSignalCount === 1 ? "" : "s"}</span>
-              <span>{tenderSignalCount} tender/procurement signal{tenderSignalCount === 1 ? "" : "s"}</span>
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
+                <span>{observedPriceCount} price record{observedPriceCount === 1 ? "" : "s"}</span>
+                <span>{observedSignalCount} commercial signal{observedSignalCount === 1 ? "" : "s"}</span>
+                <span>{tenderSignalCount} tender/procurement signal{tenderSignalCount === 1 ? "" : "s"}</span>
+              </div>
+              <Link
+                href={`/drugs/${opportunity.drugId}/markets/${encodeURIComponent(opportunity.country)}`}
+                className="inline-flex items-center rounded-lg border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] px-3 py-2 text-sm text-[var(--brand-300)] transition-colors hover:border-[color:var(--brand-500)] hover:text-white"
+              >
+                Open margin simulator
+              </Link>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <SummaryBox label="EU reference" value={opportunity.euReferenceAnchor ?? "Not set"} />
+              <SummaryBox label="GCC registered" value={opportunity.gccRegisteredAnchor ?? "Not set"} />
+              <SummaryBox label="Tender benchmark" value={opportunity.tenderBenchmarkAnchor ?? "Not set"} />
+              <SummaryBox label="Recommended band" value={recommendedPricingBand || opportunity.recommendedPricingBand || "Not derived yet"} />
             </div>
           </section>
 
@@ -439,10 +532,22 @@ export function CountryCellEditor({
                   placeholder="e.g. SAR 900–1,200 / month"
                 />
                 <Field
+                  label="Three-Anchor Corridor"
+                  value={priceCorridorBand}
+                  onChange={setPriceCorridorBand}
+                  placeholder="e.g. EUR 420 - SAR 2,150 anchor band"
+                />
+                <Field
                   label="Primary Price Benchmark"
                   value={primaryPriceBenchmark}
                   onChange={setPrimaryPriceBenchmark}
                   placeholder="e.g. SAR 1,050 · reimbursement · official"
+                />
+                <Field
+                  label="Recommended Pricing Band"
+                  value={recommendedPricingBand}
+                  onChange={setRecommendedPricingBand}
+                  placeholder="e.g. stay near GCC midpoint, bias low for tender"
                 />
                 <Field
                   label="Tender Signal Strength"
@@ -455,6 +560,84 @@ export function CountryCellEditor({
                   value={annualOpportunityRange}
                   onChange={setAnnualOpportunityRange}
                   placeholder="e.g. $8M–12M annual opportunity"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field
+                  label="Estimated Customers"
+                  value={estimatedCustomers}
+                  onChange={setEstimatedCustomers}
+                  placeholder="e.g. 1200"
+                />
+                <Field
+                  label="Accessible Share"
+                  value={accessibleShare}
+                  onChange={setAccessibleShare}
+                  placeholder="e.g. 0.35"
+                />
+                <Field
+                  label="Physician Adoption Rate"
+                  value={physicianAdoptionRate}
+                  onChange={setPhysicianAdoptionRate}
+                  placeholder="e.g. 0.25"
+                />
+                <SelectField
+                  label="Price Referencing Risk"
+                  value={priceReferencingRisk}
+                  onValueChange={setPriceReferencingRisk}
+                  options={MARKET_MODEL_LEVEL_OPTIONS}
+                />
+                <SelectField
+                  label="Reimbursement Constraint"
+                  value={reimbursementConstraintLevel}
+                  onValueChange={setReimbursementConstraintLevel}
+                  options={MARKET_MODEL_LEVEL_OPTIONS}
+                />
+                <SelectField
+                  label="Tender Barrier Level"
+                  value={tenderBarrierLevel}
+                  onValueChange={setTenderBarrierLevel}
+                  options={MARKET_MODEL_LEVEL_OPTIONS}
+                />
+                <SelectField
+                  label="Entry Strategy Channel"
+                  value={entryStrategyChannel}
+                  onValueChange={setEntryStrategyChannel}
+                  options={ENTRY_STRATEGY_CHANNEL_OPTIONS}
+                />
+                <SelectField
+                  label="Entry Sequencing"
+                  value={entryStrategySequencing}
+                  onValueChange={setEntryStrategySequencing}
+                  options={ENTRY_STRATEGY_SEQUENCING_OPTIONS}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Field
+                  label="Accessible Volume"
+                  value={accessibleVolumeEstimate}
+                  onChange={setAccessibleVolumeEstimate}
+                  placeholder="e.g. 420 annual units accessible"
+                />
+                <Field
+                  label="Public / Private Mix"
+                  value={publicPrivateMixSummary}
+                  onChange={setPublicPrivateMixSummary}
+                  placeholder="e.g. Public 70% / Private 30%"
+                />
+                <Field
+                  label="Physician Adoption Summary"
+                  value={physicianAdoptionSummary}
+                  onChange={setPhysicianAdoptionSummary}
+                  placeholder="e.g. gradual adoption after KOL seeding"
+                />
+                <Field
+                  label="Entry Strategy Recommendation"
+                  value={entryStrategyRecommendation}
+                  onChange={setEntryStrategyRecommendation}
+                  placeholder="e.g. start private, build evidence, then move into tender"
                 />
               </div>
 
@@ -830,6 +1013,15 @@ function Field({
         placeholder={placeholder}
         className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
       />
+    </div>
+  );
+}
+
+function SummaryBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5">
+      <p className="text-xs uppercase tracking-wider text-zinc-500">{label}</p>
+      <p className="mt-1 text-sm text-zinc-200">{value}</p>
     </div>
   );
 }

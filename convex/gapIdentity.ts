@@ -11,15 +11,24 @@ export function buildGapDedupeKey(args: {
   therapeuticArea: string;
   indication: string;
   targetCountries: string[];
+  canonicalProductId?: string;
+  productGapKind?: string;
 }) {
   const countries = [...new Set(args.targetCountries.map(normalizeGapToken))]
     .filter(Boolean)
     .sort();
-  return [
+  const base = [
     normalizeGapToken(args.therapeuticArea),
     normalizeGapToken(args.indication),
     countries.join("|"),
-  ].join("::");
+  ];
+  if (args.canonicalProductId) {
+    base.push(`product:${args.canonicalProductId}`);
+  }
+  if (args.productGapKind) {
+    base.push(`kind:${normalizeGapToken(args.productGapKind)}`);
+  }
+  return base.join("::");
 }
 
 export function mergeUniqueStrings(values: Array<string | undefined | null>) {

@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useAction, useQuery } from "convex/react";
+import { useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -21,9 +23,49 @@ interface CanonicalProductDetailProps {
 }
 
 export function CanonicalProductDetail({ productId }: CanonicalProductDetailProps) {
+  const [analysisState, setAnalysisState] = useState<{
+    tone: "success" | "error" | "info";
+    title: string;
+    body: string;
+  } | null>(null);
   const product = useQuery(api.productIntelligence.getCanonicalProduct, {
     id: productId as Id<"canonicalProducts">,
   });
+  const existingGaps = useQuery(api.gapOpportunities.listByCanonicalProduct, {
+    canonicalProductId: productId as Id<"canonicalProducts">,
+  });
+  const analyzeProductGap = useAction(api.gapAnalysis.analyzeSingleCanonicalProductGap);
+
+  async function handleAnalyzeProductGap() {
+    setAnalysisState({
+      tone: "info",
+      title: "Analyzing MENA whitespace",
+      body: "Checking product approvals, target-market presence, and patent / biosimilar timing.",
+    });
+    try {
+      const result = await analyzeProductGap({
+        canonicalProductId: productId as Id<"canonicalProducts">,
+      });
+      setAnalysisState({
+        tone: result.created > 0 ? "success" : "error",
+        title:
+          result.created > 0 ? "Product-led gap ready" : "No product-led gap created",
+        body:
+          result.created > 0
+            ? "The gap list has been refreshed with this product-led whitespace review."
+            : result.summary,
+      });
+    } catch (error) {
+      setAnalysisState({
+        tone: "error",
+        title: "Analysis failed",
+        body:
+          error instanceof Error
+            ? error.message
+            : "The product-led gap analysis did not complete.",
+      });
+    }
+  }
 
   if (product === undefined) {
     return (
@@ -78,6 +120,12 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
             </div>
           </div>
           <div className="flex flex-col items-start gap-2 sm:items-end">
+            <Button
+              type="button"
+              onClick={() => void handleAnalyzeProductGap()}
+            >
+              Analyze MENA whitespace
+            </Button>
             <Link
               href="/gaps"
               className="inline-flex items-center rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:text-white"
@@ -86,6 +134,40 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
             </Link>
           </div>
         </div>
+
+        {analysisState && (
+          <div
+            className={`mt-4 rounded-lg border p-3 text-sm ${
+              analysisState.tone === "success"
+                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100"
+                : analysisState.tone === "error"
+                  ? "border-red-500/25 bg-red-500/10 text-red-100"
+                  : "border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] text-zinc-100"
+            }`}
+          >
+            <p className="font-medium">{analysisState.title}</p>
+            <p className="mt-1 opacity-90">{analysisState.body}</p>
+          </div>
+        )}
+
+        {existingGaps && existingGaps.length > 0 && (
+          <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">
+              Existing product-led gaps
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {existingGaps.slice(0, 3).map((gap) => (
+                <Link
+                  key={gap._id}
+                  href={`/gaps/${gap._id}`}
+                  className="rounded-lg border border-zinc-800 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-700 hover:text-white"
+                >
+                  {gap.indication}
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Metric label="Application type" value={product.applicationTypeSummary ?? "—"} />

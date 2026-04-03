@@ -293,6 +293,24 @@ interface DemandSignalsResult {
 type GapType = SupplyGapResult["gapType"];
 type GapValidationStatus = SupplyGapResult["validationStatus"];
 type GapEvidenceItem = SupplyGapResult["evidenceItems"][number];
+type ProductGapKind =
+  | "fda_absent_mena"
+  | "ema_absent_mena"
+  | "fda_ema_absent_mena"
+  | "different_brand_present"
+  | "generic_present"
+  | "off_patent"
+  | "near_patent_expiry"
+  | "biosimilar_opportunity"
+  | "reference_biologic_opportunity"
+  | "unclear_presence";
+
+type MarketPresenceState =
+  | "absent"
+  | "present"
+  | "different_brand_present"
+  | "generic_present"
+  | "unclear";
 
 function clampGapScore(value: number) {
   return Math.min(10, Math.max(0, value));
@@ -319,6 +337,124 @@ function normalizeExternalUrl(value?: string | null): string | null {
     return `https://${raw}`;
   }
   return null;
+}
+
+function normalizeGapCountry(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function normalizeNameToken(value?: string | null) {
+  return (value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function formatProductGapKind(kind?: ProductGapKind) {
+  if (!kind) return "product gap";
+  return kind.replace(/_/g, " ");
+}
+
+function summarizeApprovalCoverage(hasFda: boolean, hasEma: boolean) {
+  if (hasFda && hasEma) return "FDA and EMA";
+  if (hasFda) return "FDA";
+  if (hasEma) return "EMA";
+  return "external regulators";
+}
+
+function getPrimaryProductGapType(kind: ProductGapKind): GapType {
+  switch (kind) {
+    case "fda_absent_mena":
+    case "ema_absent_mena":
+    case "fda_ema_absent_mena":
+      return "regulatory_gap";
+    case "different_brand_present":
+    case "generic_present":
+    case "off_patent":
+    case "near_patent_expiry":
+    case "biosimilar_opportunity":
+    case "reference_biologic_opportunity":
+    case "unclear_presence":
+    default:
+      return "channel_whitespace";
+  }
+}
+
+function scoreProductLedGap(args: {
+  hasFda: boolean;
+  hasEma: boolean;
+  absentCount: number;
+  differentBrandCount: number;
+  genericCount: number;
+  offPatent: boolean;
+  nearExpiry: boolean;
+  isBiologicOpportunity: boolean;
+  hasStrongEvidence: boolean;
+}) {
+  let score = 0;
+  if (args.hasFda) score += 2.4;
+  if (args.hasEma) score += 2.4;
+  if (args.hasFda && args.hasEma) score += 1;
+  score += Math.min(2.5, args.absentCount * 1.2);
+  if (args.differentBrandCount > 0) score += 0.8;
+  if (args.genericCount > 0) score += 0.4;
+  if (args.offPatent) score += 1.2;
+  else if (args.nearExpiry) score += 0.8;
+  if (args.isBiologicOpportunity) score += 1;
+  if (!args.hasStrongEvidence) score -= 1.8;
+  if (args.genericCount > 0 && args.absentCount === 0) score -= 1.2;
+  return clampGapScore(score);
+}
+
+function chooseProductGapKind(args: {
+  hasFda: boolean;
+  hasEma: boolean;
+  absentCount: number;
+  differentBrandCount: number;
+  genericCount: number;
+  offPatent: boolean;
+  nearExpiry: boolean;
+  productType: string;
+  hasReferenceProduct: boolean;
+  hasBiosimilars: boolean;
+}) {
+  if (args.productType === "biosimilar") {
+    return "biosimilar_opportunity" as const;
+  }
+  if (
+    args.productType === "biologic" &&
+    (args.hasReferenceProduct || args.hasBiosimilars)
+  ) {
+    return "reference_biologic_opportunity" as const;
+  }
+  if (args.absentCount > 0 && args.hasFda && args.hasEma) {
+    return "fda_ema_absent_mena" as const;
+  }
+  if (args.absentCount > 0 && args.hasFda) {
+    return "fda_absent_mena" as const;
+  }
+  if (args.absentCount > 0 && args.hasEma) {
+    return "ema_absent_mena" as const;
+  }
+  if (args.differentBrandCount > 0) {
+    return "different_brand_present" as const;
+  }
+  if (args.genericCount > 0) {
+    return "generic_present" as const;
+  }
+  if (args.offPatent) {
+    return "off_patent" as const;
+  }
+  if (args.nearExpiry) {
+    return "near_patent_expiry" as const;
+  }
+  return "unclear_presence" as const;
+}
+
+function dedupeSimpleStrings(values: Array<string | undefined | null>) {
+  return [...new Set(values.map((value) => value?.trim()).filter(Boolean) as string[])];
 }
 
 function deriveGapNarrative(args: {
@@ -617,6 +753,7 @@ suggestedDrugClasses should list drug classes that are actually implicated by th
               indication: indication.name,
               targetCountries: countries,
               gapScore: score,
+              analysisLens: "demand_led",
               gapType: gap.gapType,
               validationStatus: gap.validationStatus,
               evidenceSummary: gap.evidenceSummary,
@@ -820,6 +957,7 @@ Focus on branded/specialty medicines, NOT generics. For each signal identify: th
           indication: areaSignals[0]?.drugOrClass ?? ta,
           targetCountries: countries,
           gapScore,
+          analysisLens: "demand_led",
           gapType,
           validationStatus,
           evidenceSummary: `${areaSignals.length} source-backed demand signal(s) indicate ${gapType.replace("_", " ")} conditions in ${countries.join(", ")}.`,
@@ -1083,5 +1221,442 @@ export const runGapAnalysisFlow = action({
     });
 
     return jobId;
+  },
+});
+
+export const analyzeCanonicalProductGaps = action({
+  args: {
+    canonicalProductIds: v.array(v.id("canonicalProducts")),
+    targetCountries: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const targetCountries =
+      args.targetCountries && args.targetCountries.length > 0
+        ? args.targetCountries
+        : [...MENA_COUNTRIES];
+    const allOpportunities = await ctx.runQuery(api.opportunities.listAllForEngine, {});
+    const gapIds: Id<"gapOpportunities">[] = [];
+    let autoMatchedCompanies = 0;
+
+    for (const canonicalProductId of args.canonicalProductIds) {
+      const product = await ctx.runQuery(api.productIntelligence.getCanonicalProduct, {
+        id: canonicalProductId,
+      });
+      if (!product) {
+        continue;
+      }
+
+      const linkedDrugIds = new Set(product.linkedDrugs.map((drug) => drug._id));
+      const linkedOpportunities = allOpportunities.filter((row) =>
+        linkedDrugIds.has(row.drugId)
+      );
+
+      const hasFda = product.sources.some((source) =>
+        ["drugs_fda", "openfda_label", "orange_book", "purple_book", "ndc"].includes(
+          source.sourceSystem
+        )
+      );
+      const hasEma = product.sources.some(
+        (source) => source.sourceSystem === "ema_central"
+      );
+      if (!hasFda && !hasEma) {
+        continue;
+      }
+
+      const currentYear = new Date().getUTCFullYear();
+      const patentYears = product.linkedDrugs
+        .map((drug) => drug.patentExpiryYear)
+        .filter((value): value is number => typeof value === "number");
+      const earliestPatentYear =
+        patentYears.length > 0 ? Math.min(...patentYears) : undefined;
+      const offPatent =
+        earliestPatentYear !== undefined && earliestPatentYear < currentYear;
+      const nearExpiry =
+        earliestPatentYear !== undefined &&
+        earliestPatentYear >= currentYear &&
+        earliestPatentYear <= currentYear + 2;
+
+      const countryStates = targetCountries.map((country) => {
+        const normalizedCountry = normalizeGapCountry(country);
+        const countryOpportunities = linkedOpportunities.filter(
+          (opportunity) => normalizeGapCountry(opportunity.country) === normalizedCountry
+        );
+        const countryRegistrations = product.linkedDrugs.flatMap((drug) =>
+          (drug.menaRegistrations ?? []).filter(
+            (registration) =>
+              normalizeGapCountry(registration.country) === normalizedCountry
+          )
+        );
+
+        const matchedBrandNames = dedupeSimpleStrings(
+          countryOpportunities.map((entry) => entry.matchedBrandName)
+        );
+        const matchedGenericNames = dedupeSimpleStrings(
+          countryOpportunities.map((entry) => entry.matchedGenericName)
+        );
+
+        let state: MarketPresenceState = "unclear";
+        if (
+          countryOpportunities.some((entry) => entry.genericEquivalentDetected) ||
+          matchedGenericNames.some(
+            (name) => normalizeNameToken(name) === normalizeNameToken(product.inn)
+          )
+        ) {
+          state = "generic_present";
+        } else if (
+          matchedBrandNames.some(
+            (name) =>
+              normalizeNameToken(name) &&
+              normalizeNameToken(name) !== normalizeNameToken(product.brandName)
+          )
+        ) {
+          state = "different_brand_present";
+        } else if (
+          countryOpportunities.some((entry) =>
+            [
+              "formally_registered",
+              "tender_formulary_only",
+              "shortage_listed",
+              "hospital_import_only",
+            ].includes(entry.availabilityStatus ?? "")
+          ) ||
+          countryRegistrations.some((registration) => registration.status === "registered")
+        ) {
+          state = "present";
+        } else if (
+          countryOpportunities.some(
+            (entry) => entry.availabilityStatus === "not_found"
+          ) ||
+          countryRegistrations.some((registration) => registration.status === "not_found")
+        ) {
+          state = "absent";
+        }
+
+        const evidenceLinks = [
+          ...countryOpportunities.flatMap((entry) =>
+            (entry.evidenceItems ?? [])
+              .filter((item) => item.url)
+              .map((item) => ({
+                title: item.title ?? `${country} market evidence`,
+                url: normalizeExternalUrl(item.url),
+                claim: item.claim,
+                sourceKind:
+                  item.sourceType === "official_registry"
+                    ? ("official_registry" as const)
+                    : item.sourceType === "tender_portal" ||
+                        item.sourceType === "public_procurement"
+                      ? ("tender_portal" as const)
+                      : item.sourceType === "market_report"
+                        ? ("market_report" as const)
+                        : ("government_publication" as const),
+                country,
+                productOrClass: product.inn,
+                confidence: item.confidence,
+              }))
+          ),
+          ...countryRegistrations
+            .filter((registration) => registration.url)
+            .map((registration) => ({
+              title: `${country} registration check`,
+              url: normalizeExternalUrl(registration.url),
+              claim: `${product.brandName} was marked ${registration.status.replaceAll("_", " ")} in ${country}.`,
+              sourceKind: "official_registry" as const,
+              country,
+              productOrClass: product.inn,
+              confidence:
+                registration.status === "registered"
+                  ? ("confirmed" as const)
+                  : ("likely" as const),
+            })),
+        ].filter(
+          (item): item is {
+            title: string;
+            url: string;
+            claim: string;
+            sourceKind:
+              | "official_registry"
+              | "government_publication"
+              | "tender_portal"
+              | "market_report";
+            country: string;
+            productOrClass: string;
+            confidence: "confirmed" | "likely" | "inferred";
+          } => Boolean(item.url)
+        );
+
+        return {
+          country,
+          state,
+          matchedBrandNames,
+          matchedGenericNames,
+          evidenceLinks,
+        };
+      });
+
+      const absentCountries = countryStates
+        .filter((entry) => entry.state === "absent")
+        .map((entry) => entry.country);
+      const differentBrandCountries = countryStates.filter(
+        (entry) => entry.state === "different_brand_present"
+      );
+      const genericCountries = countryStates.filter(
+        (entry) => entry.state === "generic_present"
+      );
+      const targetMarketEvidence = uniqBy(
+        countryStates.flatMap((entry) => entry.evidenceLinks),
+        (item) => `${item.url}|${item.claim}|${item.country}`
+      );
+      const approvalEvidence: Array<{
+        claim: string;
+        title: string;
+        url: string;
+        sourceKind: "ema" | "official_registry";
+        country: string;
+        productOrClass: string;
+        confidence: "confirmed" | "likely" | "inferred";
+      }> = uniqBy(
+        product.sources
+          .filter((source) => source.sourceUrl)
+          .map((source) => ({
+            claim: `${product.brandName} is recorded in ${source.geography} via ${source.sourceSystem.replaceAll("_", " ")}${source.approvalDate ? ` with approval context dated ${source.approvalDate}` : ""}.`,
+            title:
+              source.brandName && source.brandName !== product.brandName
+                ? `${source.brandName} regulatory record`
+                : `${product.brandName} regulatory record`,
+            url: normalizeExternalUrl(source.sourceUrl),
+            sourceKind:
+              source.sourceSystem === "ema_central"
+                ? ("ema" as const)
+                : ("official_registry" as const),
+            country: source.geography,
+            productOrClass: product.inn,
+            confidence: source.confidence,
+          }))
+          .filter(
+            (item): item is {
+              claim: string;
+              title: string;
+              url: string;
+              sourceKind: "ema" | "official_registry";
+              country: string;
+              productOrClass: string;
+              confidence: "confirmed" | "likely" | "inferred";
+            } => Boolean(item.url)
+          ),
+        (item) => `${item.url}|${item.country}`
+      );
+
+      const isBiologicOpportunity =
+        product.productType === "biosimilar" ||
+        (product.productType === "biologic" &&
+          (Boolean(product.referenceProduct) || product.biosimilars.length > 0));
+      const productGapKind = chooseProductGapKind({
+        hasFda,
+        hasEma,
+        absentCount: absentCountries.length,
+        differentBrandCount: differentBrandCountries.length,
+        genericCount: genericCountries.length,
+        offPatent,
+        nearExpiry,
+        productType: product.productType,
+        hasReferenceProduct: Boolean(product.referenceProduct),
+        hasBiosimilars: product.biosimilars.length > 0,
+      });
+
+      const evidenceStrongEnough =
+        approvalEvidence.length > 0 && targetMarketEvidence.length > 0;
+      const productSignalDetected =
+        absentCountries.length > 0 ||
+        differentBrandCountries.length > 0 ||
+        genericCountries.length > 0 ||
+        offPatent ||
+        nearExpiry ||
+        isBiologicOpportunity;
+
+      if (!productSignalDetected || !evidenceStrongEnough) {
+        continue;
+      }
+
+      const gapScore = scoreProductLedGap({
+        hasFda,
+        hasEma,
+        absentCount: absentCountries.length,
+        differentBrandCount: differentBrandCountries.length,
+        genericCount: genericCountries.length,
+        offPatent,
+        nearExpiry,
+        isBiologicOpportunity,
+        hasStrongEvidence: evidenceStrongEnough,
+      });
+
+      if (gapScore < 5) {
+        continue;
+      }
+
+      const approvalCoverage = summarizeApprovalCoverage(hasFda, hasEma);
+      const competitorNames = dedupeSimpleStrings([
+        ...differentBrandCountries.flatMap((entry) => entry.matchedBrandNames),
+        ...genericCountries.flatMap((entry) => entry.matchedGenericNames),
+        ...countryStates
+          .filter((entry) => entry.state === "present")
+          .flatMap((entry) => entry.matchedBrandNames),
+      ]);
+      const marketSummary = countryStates
+        .map((entry) => {
+          if (entry.state === "different_brand_present") {
+            return `${entry.country}: present under ${entry.matchedBrandNames.join(", ")}`;
+          }
+          if (entry.state === "generic_present") {
+            return `${entry.country}: generic / INN present`;
+          }
+          return `${entry.country}: ${entry.state.replace(/_/g, " ")}`;
+        })
+        .join("; ");
+
+      const patentNote = offPatent
+        ? `Patent timing looks favourable because linked internal records indicate the product is off-patent (${earliestPatentYear}).`
+        : nearExpiry
+          ? `Patent timing may open soon because linked internal records indicate expiry around ${earliestPatentYear}.`
+          : "";
+      const biologicNote =
+        productGapKind === "biosimilar_opportunity"
+          ? "This is classified as a biosimilar opportunity using canonical reference-product links."
+          : productGapKind === "reference_biologic_opportunity"
+            ? "This is classified as a biologic whitespace opportunity using canonical biosimilar/reference links."
+            : "";
+
+      const gapId = await ctx.runMutation(api.gapOpportunities.create, {
+        therapeuticArea: product.therapeuticArea ?? product.atcCode ?? "Unclassified",
+        indication: `${product.brandName} (${product.inn})`,
+        targetCountries,
+        gapScore,
+        analysisLens: "product_led",
+        canonicalProductId,
+        gapType: getPrimaryProductGapType(productGapKind),
+        productGapKind,
+        validationStatus:
+          absentCountries.length > 0 || differentBrandCountries.length > 0
+            ? "confirmed"
+            : "likely",
+        evidenceSummary: `${approvalCoverage} approval evidence exists for ${product.brandName}. Target-market checks indicate ${marketSummary}.`,
+        verifiedRegisteredCount: countryStates.filter((entry) => entry.state === "present").length,
+        verifiedMissingCount: absentCountries.length,
+        demandEvidence: `Product-led gap anchored to ${product.brandName} (${product.inn}). ${approvalCoverage} approval evidence exists, while current MENA checks indicate ${marketSummary}.`,
+        supplyGap: absentCountries.length > 0
+          ? `${product.brandName} appears absent in ${absentCountries.join(", ")} despite ${approvalCoverage} approval coverage. ${patentNote} ${biologicNote}`.trim()
+          : `The product is not fully absent, but current checks show ${formatProductGapKind(productGapKind)} conditions across ${targetCountries.join(", ")}. ${patentNote} ${biologicNote}`.trim(),
+        competitorLandscape:
+          competitorNames.length > 0
+            ? `Detected local equivalents or alternative naming: ${competitorNames.join("; ")}.`
+            : "No clearly named local equivalent was captured in the current target-market evidence.",
+        suggestedDrugClasses: dedupeSimpleStrings([
+          product.inn,
+          product.therapeuticArea,
+          product.atcCode,
+        ]),
+        regulatoryFeasibility:
+          hasFda && hasEma && product.productType !== "biologic"
+            ? "high"
+            : isBiologicOpportunity
+              ? "medium"
+              : "medium",
+        sources: uniqBy(
+          [...approvalEvidence, ...targetMarketEvidence].map((item) => ({
+            title: item.title,
+            url: item.url,
+          })),
+          (item) => item.url
+        ).slice(0, 12),
+        evidenceItems: [...approvalEvidence, ...targetMarketEvidence].slice(0, 20),
+      });
+
+      gapIds.push(gapId);
+
+      for (const drug of product.linkedDrugs) {
+        await ctx.runMutation(api.gapOpportunities.linkDrug, {
+          id: gapId,
+          drugId: drug._id,
+        });
+      }
+
+      const candidateCompanies = uniqBy(
+        [
+          ...product.entities
+            .filter((entity) => entity.companyId)
+            .map((entity) => entity.companyId),
+          ...product.linkedDrugs
+            .map((drug) => drug.companyId)
+            .filter((companyId): companyId is Id<"companies"> => Boolean(companyId)),
+        ],
+        (companyId) => companyId
+      );
+
+      for (const companyId of candidateCompanies) {
+        await ctx.runMutation(api.gapOpportunities.linkCompany, {
+          id: gapId,
+          companyId,
+        });
+        await ctx.runMutation(api.gapCompanyMatches.upsert, {
+          gapOpportunityId: gapId,
+          companyId,
+          distributorFitScore:
+            productGapKind === "fda_ema_absent_mena" || productGapKind === "biosimilar_opportunity"
+              ? 8.2
+              : 7.2,
+          rationale: `${product.brandName} is already linked to this company through the canonical product graph, which makes it a credible first partner to approach for ${targetCountries.join(", ")} whitespace.`,
+          overlapSummary: `${product.brandName} / ${product.inn} is anchored to this company through manufacturer, MAH, applicant, or linked internal product data.`,
+          overlappingDrugClasses: dedupeSimpleStrings([product.inn, product.atcCode]),
+          targetCountries,
+          estimatedEaseOfEntry: hasFda && hasEma ? "high" : "medium",
+          competitiveWhitespace:
+            absentCountries.length > 0
+              ? `Current checks suggest absence in ${absentCountries.join(", ")}.`
+              : marketSummary,
+          recommendedFirstOutreachAngle: `Position KEMEDICA as the MENA market-entry partner for ${product.brandName}, starting with ${targetCountries.slice(0, 2).join(" and ")}.`,
+          confidence: hasFda && hasEma ? "high" : "medium",
+          evidenceLinks: uniqBy(
+            [...approvalEvidence, ...targetMarketEvidence].map((item) => ({
+              title: item.title,
+              url: item.url,
+            })),
+            (item) => item.url
+          ).slice(0, 6),
+          priorityTier: gapScore >= 8 ? "tier_1" : gapScore >= 6 ? "tier_2" : "tier_3",
+        });
+        autoMatchedCompanies += 1;
+      }
+    }
+
+    if (gapIds.length > 0) {
+      await ctx.runAction(api.decisionOpportunities.rebuildFromResearch, {});
+    }
+
+    return {
+      gapIds,
+      created: gapIds.length,
+      autoMatchedCompanies,
+      targetCountries,
+      summary:
+        gapIds.length > 0
+          ? `Created or refreshed ${gapIds.length} product-led gap${gapIds.length === 1 ? "" : "s"} across ${targetCountries.join(", ")}.`
+          : "No source-backed product-led gap was created from the current product selection.",
+    };
+  },
+});
+
+export const analyzeSingleCanonicalProductGap = action({
+  args: {
+    canonicalProductId: v.id("canonicalProducts"),
+    targetCountries: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, args) => {
+    const result = await ctx.runAction(api.gapAnalysis.analyzeCanonicalProductGaps, {
+      canonicalProductIds: [args.canonicalProductId],
+      targetCountries: args.targetCountries,
+    });
+    return {
+      ...result,
+      gapId: result.gapIds[0],
+    };
   },
 });

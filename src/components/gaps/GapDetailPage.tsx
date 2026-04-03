@@ -12,7 +12,9 @@ import {
   SupplierSearchDialog,
   EvidenceEnrichmentDialog,
   ValidationStatusBadge,
+  formatAnalysisLens,
   formatGapType,
+  formatProductGapKind,
 } from "@/components/gaps/GapsDashboard";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,9 +90,19 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
                 </span>
                 <FeasibilityBadge level={typedGap.regulatoryFeasibility} />
                 <ValidationStatusBadge status={typedGap.validationStatus} />
+                {typedGap.analysisLens && (
+                  <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-300">
+                    {formatAnalysisLens(typedGap.analysisLens)}
+                  </span>
+                )}
                 {typedGap.gapType && (
                   <span className="rounded bg-[color:var(--brand-surface)] px-2 py-0.5 text-xs text-[var(--brand-300)]">
                     {formatGapType(typedGap.gapType)}
+                  </span>
+                )}
+                {typedGap.productGapKind && (
+                  <span className="rounded border border-[color:var(--brand-border)] px-2 py-0.5 text-xs text-[var(--brand-300)]">
+                    {formatProductGapKind(typedGap.productGapKind)}
                   </span>
                 )}
               </div>
@@ -168,6 +180,37 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
             </div>
           </div>
         </section>
+
+        {(typedGap.analysisLens === "product_led" || typedGap.canonicalProductId) && (
+          <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+            <p className="text-xs uppercase tracking-wider text-zinc-500">
+              Product-Led Context
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+              This gap was created from the product angle. The system compared FDA / EMA approval coverage with current target-market presence signals to determine whether the product is absent, differently branded, generic-present, biosimilar-linked, or patent-timed.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {typedGap.analysisLens && (
+                <span className="rounded bg-zinc-800 px-2 py-1 text-xs text-zinc-300">
+                  {formatAnalysisLens(typedGap.analysisLens)}
+                </span>
+              )}
+              {typedGap.productGapKind && (
+                <span className="rounded border border-[color:var(--brand-border)] px-2 py-1 text-xs text-[var(--brand-300)]">
+                  {formatProductGapKind(typedGap.productGapKind)}
+                </span>
+              )}
+            </div>
+            {typedGap.canonicalProductId && (
+              <Link
+                href={`/drugs/catalog/${typedGap.canonicalProductId}`}
+                className="mt-4 inline-flex text-sm text-[var(--brand-300)] hover:text-[var(--brand-400)]"
+              >
+                Open linked product intelligence
+              </Link>
+            )}
+          </section>
+        )}
 
         {(typedGap.evidenceSummary || typedGap.verifiedMissingCount != null || typedGap.verifiedRegisteredCount != null) && (
           <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">

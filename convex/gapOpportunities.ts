@@ -52,10 +52,15 @@ function mergeEvidenceItems(
 export const list = query({
   args: {
     therapeuticArea: v.optional(v.string()),
+    analysisLens: v.optional(v.union(
+      v.literal("demand_led"),
+      v.literal("product_led"),
+      v.literal("mixed")
+    )),
     status: v.optional(v.union(v.literal("active"), v.literal("archived"))),
     limit: v.optional(v.number()),
   },
-  handler: async (ctx, { therapeuticArea, status, limit }) => {
+  handler: async (ctx, { therapeuticArea, analysisLens, status, limit }) => {
     const effectiveStatus = status ?? "active";
     if (therapeuticArea) {
       const results = await ctx.db
@@ -63,6 +68,18 @@ export const list = query({
         .withIndex("by_therapeutic_area", (q) =>
           q.eq("therapeuticArea", therapeuticArea)
         )
+        .order("desc")
+        .take(limit ?? 100);
+      return results.filter(
+        (r) =>
+          r.status === effectiveStatus &&
+          (!analysisLens || r.analysisLens === analysisLens)
+      );
+    }
+    if (analysisLens) {
+      const results = await ctx.db
+        .query("gapOpportunities")
+        .withIndex("by_analysis_lens", (q) => q.eq("analysisLens", analysisLens))
         .order("desc")
         .take(limit ?? 100);
       return results.filter((r) => r.status === effectiveStatus);
@@ -96,6 +113,25 @@ export const get = query({
   },
 });
 
+export const listByCanonicalProduct = query({
+  args: {
+    canonicalProductId: v.id("canonicalProducts"),
+    status: v.optional(v.union(v.literal("active"), v.literal("archived"))),
+  },
+  handler: async (ctx, { canonicalProductId, status }) => {
+    const effectiveStatus = status ?? "active";
+    const rows = await ctx.db
+      .query("gapOpportunities")
+      .withIndex("by_canonical_product", (q) =>
+        q.eq("canonicalProductId", canonicalProductId)
+      )
+      .collect();
+    return rows
+      .filter((row) => row.status === effectiveStatus)
+      .sort((left, right) => right.gapScore - left.gapScore);
+  },
+});
+
 export const stats = query({
   args: {},
   handler: async (ctx) => {
@@ -122,12 +158,30 @@ export const create = mutation({
     indication: v.string(),
     targetCountries: v.array(v.string()),
     gapScore: v.number(),
+    analysisLens: v.optional(v.union(
+      v.literal("demand_led"),
+      v.literal("product_led"),
+      v.literal("mixed")
+    )),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
     gapType: v.optional(v.union(
       v.literal("regulatory_gap"),
       v.literal("formulary_gap"),
       v.literal("shortage_gap"),
       v.literal("tender_pull"),
       v.literal("channel_whitespace")
+    )),
+    productGapKind: v.optional(v.union(
+      v.literal("fda_absent_mena"),
+      v.literal("ema_absent_mena"),
+      v.literal("fda_ema_absent_mena"),
+      v.literal("different_brand_present"),
+      v.literal("generic_present"),
+      v.literal("off_patent"),
+      v.literal("near_patent_expiry"),
+      v.literal("biosimilar_opportunity"),
+      v.literal("reference_biologic_opportunity"),
+      v.literal("unclear_presence")
     )),
     validationStatus: v.optional(v.union(
       v.literal("confirmed"),
@@ -175,14 +229,33 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const now = Date.now();
     const dedupeKey = buildGapDedupeKey(args);
-    const existing = await ctx.db
+    const existingByDedupe = await ctx.db
       .query("gapOpportunities")
       .withIndex("by_status_and_dedupe_key", (q) =>
         q.eq("status", "active").eq("dedupeKey", dedupeKey)
       )
       .unique();
+    const existingByCanonical = args.canonicalProductId
+      ? (
+        await ctx.db
+          .query("gapOpportunities")
+          .withIndex("by_canonical_product", (q) =>
+            q.eq("canonicalProductId", args.canonicalProductId)
+          )
+          .collect()
+      ).find(
+        (row) =>
+          row.status === "active" &&
+          row.targetCountries.join("|") === args.targetCountries.join("|")
+      )
+      : null;
+    const existing = existingByDedupe ?? existingByCanonical;
 
     if (existing) {
+      const mergedAnalysisLens =
+        existing.analysisLens && args.analysisLens && existing.analysisLens !== args.analysisLens
+          ? "mixed"
+          : (args.analysisLens ?? existing.analysisLens);
       await ctx.db.patch(existing._id, {
         therapeuticArea: args.therapeuticArea,
         indication: args.indication,
@@ -191,7 +264,10 @@ export const create = mutation({
           ...args.targetCountries,
         ]),
         gapScore: Math.max(existing.gapScore, args.gapScore),
+        analysisLens: mergedAnalysisLens,
+        canonicalProductId: args.canonicalProductId ?? existing.canonicalProductId,
         gapType: args.gapType ?? existing.gapType,
+        productGapKind: args.productGapKind ?? existing.productGapKind,
         validationStatus:
           args.validationStatus === "confirmed" ||
           existing.validationStatus !== "confirmed"
@@ -222,6 +298,7 @@ export const create = mutation({
         regulatoryFeasibility: args.regulatoryFeasibility ?? existing.regulatoryFeasibility,
         sources: mergeSources(existing.sources, args.sources),
         evidenceItems: mergeEvidenceItems(existing.evidenceItems, args.evidenceItems),
+        dedupeKey,
         linkedDrugIds: existing.linkedDrugIds,
         linkedCompanyIds: existing.linkedCompanyIds,
         updatedAt: now,
@@ -246,12 +323,30 @@ export const update = mutation({
     indication: v.optional(v.string()),
     targetCountries: v.optional(v.array(v.string())),
     gapScore: v.optional(v.number()),
+    analysisLens: v.optional(v.union(
+      v.literal("demand_led"),
+      v.literal("product_led"),
+      v.literal("mixed")
+    )),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
     gapType: v.optional(v.union(
       v.literal("regulatory_gap"),
       v.literal("formulary_gap"),
       v.literal("shortage_gap"),
       v.literal("tender_pull"),
       v.literal("channel_whitespace")
+    )),
+    productGapKind: v.optional(v.union(
+      v.literal("fda_absent_mena"),
+      v.literal("ema_absent_mena"),
+      v.literal("fda_ema_absent_mena"),
+      v.literal("different_brand_present"),
+      v.literal("generic_present"),
+      v.literal("off_patent"),
+      v.literal("near_patent_expiry"),
+      v.literal("biosimilar_opportunity"),
+      v.literal("reference_biologic_opportunity"),
+      v.literal("unclear_presence")
     )),
     validationStatus: v.optional(v.union(
       v.literal("confirmed"),
@@ -310,6 +405,8 @@ export const update = mutation({
         therapeuticArea: nextTherapeuticArea,
         indication: nextIndication,
         targetCountries: nextTargetCountries,
+        canonicalProductId: fields.canonicalProductId ?? existing.canonicalProductId,
+        productGapKind: fields.productGapKind ?? existing.productGapKind,
       }),
       updatedAt: Date.now(),
     });

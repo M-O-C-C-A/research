@@ -43,7 +43,20 @@ export type Gap = {
   indication: string;
   targetCountries: string[];
   gapScore: number;
+  analysisLens?: "demand_led" | "product_led" | "mixed";
+  canonicalProductId?: Id<"canonicalProducts">;
   gapType?: "regulatory_gap" | "formulary_gap" | "shortage_gap" | "tender_pull" | "channel_whitespace";
+  productGapKind?:
+    | "fda_absent_mena"
+    | "ema_absent_mena"
+    | "fda_ema_absent_mena"
+    | "different_brand_present"
+    | "generic_present"
+    | "off_patent"
+    | "near_patent_expiry"
+    | "biosimilar_opportunity"
+    | "reference_biologic_opportunity"
+    | "unclear_presence";
   validationStatus?: "confirmed" | "likely" | "insufficient_evidence";
   evidenceSummary?: string;
   verifiedRegisteredCount?: number;
@@ -118,6 +131,14 @@ export function FeasibilityBadge({ level }: { level?: "high" | "medium" | "low" 
 
 export function formatGapType(value?: Gap["gapType"]) {
   return value ? value.replace(/_/g, " ") : "mixed";
+}
+
+export function formatAnalysisLens(value?: Gap["analysisLens"]) {
+  return value ? value.replace(/_/g, " ") : "demand led";
+}
+
+export function formatProductGapKind(value?: Gap["productGapKind"]) {
+  return value ? value.replace(/_/g, " ") : "product signal";
 }
 
 export function ValidationStatusBadge({
@@ -525,9 +546,19 @@ export function GapDetailPanel({
                 <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">{gap.therapeuticArea}</span>
                 <FeasibilityBadge level={gap.regulatoryFeasibility} />
                 <ValidationStatusBadge status={gap.validationStatus} />
+                {gap.analysisLens && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                    {formatAnalysisLens(gap.analysisLens)}
+                  </span>
+                )}
                 {gap.gapType && (
                   <span className="rounded bg-[color:var(--brand-surface)] px-2 py-0.5 text-xs text-[var(--brand-300)]">
                     {formatGapType(gap.gapType)}
+                  </span>
+                )}
+                {gap.productGapKind && (
+                  <span className="rounded border border-[color:var(--brand-border)] px-2 py-0.5 text-xs text-[var(--brand-300)]">
+                    {formatProductGapKind(gap.productGapKind)}
                   </span>
                 )}
               </div>
@@ -557,8 +588,22 @@ export function GapDetailPanel({
               {/* Demand evidence */}
               <div>
                 <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">Demand Evidence</p>
-                <p className="text-sm text-zinc-300 leading-relaxed">{gap.demandEvidence}</p>
-              </div>
+              <p className="text-sm text-zinc-300 leading-relaxed">{gap.demandEvidence}</p>
+            </div>
+
+              {gap.canonicalProductId && (
+                <div>
+                  <p className="text-xs text-zinc-500 uppercase tracking-wider mb-2">
+                    Linked Product
+                  </p>
+                  <Link
+                    href={`/drugs/catalog/${gap.canonicalProductId}`}
+                    className="text-sm text-[var(--brand-300)] hover:text-[var(--brand-400)]"
+                  >
+                    Open canonical product intelligence
+                  </Link>
+                </div>
+              )}
 
               {(gap.evidenceSummary || gap.verifiedMissingCount != null || gap.verifiedRegisteredCount != null) && (
                 <div>
@@ -860,9 +905,19 @@ function GapOpportunityCard({
             <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-400">{gap.therapeuticArea}</span>
             <FeasibilityBadge level={gap.regulatoryFeasibility} />
             <ValidationStatusBadge status={gap.validationStatus} />
+            {gap.analysisLens && (
+              <span className="text-xs px-2 py-0.5 rounded bg-zinc-800 text-zinc-300">
+                {formatAnalysisLens(gap.analysisLens)}
+              </span>
+            )}
             {gap.gapType && (
               <span className="text-xs px-2 py-0.5 rounded bg-[color:var(--brand-surface)] text-[var(--brand-300)]">
                 {formatGapType(gap.gapType)}
+              </span>
+            )}
+            {gap.productGapKind && (
+              <span className="text-xs px-2 py-0.5 rounded border border-[color:var(--brand-border)] text-[var(--brand-300)]">
+                {formatProductGapKind(gap.productGapKind)}
               </span>
             )}
           </div>

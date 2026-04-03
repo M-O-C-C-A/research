@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
+import { Id } from "../../../convex/_generated/dataModel";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -79,6 +80,12 @@ export function DrugList() {
     title: string;
     body: string;
   } | null>(null);
+  const [gapActionState, setGapActionState] = useState<{
+    tone: "success" | "error" | "info";
+    title: string;
+    body: string;
+  } | null>(null);
+  const [analyzingProductId, setAnalyzingProductId] = useState<string | null>(null);
 
   const products = useQuery(api.productIntelligence.listCanonicalProducts, {
     search: search || undefined,
@@ -92,6 +99,7 @@ export function DrugList() {
   const rebuildCanonicalProducts = useAction(
     api.productIntelligenceActions.rebuildCanonicalProductLinks
   );
+  const analyzeProductGap = useAction(api.gapAnalysis.analyzeSingleCanonicalProductGap);
 
   const latestImportJob =
     recentJobs?.find((job) =>
@@ -203,6 +211,40 @@ export function DrugList() {
       });
     } finally {
       setSyncingSource(null);
+    }
+  }
+
+  async function handleAnalyzeProductGap(productId: string, productName: string) {
+    setAnalyzingProductId(productId);
+    setGapActionState({
+      tone: "info",
+      title: "Analyzing product gap",
+      body: `Checking FDA/EMA approval coverage and current MENA whitespace for ${productName}.`,
+    });
+    try {
+      const result = await analyzeProductGap({
+        canonicalProductId: productId as Id<"canonicalProducts">,
+      });
+      setGapActionState({
+        tone: result.created > 0 ? "success" : "error",
+        title:
+          result.created > 0 ? "Product gap ready" : "No product-led gap created",
+        body:
+          result.created > 0
+            ? `${productName} now has a product-led gap in Best Opportunities / Gaps.`
+            : result.summary,
+      });
+    } catch (error) {
+      setGapActionState({
+        tone: "error",
+        title: "Product gap analysis failed",
+        body:
+          error instanceof Error
+            ? error.message
+            : "The product-led gap analysis did not complete.",
+      });
+    } finally {
+      setAnalyzingProductId(null);
     }
   }
 
@@ -400,6 +442,21 @@ export function DrugList() {
         <p className="text-sm text-zinc-300">
           Use this page as your product directory. It now reads from the canonical FDA/EU product graph so you can compare brand, INN, source geography, ownership, and regulatory identity before outreach.
         </p>
+        {gapActionState && (
+          <div
+            className={cn(
+              "mt-4 rounded-lg border p-3 text-sm",
+              gapActionState.tone === "success"
+                ? "border-emerald-500/25 bg-emerald-500/10 text-emerald-100"
+                : gapActionState.tone === "error"
+                  ? "border-red-500/25 bg-red-500/10 text-red-100"
+                  : "border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] text-zinc-100"
+            )}
+          >
+            <p className="font-medium">{gapActionState.title}</p>
+            <p className="mt-1 opacity-90">{gapActionState.body}</p>
+          </div>
+        )}
       </div>
 
       {products === undefined ? (
@@ -502,13 +559,29 @@ export function DrugList() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <Link
-                      href={`/drugs/catalog/${product._id}`}
-                      className="inline-flex items-center gap-1 text-sm text-[var(--brand-300)] hover:text-[var(--brand-400)]"
-                    >
-                      Review product intelligence
-                      <ArrowRight className="h-4 w-4" />
-                    </Link>
+                    <div className="flex flex-col items-start gap-2">
+                      <Link
+                        href={`/drugs/catalog/${product._id}`}
+                        className="inline-flex items-center gap-1 text-sm text-[var(--brand-300)] hover:text-[var(--brand-400)]"
+                      >
+                        Review product intelligence
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-auto px-0 text-[var(--brand-300)] hover:bg-transparent hover:text-[var(--brand-400)]"
+                        disabled={Boolean(analyzingProductId)}
+                        onClick={() =>
+                          void handleAnalyzeProductGap(product._id, product.brandName)
+                        }
+                      >
+                        {analyzingProductId === product._id
+                          ? "Analyzing MENA whitespace..."
+                          : "Check product gap"}
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
                 );

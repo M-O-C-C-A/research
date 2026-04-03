@@ -675,12 +675,30 @@ export default defineSchema({
     indication: v.string(),
     targetCountries: v.array(v.string()),
     gapScore: v.number(),
+    analysisLens: v.optional(v.union(
+      v.literal("demand_led"),
+      v.literal("product_led"),
+      v.literal("mixed"),
+    )),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
     gapType: v.optional(v.union(
       v.literal("regulatory_gap"),
       v.literal("formulary_gap"),
       v.literal("shortage_gap"),
       v.literal("tender_pull"),
       v.literal("channel_whitespace"),
+    )),
+    productGapKind: v.optional(v.union(
+      v.literal("fda_absent_mena"),
+      v.literal("ema_absent_mena"),
+      v.literal("fda_ema_absent_mena"),
+      v.literal("different_brand_present"),
+      v.literal("generic_present"),
+      v.literal("off_patent"),
+      v.literal("near_patent_expiry"),
+      v.literal("biosimilar_opportunity"),
+      v.literal("reference_biologic_opportunity"),
+      v.literal("unclear_presence"),
     )),
     validationStatus: v.optional(v.union(
       v.literal("confirmed"),
@@ -735,6 +753,8 @@ export default defineSchema({
     .index("by_therapeutic_area", ["therapeuticArea"])
     .index("by_gap_score", ["gapScore"])
     .index("by_status", ["status"])
+    .index("by_analysis_lens", ["analysisLens"])
+    .index("by_canonical_product", ["canonicalProductId"])
     .index("by_created", ["createdAt"])
     .index("by_dedupe_key", ["dedupeKey"])
     .index("by_status_and_dedupe_key", ["status", "dedupeKey"]),

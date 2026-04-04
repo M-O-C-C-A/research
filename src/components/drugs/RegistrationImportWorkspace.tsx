@@ -51,8 +51,12 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export function RegistrationImportWorkspace() {
+  const STAGED_ROW_LIMIT = 25;
   const [sourceMarket, setSourceMarket] = useState("");
   const [selectedImportId, setSelectedImportId] = useState<Id<"registrationImports"> | null>(
+    null
+  );
+  const [resolvingRowId, setResolvingRowId] = useState<Id<"registrationImportRows"> | null>(
     null
   );
   const [busy, setBusy] = useState(false);
@@ -74,7 +78,7 @@ export function RegistrationImportWorkspace() {
   const importsQuery = useQuery(api.registrationImports.listImports, { limit: 10 });
   const detail = useQuery(
     api.registrationImports.getImportDetail,
-    selectedImportId ? { importId: selectedImportId, rowLimit: 150 } : "skip"
+    selectedImportId ? { importId: selectedImportId, rowLimit: STAGED_ROW_LIMIT } : "skip"
   );
   const drugs =
     useQuery(api.drugs.listMatchingOptions, {
@@ -157,6 +161,7 @@ export function RegistrationImportWorkspace() {
           : "The row could not be updated."
       );
     } finally {
+      setResolvingRowId(null);
       setBusy(false);
     }
   }
@@ -530,38 +535,50 @@ export function RegistrationImportWorkspace() {
                                 )}
                               </TableCell>
                               <TableCell className="min-w-[20rem] whitespace-normal">
-                                <Select
-                                  value={row.matchedDrugId ?? "__none"}
-                                  onValueChange={(value) => {
-                                    if (value === "__none") return;
-                                    void handleResolveRow(row._id, value);
-                                  }}
-                                >
-                                  <SelectTrigger className="w-full min-w-0 border-zinc-700 bg-zinc-900 text-white">
-                                    <SelectValue placeholder="Link a drug or skip" />
-                                  </SelectTrigger>
-                                  <SelectContent
-                                    align="start"
-                                    className="max-h-80 w-[min(28rem,calc(100vw-3rem))] min-w-[20rem] border-zinc-700 bg-zinc-900"
+                                {resolvingRowId === row._id ? (
+                                  <Select
+                                    value={row.matchedDrugId ?? "__none"}
+                                    onValueChange={(value) => {
+                                      if (value === "__none") return;
+                                      void handleResolveRow(row._id, value);
+                                    }}
                                   >
-                                    <SelectItem value="__none" className="text-zinc-400">
-                                      Keep current selection
-                                    </SelectItem>
-                                    <SelectItem value="__skip" className="text-zinc-300">
-                                      Skip this row
-                                    </SelectItem>
-                                    {drugs.map((drug) => (
-                                      <SelectItem
-                                        key={drug._id}
-                                        value={drug._id}
-                                        className="text-white"
-                                        title={`${drug.name} • ${drug.genericName}`}
-                                      >
-                                        {drug.name} • {drug.genericName}
+                                    <SelectTrigger className="w-full min-w-0 border-zinc-700 bg-zinc-900 text-white">
+                                      <SelectValue placeholder="Link a drug or skip" />
+                                    </SelectTrigger>
+                                    <SelectContent
+                                      align="start"
+                                      className="max-h-80 w-[min(28rem,calc(100vw-3rem))] min-w-[20rem] border-zinc-700 bg-zinc-900"
+                                    >
+                                      <SelectItem value="__none" className="text-zinc-400">
+                                        Keep current selection
                                       </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                                      <SelectItem value="__skip" className="text-zinc-300">
+                                        Skip this row
+                                      </SelectItem>
+                                      {drugs.map((drug) => (
+                                        <SelectItem
+                                          key={drug._id}
+                                          value={drug._id}
+                                          className="text-white"
+                                          title={`${drug.name} • ${drug.genericName}`}
+                                        >
+                                          {drug.name} • {drug.genericName}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setResolvingRowId(row._id)}
+                                    className="w-full justify-start"
+                                  >
+                                    {row.matchStatus === "matched" ? "Change match" : "Resolve row"}
+                                  </Button>
+                                )}
                               </TableCell>
                               <TableCell className="whitespace-normal text-xs text-zinc-500">
                                 {row.validationIssues.length > 0

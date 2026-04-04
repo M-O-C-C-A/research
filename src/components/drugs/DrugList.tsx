@@ -51,7 +51,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 function getReadableSyncError(
   error: unknown,
-  source: "fda" | "ema" | "bfarm" | "rebuild" | "update"
+  source: "fda" | "ema" | "bfarm" | "rebuild" | "update" | "system"
 ) {
   const raw =
     error instanceof Error
@@ -100,6 +100,7 @@ export function DrugList() {
     api.productIntelligenceActions.rebuildCanonicalProductLinks
   );
   const analyzeProductGap = useAction(api.gapAnalysis.analyzeSingleCanonicalProductGap);
+  const runGapFlow = useAction(api.gapAnalysis.runGapAnalysisFlow);
 
   const latestImportJob =
     recentJobs?.find((job) =>
@@ -110,30 +111,60 @@ export function DrugList() {
   const latestProductJob = latestImportJob ?? latestRebuildJob;
 
   const isUpdatingDirectory = syncingSource === "update";
+  const isRebuildingSystem = syncingSource === "system";
 
   function getDefaultSyncTerm() {
     return syncSearch || search || undefined;
   }
 
   async function runSync(
-    source: "fda" | "ema" | "bfarm" | "rebuild" | "update"
+    source: "fda" | "ema" | "bfarm" | "rebuild" | "update" | "system"
   ) {
     setSyncingSource(source);
     setSyncMessage({
       tone: "info",
       title:
+        source === "system"
+          ? "Rebuilding GCC++ workspace"
+          :
         source === "update"
           ? "Updating product directory"
           : source === "rebuild"
             ? "Rebuilding product directory"
             : `Running ${source.toUpperCase()} sync`,
       body:
+        source === "system"
+          ? "Refreshing FDA and EMA products, rebuilding the canonical graph, and rerunning GCC++ gap analysis."
+          :
         source === "update"
           ? "Pulling FDA and EMA records, then rebuilding the canonical product graph."
           : "Your product intelligence refresh is in progress.",
     });
     try {
-      if (source === "update") {
+      if (source === "system") {
+        const defaultTerm = getDefaultSyncTerm();
+        const fdaResult = await syncFdaProducts({
+          searchTerm: defaultTerm,
+          limit: defaultTerm ? 25 : 50,
+        });
+        const emaResult = await syncEmaProducts({
+          searchTerm: defaultTerm,
+          limit: defaultTerm ? 50 : 100,
+        });
+        const rebuildResult = await rebuildCanonicalProducts({});
+        const gapFlowJobId = await runGapFlow({
+          mode: "all_areas",
+        });
+        const imported = (fdaResult.upserted ?? 0) + (emaResult.upserted ?? 0);
+        setSyncMessage({
+          tone: "success",
+          title: "GCC++ workspace rebuilt",
+          body:
+            imported > 0
+              ? `Imported ${imported} FDA/EMA source records, rebuilt ${rebuildResult.canonicalProductsCreated} canonical products, and launched the GCC++ gap refresh (job ${gapFlowJobId}). If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`
+              : `The system rebuild completed and the GCC++ gap refresh was launched (job ${gapFlowJobId}), but no new FDA/EMA source records were imported in this run. If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`,
+        });
+      } else if (source === "update") {
         const defaultTerm = getDefaultSyncTerm();
         const fdaResult = await syncFdaProducts({
           searchTerm: defaultTerm,
@@ -296,6 +327,20 @@ export function DrugList() {
             <div className="flex flex-wrap items-center gap-3">
               <Button
                 type="button"
+                onClick={() => void runSync("system")}
+                disabled={syncingSource !== null}
+                className="min-w-44"
+                variant="secondary"
+              >
+                {isRebuildingSystem ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                {isRebuildingSystem ? "Rebuilding system..." : "Rebuild everything"}
+              </Button>
+              <Button
+                type="button"
                 onClick={() => void runSync("update")}
                 disabled={syncingSource !== null}
                 className="min-w-44"
@@ -308,7 +353,7 @@ export function DrugList() {
                 {isUpdatingDirectory ? "Updating directory..." : "Update directory"}
               </Button>
               <div className="text-xs text-zinc-500">
-                Runs FDA sync, EMA sync, and canonical rebuild in one step.
+                Rebuild everything refreshes FDA, EMA, the canonical graph, and GCC++ gap analysis. Update directory refreshes the product graph only.
               </div>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-3">

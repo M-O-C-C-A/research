@@ -49,6 +49,16 @@ type MatchingSnapshot = {
     _id: Id<"companies">;
     name: string;
   }>;
+  canonicalProducts: Array<{
+    _id: Id<"canonicalProducts">;
+    brandName: string;
+    inn: string;
+    normalizedBrandName: string;
+    normalizedInn: string;
+    primaryManufacturerName?: string;
+    primaryMahName?: string;
+    linkedDrugIds: Id<"drugs">[];
+  }>;
 };
 
 type MatchResult = {
@@ -198,6 +208,178 @@ function buildCompanyMatch(
   return matches.length === 1 ? matches[0]._id : undefined;
 }
 
+function splitIngredientSignals(value?: string) {
+  return new Set(
+    normalizeText(value)
+      .split(/\s+\+\s+|\s*\/\s*|\s*,\s*|\s*;\s*/)
+      .map((part) => part.trim())
+      .filter(Boolean)
+  );
+}
+
+function ingredientSignalsMatch(left?: string, right?: string) {
+  const leftNormalized = normalizeText(left);
+  const rightNormalized = normalizeText(right);
+  if (!leftNormalized || !rightNormalized) return false;
+  if (leftNormalized === rightNormalized) return true;
+
+  const leftParts = splitIngredientSignals(left);
+  const rightParts = splitIngredientSignals(right);
+  if (leftParts.size === 0 || rightParts.size === 0) return false;
+
+  for (const part of leftParts) {
+    if (rightParts.has(part)) return true;
+  }
+  return false;
+}
+
+function canonicalMatchesEntity(
+  product: MatchingSnapshot["canonicalProducts"][number],
+  companyNames: string[]
+) {
+  if (companyNames.length === 0) return true;
+  const candidates = [
+    product.primaryManufacturerName,
+    product.primaryMahName,
+  ]
+    .map((value) => normalizeText(value))
+    .filter(Boolean);
+  return candidates.some((candidate) => companyNames.includes(candidate));
+}
+
+function chooseLinkedDrugFromCanonical(args: {
+  canonicalProduct: MatchingSnapshot["canonicalProducts"][number];
+  eligibleDrugs: MatchingSnapshot["drugs"];
+  productName: string;
+  genericName: string;
+  companyNames: string[];
+}) {
+  let linkedCandidates = args.eligibleDrugs.filter((drug) =>
+    args.canonicalProduct.linkedDrugIds.includes(drug._id)
+  );
+
+  if (linkedCandidates.length > 1) {
+    const brandExact = linkedCandidates.filter(
+      (drug) => normalizeText(drug.name) === args.productName
+    );
+    if (brandExact.length === 1) linkedCandidates = brandExact;
+  }
+
+  if (linkedCandidates.length > 1 && args.genericName) {
+    const genericExact = linkedCandidates.filter((drug) =>
+      ingredientSignalsMatch(drug.genericName, args.genericName)
+    );
+    if (genericExact.length === 1) linkedCandidates = genericExact;
+  }
+
+  if (linkedCandidates.length > 1 && args.companyNames.length > 0) {
+    const narrowed = matchByEntityName(linkedCandidates, args.companyNames);
+    if (narrowed.length > 0) linkedCandidates = narrowed;
+  }
+
+  return uniqueDrugs(linkedCandidates);
+}
+
+function matchViaCanonicalProduct(
+  row: ParsedRegistrationRow,
+  snapshot: MatchingSnapshot,
+  eligibleDrugs: MatchingSnapshot["drugs"],
+  companyNames: string[],
+  validationIssues: string[]
+): MatchResult | null {
+  if (row.productKind === "device") return null;
+
+  const productName = normalizeText(row.productName);
+  const genericName = normalizeText(row.genericName);
+  const canonicalProducts = snapshot.canonicalProducts;
+
+  let canonicalCandidates = canonicalProducts.filter(
+    (product) => product.normalizedBrandName === productName
+  );
+
+  if (canonicalCandidates.length > 1 && genericName) {
+    const narrowed = canonicalCandidates.filter((product) =>
+      ingredientSignalsMatch(product.inn, row.genericName)
+    );
+    if (narrowed.length > 0) canonicalCandidates = narrowed;
+  }
+
+  if (canonicalCandidates.length > 1 && companyNames.length > 0) {
+    const narrowed = canonicalCandidates.filter((product) =>
+      canonicalMatchesEntity(product, companyNames)
+    );
+    if (narrowed.length > 0) canonicalCandidates = narrowed;
+  }
+
+  if (canonicalCandidates.length === 0 && genericName) {
+    canonicalCandidates = canonicalProducts.filter((product) =>
+      ingredientSignalsMatch(product.inn, row.genericName)
+    );
+    if (canonicalCandidates.length > 1 && companyNames.length > 0) {
+      const narrowed = canonicalCandidates.filter((product) =>
+        canonicalMatchesEntity(product, companyNames)
+      );
+      if (narrowed.length > 0) canonicalCandidates = narrowed;
+    }
+  }
+
+  canonicalCandidates = [...new Map(canonicalCandidates.map((product) => [product._id, product])).values()];
+
+  if (canonicalCandidates.length === 1) {
+    const canonicalProduct = canonicalCandidates[0];
+    const linkedDrugCandidates = chooseLinkedDrugFromCanonical({
+      canonicalProduct,
+      eligibleDrugs,
+      productName,
+      genericName,
+      companyNames,
+    });
+
+    if (linkedDrugCandidates.length === 1) {
+      return {
+        matchStatus: "matched",
+        matchedDrugId: linkedDrugCandidates[0]._id,
+        matchedCompanyId: linkedDrugCandidates[0].companyId,
+        matchExplanation:
+          normalizeText(canonicalProduct.brandName) === productName
+            ? "Matched through the FDA/EMA canonical product graph on exact brand name."
+            : "Matched through the FDA/EMA canonical product graph on INN plus manufacturer context.",
+        validationIssues,
+      };
+    }
+
+    if (linkedDrugCandidates.length > 1) {
+      return {
+        matchStatus: "ambiguous",
+        matchedCompanyId: buildCompanyMatch(snapshot, companyNames),
+        matchExplanation:
+          "A strong FDA/EMA canonical product match was found, but multiple linked internal products still fit this row.",
+        validationIssues: [...validationIssues, "Multiple internal products matched the same canonical product."],
+      };
+    }
+
+    return {
+      matchStatus: "unmatched",
+      matchedCompanyId: buildCompanyMatch(snapshot, companyNames),
+      matchExplanation:
+        "A likely FDA/EMA canonical product match was found, but no linked internal product record is available yet.",
+      validationIssues: [...validationIssues, "Canonical FDA/EMA match found but no linked internal product exists yet."],
+    };
+  }
+
+  if (canonicalCandidates.length > 1) {
+    return {
+      matchStatus: "ambiguous",
+      matchedCompanyId: buildCompanyMatch(snapshot, companyNames),
+      matchExplanation:
+        "Multiple FDA/EMA canonical products fit this UAE row; review is required.",
+      validationIssues: [...validationIssues, "Multiple canonical FDA/EMA products matched this row."],
+    };
+  }
+
+  return null;
+}
+
 function matchParsedRow(
   row: ParsedRegistrationRow,
   snapshot: MatchingSnapshot
@@ -279,6 +461,17 @@ function matchParsedRow(
         validationIssues: [...validationIssues, "Multiple drugs matched by generic name and company."],
       };
     }
+  }
+
+  const canonicalMatch = matchViaCanonicalProduct(
+    row,
+    snapshot,
+    eligibleDrugs,
+    companyNames,
+    validationIssues
+  );
+  if (canonicalMatch) {
+    return canonicalMatch;
   }
 
   return {

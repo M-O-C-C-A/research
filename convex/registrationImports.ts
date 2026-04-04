@@ -327,10 +327,11 @@ export const requestApply = mutation({
 export const getMatchingSnapshot = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const [drugs, companies, links] = await Promise.all([
+    const [drugs, companies, links, canonicalProducts] = await Promise.all([
       ctx.db.query("drugs").collect(),
       ctx.db.query("companies").collect(),
       ctx.db.query("drugEntityLinks").collect(),
+      ctx.db.query("canonicalProducts").collect(),
     ]);
 
     const companyById = new Map(companies.map((company) => [company._id, company]));
@@ -380,6 +381,18 @@ export const getMatchingSnapshot = internalQuery({
       companies: companies.map((company) => ({
         _id: company._id,
         name: company.name,
+      })),
+      canonicalProducts: canonicalProducts.map((product) => ({
+        _id: product._id,
+        brandName: product.brandName,
+        inn: product.inn,
+        normalizedBrandName: product.normalizedBrandName ?? "",
+        normalizedInn: product.normalizedInn ?? "",
+        primaryManufacturerName: product.primaryManufacturerName,
+        primaryMahName: product.primaryMahName,
+        linkedDrugIds: drugs
+          .filter((drug) => drug.canonicalProductId === product._id)
+          .map((drug) => drug._id),
       })),
     };
   },

@@ -215,6 +215,27 @@ export const list = query({
   },
 });
 
+export const listMatchingOptions = query({
+  args: {
+    search: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { search, limit }) => {
+    const rows = await ctx.db.query("drugs").collect();
+    const filtered = rows
+      .filter((drug) => matchesDrugSearch(drug, search))
+      .sort((left, right) => left.name.localeCompare(right.name))
+      .slice(0, limit ?? 250);
+
+    return filtered.map((drug) => ({
+      _id: drug._id,
+      name: drug.name,
+      genericName: drug.genericName,
+      category: drug.category,
+    }));
+  },
+});
+
 export const listEnriched = query({
   args: {
     search: v.optional(v.string()),

@@ -76,7 +76,10 @@ export function RegistrationImportWorkspace() {
     api.registrationImports.getImportDetail,
     selectedImportId ? { importId: selectedImportId, rowLimit: 150 } : "skip"
   );
-  const drugs = useQuery(api.drugs.list, {}) ?? [];
+  const drugs =
+    useQuery(api.drugs.listMatchingOptions, {
+      limit: 250,
+    }) ?? [];
   const imports = importsQuery ?? EMPTY_IMPORTS;
 
   useEffect(() => {

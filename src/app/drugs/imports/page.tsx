@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { RegistrationImportWorkspace } from "@/components/drugs/RegistrationImportWorkspace";
 import { BRAND_NAME } from "@/lib/brand";
@@ -14,6 +15,14 @@ export default function DrugRegistrationImportsPage() {
           { label: "Drugs", href: "/drugs" },
           { label: "Registration Imports" },
         ]}
+        action={
+          <Link
+            href="/help/matching"
+            className="inline-flex items-center rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+          >
+            How matching works
+          </Link>
+        }
       />
       <RegistrationImportWorkspace />
     </main>

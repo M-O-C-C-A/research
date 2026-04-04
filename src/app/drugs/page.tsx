@@ -13,12 +13,20 @@ export default function DrugsPage() {
         title="Product Directory"
         description="Browse medicines and medical devices to evaluate ownership, manufacturer coverage, and EU-to-GCC++ whitespace before preparing outreach."
         action={
-          <Link
-            href="/gaps"
-            className="inline-flex items-center rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
-          >
-            Check market opportunity
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/help/matching"
+              className="inline-flex items-center rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+            >
+              How matching works
+            </Link>
+            <Link
+              href="/gaps"
+              className="inline-flex items-center rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+            >
+              Check market opportunity
+            </Link>
+          </div>
         }
       />
       <Suspense fallback={null}>

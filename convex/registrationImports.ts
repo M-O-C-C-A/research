@@ -218,29 +218,47 @@ export const getImportDetail = query({
   handler: async (ctx, { importId, rowLimit }) => {
     const importDoc = await ctx.db.get(importId);
     if (!importDoc) return null;
-    const rows = await ctx.db
-      .query("registrationImportRows")
-      .withIndex("by_import", (q) => q.eq("importId", importId))
-      .collect();
+    const limit = Math.max(0, rowLimit ?? 150);
+    if (limit === 0) {
+      return { importDoc, rows: [], totalRowCount: importDoc.totalRows };
+    }
 
-    const limitedRows = rows
-      .sort((left, right) => {
-        const priority: Record<Doc<"registrationImportRows">["matchStatus"], number> = {
-          ambiguous: 0,
-          unmatched: 1,
-          matched: 2,
-          skipped: 3,
-        };
-        const matchDelta = priority[left.matchStatus] - priority[right.matchStatus];
-        if (matchDelta !== 0) return matchDelta;
-        if (left.sourceSheet !== right.sourceSheet) {
-          return left.sourceSheet.localeCompare(right.sourceSheet);
-        }
-        return left.sourceRowNumber - right.sourceRowNumber;
-      })
-      .slice(0, rowLimit ?? 150);
+    const priorityStatuses: Array<Doc<"registrationImportRows">["matchStatus"]> = [
+      "ambiguous",
+      "unmatched",
+      "matched",
+      "skipped",
+    ];
+    const previewRows: Doc<"registrationImportRows">[] = [];
 
-    return { importDoc, rows: limitedRows, totalRowCount: rows.length };
+    for (const status of priorityStatuses) {
+      const remaining = limit - previewRows.length;
+      if (remaining <= 0) break;
+      const statusRows = await ctx.db
+        .query("registrationImportRows")
+        .withIndex("by_import_and_match_status", (q) =>
+          q.eq("importId", importId).eq("matchStatus", status)
+        )
+        .take(remaining);
+      previewRows.push(...statusRows);
+    }
+
+    const limitedRows = previewRows.sort((left, right) => {
+      const priority: Record<Doc<"registrationImportRows">["matchStatus"], number> = {
+        ambiguous: 0,
+        unmatched: 1,
+        matched: 2,
+        skipped: 3,
+      };
+      const matchDelta = priority[left.matchStatus] - priority[right.matchStatus];
+      if (matchDelta !== 0) return matchDelta;
+      if (left.sourceSheet !== right.sourceSheet) {
+        return left.sourceSheet.localeCompare(right.sourceSheet);
+      }
+      return left.sourceRowNumber - right.sourceRowNumber;
+    });
+
+    return { importDoc, rows: limitedRows, totalRowCount: importDoc.totalRows };
   },
 });
 

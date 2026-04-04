@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -81,16 +81,15 @@ export function RegistrationImportWorkspace() {
     selectedImportId ? { importId: selectedImportId, rowLimit: STAGED_ROW_LIMIT } : "skip"
   );
   const drugs =
-    useQuery(api.drugs.listMatchingOptions, {
-      limit: 250,
-    }) ?? [];
+    useQuery(
+      api.drugs.listMatchingOptions,
+      selectedImportId
+        ? {
+            limit: 250,
+          }
+        : "skip"
+    ) ?? [];
   const imports = importsQuery ?? EMPTY_IMPORTS;
-
-  useEffect(() => {
-    if (!selectedImportId && imports.length > 0) {
-      setSelectedImportId(imports[0]._id);
-    }
-  }, [imports, selectedImportId]);
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -272,8 +271,6 @@ export function RegistrationImportWorkspace() {
                 imports.map((item) => (
                   <button
                     key={item._id}
-                    type="button"
-                    onClick={() => setSelectedImportId(item._id)}
                     className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                       selectedImportId === item._id
                         ? "border-zinc-600 bg-zinc-800"
@@ -291,6 +288,15 @@ export function RegistrationImportWorkspace() {
                     <p className="mt-1 text-xs text-zinc-500">
                       {item.totalRows} rows • {item.matchedRows} matched • {item.unresolvedRows} unresolved
                     </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => setSelectedImportId(item._id)}
+                    >
+                      Open import review
+                    </Button>
                   </button>
                 ))
               )}
@@ -604,7 +610,9 @@ export function RegistrationImportWorkspace() {
             </>
           ) : (
             <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/40 p-10 text-center text-zinc-500">
-              Upload a workbook to create the first registration import.
+              {imports.length > 0
+                ? "Select an import from the left to load the review workspace."
+                : "Upload a workbook to create the first registration import."}
             </div>
           )}
         </div>

@@ -269,7 +269,7 @@ export function RegistrationImportWorkspace() {
                 <p className="text-sm text-zinc-500">No imports yet.</p>
               ) : (
                 imports.map((item) => (
-                  <button
+                  <div
                     key={item._id}
                     className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
                       selectedImportId === item._id
@@ -297,7 +297,7 @@ export function RegistrationImportWorkspace() {
                     >
                       Open import review
                     </Button>
-                  </button>
+                  </div>
                 ))
               )}
             </div>

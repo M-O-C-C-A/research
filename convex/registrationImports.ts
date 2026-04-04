@@ -102,40 +102,6 @@ type ImportRowInput = {
   rawRow: Record<string, string>;
 };
 
-type ImportSummary = {
-  totalRows: number;
-  matchedRows: number;
-  unresolvedRows: number;
-  ambiguousRows: number;
-  skippedRows: number;
-  parseErrorCount: number;
-};
-
-function buildImportSummary(rows: Array<Doc<"registrationImportRows"> | ImportRowInput>): ImportSummary {
-  const totalRows = rows.length;
-  const matchedRows = rows.filter((row) => row.matchStatus === "matched").length;
-  const ambiguousRows = rows.filter((row) => row.matchStatus === "ambiguous").length;
-  const skippedRows = rows.filter((row) => row.matchStatus === "skipped").length;
-  const unresolvedRows = rows.filter(
-    (row) => row.matchStatus === "unmatched" || row.matchStatus === "ambiguous"
-  ).length;
-  const parseErrorCount = rows.filter((row) => row.validationIssues.length > 0).length;
-  return {
-    totalRows,
-    matchedRows,
-    unresolvedRows,
-    ambiguousRows,
-    skippedRows,
-    parseErrorCount,
-  };
-}
-
-function deriveImportStatus(summary: ImportSummary): RegistrationImportStatus {
-  if (summary.totalRows === 0) return "parsed";
-  if (summary.unresolvedRows > 0) return "needs_review";
-  return "ready";
-}
-
 type DbCtx = QueryCtx | MutationCtx;
 
 async function loadImportRows(ctx: DbCtx, importId: Id<"registrationImports">) {
@@ -145,26 +111,25 @@ async function loadImportRows(ctx: DbCtx, importId: Id<"registrationImports">) {
     .collect();
 }
 
-async function syncImportSummary(
-  ctx: MutationCtx,
-  importId: Id<"registrationImports">,
-  patch: Partial<Doc<"registrationImports">> = {}
-) {
-  const rows = await loadImportRows(ctx, importId);
-  const summary = buildImportSummary(rows);
-  const appliedRows = rows.filter((row) => row.applyState === "applied").length;
-  await ctx.db.patch(importId, {
-    totalRows: summary.totalRows,
-    matchedRows: summary.matchedRows,
-    unresolvedRows: summary.unresolvedRows,
-    ambiguousRows: summary.ambiguousRows,
-    skippedRows: summary.skippedRows,
-    appliedRows,
-    parseErrorCount: summary.parseErrorCount,
-    status: deriveImportStatus(summary),
-    updatedAt: Date.now(),
-    ...patch,
-  });
+function importCountDeltaForStatus(status: Doc<"registrationImportRows">["matchStatus"]) {
+  return {
+    matchedRows: status === "matched" ? 1 : 0,
+    unresolvedRows: status === "unmatched" || status === "ambiguous" ? 1 : 0,
+    ambiguousRows: status === "ambiguous" ? 1 : 0,
+    skippedRows: status === "skipped" ? 1 : 0,
+  };
+}
+
+function deriveImportStatusFromDoc(args: {
+  totalRows: number;
+  unresolvedRows: number;
+  matchedRows: number;
+  appliedRows: number;
+}) {
+  if (args.totalRows === 0) return "parsed" as const;
+  if (args.unresolvedRows > 0) return "needs_review" as const;
+  if (args.matchedRows > 0 && args.appliedRows >= args.matchedRows) return "applied" as const;
+  return "ready" as const;
 }
 
 export const createImport = mutation({
@@ -271,8 +236,27 @@ export const resolveRowMatch = mutation({
   handler: async (ctx, { rowId, matchedDrugId, skip }) => {
     const row = await ctx.db.get(rowId);
     if (!row) throw new Error("Import row not found.");
+    const importDoc = await ctx.db.get(row.importId);
+    if (!importDoc) throw new Error("Import not found.");
 
     const now = Date.now();
+    const previousCounts = importCountDeltaForStatus(row.matchStatus);
+    const nextStatus = skip
+      ? ("skipped" as const)
+      : matchedDrugId
+        ? ("matched" as const)
+        : ("unmatched" as const);
+
+    const nextCounts = importCountDeltaForStatus(nextStatus);
+    const nextSummary = {
+      matchedRows: importDoc.matchedRows - previousCounts.matchedRows + nextCounts.matchedRows,
+      unresolvedRows:
+        importDoc.unresolvedRows - previousCounts.unresolvedRows + nextCounts.unresolvedRows,
+      ambiguousRows:
+        importDoc.ambiguousRows - previousCounts.ambiguousRows + nextCounts.ambiguousRows,
+      skippedRows: importDoc.skippedRows - previousCounts.skippedRows + nextCounts.skippedRows,
+    };
+
     if (skip) {
       await ctx.db.patch(rowId, {
         matchStatus: "skipped",
@@ -282,7 +266,16 @@ export const resolveRowMatch = mutation({
         matchExplanation: "Skipped by reviewer.",
         updatedAt: now,
       });
-      await syncImportSummary(ctx, row.importId);
+      await ctx.db.patch(row.importId, {
+        ...nextSummary,
+        status: deriveImportStatusFromDoc({
+          totalRows: importDoc.totalRows,
+          appliedRows: importDoc.appliedRows,
+          matchedRows: nextSummary.matchedRows,
+          unresolvedRows: nextSummary.unresolvedRows,
+        }),
+        updatedAt: now,
+      });
       return;
     }
 
@@ -295,7 +288,16 @@ export const resolveRowMatch = mutation({
         matchExplanation: "Match cleared for manual review.",
         updatedAt: now,
       });
-      await syncImportSummary(ctx, row.importId);
+      await ctx.db.patch(row.importId, {
+        ...nextSummary,
+        status: deriveImportStatusFromDoc({
+          totalRows: importDoc.totalRows,
+          appliedRows: importDoc.appliedRows,
+          matchedRows: nextSummary.matchedRows,
+          unresolvedRows: nextSummary.unresolvedRows,
+        }),
+        updatedAt: now,
+      });
       return;
     }
 
@@ -310,7 +312,16 @@ export const resolveRowMatch = mutation({
       matchExplanation: `Matched manually to ${drug.name}.`,
       updatedAt: now,
     });
-    await syncImportSummary(ctx, row.importId);
+    await ctx.db.patch(row.importId, {
+      ...nextSummary,
+      status: deriveImportStatusFromDoc({
+        totalRows: importDoc.totalRows,
+        appliedRows: importDoc.appliedRows,
+        matchedRows: nextSummary.matchedRows,
+        unresolvedRows: nextSummary.unresolvedRows,
+      }),
+      updatedAt: now,
+    });
   },
 });
 

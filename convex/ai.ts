@@ -14,7 +14,7 @@ import {
   blobToDataUrl,
 } from "./fileProcessing";
 import { KEMEDICA_CONTEXT } from "../src/lib/brand";
-import { MENA_COUNTRIES } from "./constants";
+import { GCC_PLUS_COUNTRIES } from "./constants";
 
 interface Citation {
   title: string;
@@ -415,7 +415,7 @@ function buildOpportunitySummary(
     notes?: string;
   }>
 ): string {
-  return MENA_COUNTRIES.map((country) => {
+  return GCC_PLUS_COUNTRIES.map((country) => {
     const opp = opportunities.find((entry) => entry.country === country);
     if (!opp) return `- ${country}: No existing data`;
     const score = opp.opportunityScore
@@ -805,8 +805,8 @@ export const generateReport = action({
         client,
         {
           instructions:
-            `You are a senior pharmaceutical market-entry analyst focused on helping KEMEDICA win distributor / in-market partner mandates from overlooked European manufacturers entering MENA. Use web search and return a compact but evidence-backed JSON brief. If a fact is uncertain, say so explicitly. Cover all 15 requested MENA countries exactly once in countryFindings, but orient the brief toward pursuit strategy rather than generic market description. ${KEMEDICA_CONTEXT}`,
-          input: `Research this drug as a deal pursuit brief for MENA commercialization.
+            `You are a senior pharmaceutical market-entry analyst focused on helping KEMEDICA win distributor / in-market partner mandates from overlooked European manufacturers entering GCC++ priority markets, with wider MENA context used only when relevant. Use web search and return a compact but evidence-backed JSON brief. If a fact is uncertain, say so explicitly. Cover the requested GCC++ countries exactly once in countryFindings, and orient the brief toward pursuit strategy rather than generic market description. ${KEMEDICA_CONTEXT}`,
+          input: `Research this drug as a deal pursuit brief for GCC++ commercialization.
 
 Drug profile
 - Brand Name: ${drug.name}
@@ -834,7 +834,7 @@ Supporting uploaded document context
 ${researchInputContext}
 
 Research requirements
-- Countries: ${MENA_COUNTRIES.join(", ")}
+- Countries: ${GCC_PLUS_COUNTRIES.join(", ")}
 - Prioritize official regulator sites, WHO, PubMed, and credible market sources.
 - For each country finding, include 1-4 source URLs.
 - Use the uploaded document context as search seed material when relevant, especially for company names, partner names, products, and expansion clues.
@@ -884,7 +884,7 @@ Research requirements
 
 Requirements:
 - In section 2, clearly state the manufacturer, the MAH/commercial owner, whether they are the same or different, known MENA partner entities, and the recommended approach target.
-- In section 6, include all 15 MENA countries, but clearly identify the top 2-3 launch priorities.
+- In section 6, include the 6 GCC++ markets, and clearly identify the top 2-3 launch priorities.
 - Use concise paragraphs, bullets, and tables where useful.
 - In section 7, include why the recommended entity is likely to engage, what KEMEDICA uniquely offers, recommended deal structure, likely objections, and a table of suggested contacts (title + rationale).
 - In section 10, list concrete disqualifiers and whether each is fatal, manageable, or watch-list.

@@ -39,7 +39,7 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
   async function handleAnalyzeProductGap() {
     setAnalysisState({
       tone: "info",
-      title: "Analyzing MENA whitespace",
+      title: "Analyzing GCC++ whitespace",
       body: "Checking product approvals, target-market presence, and patent / biosimilar timing.",
     });
     try {
@@ -124,7 +124,7 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
               type="button"
               onClick={() => void handleAnalyzeProductGap()}
             >
-              Analyze MENA whitespace
+              Analyze GCC++ whitespace
             </Button>
             <Link
               href="/gaps"

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
-import { THERAPEUTIC_AREAS, MENA_COUNTRIES } from "@/lib/constants";
+import { THERAPEUTIC_AREAS, GCC_PLUS_COUNTRIES } from "@/lib/constants";
 import {
   Target,
   TrendingUp,
@@ -419,7 +419,7 @@ export function EvidenceEnrichmentDialog({
                 </div>
                 <div className="flex items-start gap-3">
                   <span className="mt-0.5 shrink-0 rounded bg-[color:var(--brand-surface)] px-1.5 py-0.5 text-xs text-[var(--brand-300)] border border-[color:var(--brand-border)]">ClinicalTrials</span>
-                  <p className="text-zinc-300">Active and completed trials for this indication in MENA markets — reveals pipeline competition</p>
+                  <p className="text-zinc-300">Active and completed trials for this indication in GCC++ markets — reveals pipeline competition</p>
                 </div>
               </div>
               {gap.lastEnrichedAt && (
@@ -1022,13 +1022,13 @@ export function GapsDashboard() {
     ? selectedTA && selectedCountry
       ? `This run will analyze ${selectedTA} for ${selectedCountry}.`
       : selectedTA
-        ? `This run will analyze ${selectedTA} across MENA markets.`
+        ? `This run will analyze ${selectedTA} across GCC++ markets.`
         : selectedCountry
           ? `This run will analyze all therapeutic areas for ${selectedCountry}.`
           : "This run will analyze the same slice you are viewing now."
     : selectedCountry
       ? `This run will analyze all therapeutic areas for ${selectedCountry}.`
-      : "This run will analyze all therapeutic areas across MENA markets.";
+      : "This run will analyze all therapeutic areas across GCC++ markets.";
 
   async function handleAnalyzeFlow() {
     if (isRunningFlow) return;
@@ -1056,7 +1056,7 @@ export function GapsDashboard() {
           <div>
             <h1 className="text-2xl font-bold text-white">Gap Analysis</h1>
             <p className="mt-1 text-sm text-zinc-400">
-              Identify MENA demand gaps and shortlist smaller EU manufacturers that can bridge them
+              Identify GCC++ demand gaps and shortlist smaller EU manufacturers that can bridge them
             </p>
           </div>
         </div>
@@ -1091,11 +1091,11 @@ export function GapsDashboard() {
                   <label className="block text-xs text-zinc-500 mb-1.5">Country</label>
                   <Select value={selectedCountry} onValueChange={(v) => setSelectedCountry(v ?? "")}>
                     <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
-                      <SelectValue placeholder="All MENA" />
+                      <SelectValue placeholder="All GCC++ markets" />
                     </SelectTrigger>
                     <SelectContent className="bg-zinc-800 border-zinc-700">
-                      <SelectItem value="">All MENA</SelectItem>
-                      {MENA_COUNTRIES.map((c) => (
+                      <SelectItem value="">All GCC++ markets</SelectItem>
+                      {GCC_PLUS_COUNTRIES.map((c) => (
                         <SelectItem key={c} value={c}>{c}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1109,7 +1109,7 @@ export function GapsDashboard() {
                   {selectedTA || "All therapeutic areas"}
                 </span>
                 <span className="rounded-full bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
-                  {selectedCountry || "All MENA countries"}
+                  {selectedCountry || "All GCC++ markets"}
                 </span>
                 <span className="rounded-full bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
                   Min score {minScore}
@@ -1160,7 +1160,7 @@ export function GapsDashboard() {
                 <div className="min-w-[180px]">
                   <label className="block text-xs text-zinc-500 mb-1.5">Country scope</label>
                   <div className="h-9 rounded-md border border-zinc-700 bg-zinc-800 px-3 flex items-center text-sm text-zinc-300">
-                    {selectedCountry || "All MENA countries"}
+                    {selectedCountry || "All GCC++ markets"}
                   </div>
                 </div>
               </div>

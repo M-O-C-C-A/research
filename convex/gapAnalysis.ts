@@ -10,7 +10,7 @@ import {
   ResearchSource,
 } from "./openaiResearch";
 import { KEMEDICA_CONTEXT } from "../src/lib/brand";
-import { MENA_COUNTRIES, THERAPEUTIC_AREAS } from "./constants";
+import { GCC_PLUS_COUNTRIES, THERAPEUTIC_AREAS } from "./constants";
 import { appendFlowLog } from "./gapFlow";
 import { runFindCompaniesForGapJob } from "./discovery";
 
@@ -615,7 +615,7 @@ export const analyzeTherapeuticAreaGaps = action({
     indication: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"discoveryJobs">> => {
-    const countries = args.targetCountries ?? [...MENA_COUNTRIES];
+    const countries = args.targetCountries ?? [...GCC_PLUS_COUNTRIES];
 
     const jobId = await ctx.runMutation(api.discoveryJobs.create, {
       type: "gap_analysis",
@@ -794,7 +794,7 @@ suggestedDrugClasses should list drug classes that are actually implicated by th
         }
       }
 
-      const summary = `Gap analysis complete — ${gapsCreated} gap opportunities created for ${args.therapeuticArea} in ${countries.length} MENA countries.`;
+      const summary = `Gap analysis complete — ${gapsCreated} gap opportunities created for ${args.therapeuticArea} across ${countries.length} GCC++ markets.`;
       await ctx.runMutation(api.discoveryJobs.complete, {
         id: jobId,
         newItemsFound: gapsCreated,
@@ -823,7 +823,7 @@ export const discoverMenaDemandSignals = action({
     const jobId = await ctx.runMutation(api.discoveryJobs.create, {
       type: "demand_signals",
       therapeuticArea: args.therapeuticArea,
-      targetCountries: args.country ? [args.country] : [...MENA_COUNTRIES],
+      targetCountries: args.country ? [args.country] : [...GCC_PLUS_COUNTRIES],
     });
 
     const log = async (
@@ -839,7 +839,9 @@ export const discoverMenaDemandSignals = action({
 
     try {
       const client = createResearchClient(process.env.OPENAI_API_KEY!);
-      const scope = args.country ?? "the MENA region (Saudi Arabia, UAE, Qatar, Kuwait, Egypt, Jordan, Lebanon, Iraq, Morocco, Tunisia, Libya, Algeria, Bahrain, Oman, Syria)";
+      const scope =
+        args.country ??
+        "the GCC++ priority markets (Saudi Arabia, UAE, Kuwait, Qatar, Egypt, Algeria), with wider MENA context when relevant";
       const taFilter = args.therapeuticArea
         ? `Focus on ${args.therapeuticArea} only.`
         : `Cover all therapeutic areas but prioritize specialty and hospital medicines.`;
@@ -1026,7 +1028,7 @@ async function runGapAnalysisFlowJob(
     country?: string;
   }
 ): Promise<void> {
-  const targetCountries = args.country ? [args.country] : [...MENA_COUNTRIES];
+  const targetCountries = args.country ? [args.country] : [...GCC_PLUS_COUNTRIES];
   const areas =
     args.mode === "all_areas"
       ? [...THERAPEUTIC_AREAS]
@@ -1196,7 +1198,7 @@ export const runGapAnalysisFlow = action({
     country: v.optional(v.string()),
   },
   handler: async (ctx, args): Promise<Id<"discoveryJobs">> => {
-    const targetCountries = args.country ? [args.country] : [...MENA_COUNTRIES];
+    const targetCountries = args.country ? [args.country] : [...GCC_PLUS_COUNTRIES];
     const areas =
       args.mode === "all_areas"
         ? [...THERAPEUTIC_AREAS]
@@ -1233,7 +1235,7 @@ export const analyzeCanonicalProductGaps = action({
     const targetCountries =
       args.targetCountries && args.targetCountries.length > 0
         ? args.targetCountries
-        : [...MENA_COUNTRIES];
+        : [...GCC_PLUS_COUNTRIES];
     const allOpportunities = await ctx.runQuery(api.opportunities.listAllForEngine, {});
     const gapIds: Id<"gapOpportunities">[] = [];
     let autoMatchedCompanies = 0;

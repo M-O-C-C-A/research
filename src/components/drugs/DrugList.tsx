@@ -219,7 +219,7 @@ export function DrugList() {
     setGapActionState({
       tone: "info",
       title: "Analyzing product gap",
-      body: `Checking FDA/EMA approval coverage and current MENA whitespace for ${productName}.`,
+      body: `Checking FDA/EMA approval coverage and current GCC++ whitespace for ${productName}.`,
     });
     try {
       const result = await analyzeProductGap({
@@ -609,7 +609,7 @@ export function DrugList() {
                         }
                       >
                         {analyzingProductId === product._id
-                          ? "Analyzing MENA whitespace..."
+                          ? "Analyzing GCC++ whitespace..."
                           : "Check product gap"}
                       </Button>
                     </div>

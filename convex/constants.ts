@@ -20,6 +20,17 @@ export const MENA_COUNTRIES = [
 
 export type MenaCountry = (typeof MENA_COUNTRIES)[number];
 
+export const GCC_PLUS_COUNTRIES = [
+  "Saudi Arabia",
+  "UAE",
+  "Kuwait",
+  "Qatar",
+  "Egypt",
+  "Algeria",
+] as const;
+
+export type GccPlusCountry = (typeof GCC_PLUS_COUNTRIES)[number];
+
 export const THERAPEUTIC_AREAS = [
   "Oncology",
   "Cardiology",

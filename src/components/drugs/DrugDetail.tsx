@@ -10,7 +10,7 @@ import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight } from "lucide-react";
 import { CountryCellEditor } from "./CountryCellEditor";
-import { MENA_COUNTRIES } from "@/lib/constants";
+import { GCC_PLUS_COUNTRIES } from "@/lib/constants";
 
 const STATUS_STYLES: Record<string, string> = {
   approved: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -77,7 +77,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
     string,
     NonNullable<typeof countryOpportunities>[number]
   >((countryOpportunities ?? []).map((entry) => [entry.country, entry]));
-  const marketRows = MENA_COUNTRIES.map((country) => {
+  const marketRows = GCC_PLUS_COUNTRIES.map((country) => {
     const current = opportunityByCountry.get(country);
     return {
       drugId: drug._id,

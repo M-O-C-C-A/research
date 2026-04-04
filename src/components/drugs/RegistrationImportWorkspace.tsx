@@ -76,7 +76,7 @@ export function RegistrationImportWorkspace() {
     api.registrationImports.getImportDetail,
     selectedImportId ? { importId: selectedImportId, rowLimit: 150 } : "skip"
   );
-  const drugs = useQuery(api.drugs.listEnriched, {}) ?? [];
+  const drugs = useQuery(api.drugs.list, {}) ?? [];
   const imports = importsQuery ?? EMPTY_IMPORTS;
 
   useEffect(() => {
@@ -191,8 +191,11 @@ export function RegistrationImportWorkspace() {
 
   const selectedImport =
     detail?.importDoc ?? imports.find((item) => item._id === selectedImportId) ?? null;
+  const selectedImportSheetNames = selectedImport?.sheetNames ?? [];
+  const selectedImportAppliedRows = selectedImport?.appliedRows ?? 0;
+  const selectedImportParseErrorCount = selectedImport?.parseErrorCount ?? 0;
   const hasPendingMatchedRows = selectedImport
-    ? selectedImport.matchedRows > selectedImport.appliedRows
+    ? selectedImport.matchedRows > selectedImportAppliedRows
     : false;
   const applyBlockedReason = !selectedImport
     ? "Select an import first."
@@ -316,8 +319,8 @@ export function RegistrationImportWorkspace() {
                       </Badge>
                     </div>
                     <p className="mt-1 text-sm text-zinc-500">
-                      {selectedImport.sheetNames.length > 0
-                        ? selectedImport.sheetNames.join(", ")
+                      {selectedImportSheetNames.length > 0
+                        ? selectedImportSheetNames.join(", ")
                         : "No sheets parsed yet"}
                     </p>
                     <p className="mt-2 text-xs text-zinc-500">
@@ -357,11 +360,11 @@ export function RegistrationImportWorkspace() {
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                     <p className="text-xs uppercase tracking-wide text-zinc-500">Applied</p>
-                    <p className="mt-1 text-xl font-semibold text-[var(--brand-300)]">{selectedImport.appliedRows}</p>
+                    <p className="mt-1 text-xl font-semibold text-[var(--brand-300)]">{selectedImportAppliedRows}</p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                     <p className="text-xs uppercase tracking-wide text-zinc-500">Issues</p>
-                    <p className="mt-1 text-xl font-semibold text-red-300">{selectedImport.parseErrorCount}</p>
+                    <p className="mt-1 text-xl font-semibold text-red-300">{selectedImportParseErrorCount}</p>
                   </div>
                 </div>
 

@@ -7,21 +7,31 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import {
   APPROVAL_DATE_HEADERS,
+  classifyImportedProduct,
   canonicalizeHeader,
+  CLASSIFICATION_HEADERS,
   compactText,
   COUNTRY_HEADERS,
+  COUNTRY_OF_ORIGIN_HEADERS,
+  DISPENSING_MODE_HEADERS,
+  FORM_HEADERS,
   GENERIC_NAME_HEADERS,
   getRowValue,
   MAH_HEADERS,
   MANUFACTURER_HEADERS,
   normalizeCountry,
+  normalizeIngredients,
   normalizeRegistrationStatus,
   normalizeText,
+  PACK_SIZE_HEADERS,
   ParsedRegistrationRow,
+  PRICE_AED_HEADERS,
   PRODUCT_NAME_HEADERS,
   REGISTRATION_NUMBER_HEADERS,
   SOURCE_NOTE_HEADERS,
+  STRENGTH_HEADERS,
   STATUS_HEADERS,
+  SUPPLIER_HEADERS,
 } from "../src/lib/registrationImports";
 
 type MatchingSnapshot = {
@@ -30,6 +40,8 @@ type MatchingSnapshot = {
     companyId?: Id<"companies">;
     name: string;
     genericName: string;
+    category?: string;
+    isDevice?: boolean;
     manufacturerCandidates: string[];
     mahCandidates: string[];
   }>;
@@ -43,6 +55,7 @@ type MatchResult = {
   matchStatus: "matched" | "unmatched" | "ambiguous";
   matchedDrugId?: Id<"drugs">;
   matchedCompanyId?: Id<"companies">;
+  matchExplanation?: string;
   validationIssues: string[];
 };
 
@@ -63,7 +76,10 @@ function toCanonicalRow(rawRow: Record<string, unknown>): Record<string, string>
   return canonicalRow;
 }
 
-function parseWorkbookRows(workbook: XLSX.WorkBook): ParsedRegistrationRow[] {
+function parseWorkbookRows(
+  workbook: XLSX.WorkBook,
+  options?: { defaultCountry?: string; matchExplanationPrefix?: string }
+): ParsedRegistrationRow[] {
   const parsedRows: ParsedRegistrationRow[] = [];
 
   for (const sheetName of workbook.SheetNames) {
@@ -80,10 +96,27 @@ function parseWorkbookRows(workbook: XLSX.WorkBook): ParsedRegistrationRow[] {
       if (!rowHasData(canonicalRow)) return;
 
       const productName = compactText(getRowValue(canonicalRow, PRODUCT_NAME_HEADERS)) ?? "";
-      const genericName = compactText(getRowValue(canonicalRow, GENERIC_NAME_HEADERS));
+      const genericName = normalizeIngredients(
+        getRowValue(canonicalRow, GENERIC_NAME_HEADERS)
+      );
       const manufacturerName = compactText(getRowValue(canonicalRow, MANUFACTURER_HEADERS));
       const mahName = compactText(getRowValue(canonicalRow, MAH_HEADERS));
-      const country = normalizeCountry(getRowValue(canonicalRow, COUNTRY_HEADERS)) ?? "";
+      const supplierName = compactText(getRowValue(canonicalRow, SUPPLIER_HEADERS));
+      const strength = compactText(getRowValue(canonicalRow, STRENGTH_HEADERS));
+      const form = compactText(getRowValue(canonicalRow, FORM_HEADERS));
+      const packSize = compactText(getRowValue(canonicalRow, PACK_SIZE_HEADERS));
+      const priceAed = compactText(getRowValue(canonicalRow, PRICE_AED_HEADERS));
+      const classification = compactText(getRowValue(canonicalRow, CLASSIFICATION_HEADERS));
+      const dispensingMode = compactText(
+        getRowValue(canonicalRow, DISPENSING_MODE_HEADERS)
+      );
+      const countryOfOrigin = compactText(
+        getRowValue(canonicalRow, COUNTRY_OF_ORIGIN_HEADERS)
+      );
+      const country =
+        normalizeCountry(getRowValue(canonicalRow, COUNTRY_HEADERS)) ??
+        options?.defaultCountry ??
+        "";
       const registrationStatus = normalizeRegistrationStatus(
         getRowValue(canonicalRow, STATUS_HEADERS)
       );
@@ -96,16 +129,31 @@ function parseWorkbookRows(workbook: XLSX.WorkBook): ParsedRegistrationRow[] {
       const validationIssues: string[] = [];
       if (!productName) validationIssues.push("Missing product/brand name.");
       if (!country) validationIssues.push("Missing country/market.");
+      const productKind = classifyImportedProduct({
+        classification,
+        form,
+        dispensingMode,
+      });
 
       parsedRows.push({
         productName,
         genericName,
         manufacturerName,
         mahName,
+        supplierName,
         country,
         registrationStatus,
         registrationNumber,
         approvalDate,
+        strength,
+        form,
+        packSize,
+        priceAed,
+        classification,
+        dispensingMode,
+        countryOfOrigin,
+        productKind,
+        matchExplanation: options?.matchExplanationPrefix,
         sourceNote,
         sourceSheet: sheetName,
         sourceRowNumber: index + 2,
@@ -164,11 +212,14 @@ function matchParsedRow(
 
   const productName = normalizeText(row.productName);
   const genericName = normalizeText(row.genericName);
-  const companyNames = [row.manufacturerName, row.mahName]
+  const companyNames = [row.manufacturerName, row.mahName, row.supplierName]
     .map((value) => normalizeText(value))
     .filter(Boolean);
+  const eligibleDrugs = snapshot.drugs.filter((drug) =>
+    row.productKind === "device" ? drug.isDevice : !drug.isDevice
+  );
 
-  let brandCandidates = snapshot.drugs.filter(
+  let brandCandidates = eligibleDrugs.filter(
     (drug) => normalizeText(drug.name) === productName
   );
   if (genericName) {
@@ -188,6 +239,9 @@ function matchParsedRow(
       matchStatus: "matched",
       matchedDrugId: brandCandidates[0]._id,
       matchedCompanyId: brandCandidates[0].companyId,
+      matchExplanation:
+        "Matched on exact brand name" +
+        (companyNames.length > 0 ? " with supporting manufacturer/supplier context." : "."),
       validationIssues,
     };
   }
@@ -195,6 +249,7 @@ function matchParsedRow(
     return {
       matchStatus: "ambiguous",
       matchedCompanyId: buildCompanyMatch(snapshot, companyNames),
+      matchExplanation: "Multiple products matched the brand name; review required.",
       validationIssues: [...validationIssues, "Multiple drugs matched this product row."],
     };
   }
@@ -202,7 +257,7 @@ function matchParsedRow(
   if (genericName && companyNames.length > 0) {
     const genericCandidates = uniqueDrugs(
       matchByEntityName(
-        snapshot.drugs.filter((drug) => normalizeText(drug.genericName) === genericName),
+        eligibleDrugs.filter((drug) => normalizeText(drug.genericName) === genericName),
         companyNames
       )
     );
@@ -211,6 +266,7 @@ function matchParsedRow(
         matchStatus: "matched",
         matchedDrugId: genericCandidates[0]._id,
         matchedCompanyId: genericCandidates[0].companyId,
+        matchExplanation: "Matched conservatively on ingredient/generic plus manufacturer or supplier context.",
         validationIssues,
       };
     }
@@ -218,6 +274,8 @@ function matchParsedRow(
       return {
         matchStatus: "ambiguous",
         matchedCompanyId: buildCompanyMatch(snapshot, companyNames),
+        matchExplanation:
+          "Ingredient/generic and entity context still match multiple products; review required.",
         validationIssues: [...validationIssues, "Multiple drugs matched by generic name and company."],
       };
     }
@@ -226,6 +284,8 @@ function matchParsedRow(
   return {
     matchStatus: "unmatched",
     matchedCompanyId: buildCompanyMatch(snapshot, companyNames),
+    matchExplanation:
+      "No conservative match found from brand, ingredient, manufacturer, and supplier fields.",
     validationIssues: [...validationIssues, "No matching drug found in the database."],
   };
 }
@@ -256,6 +316,8 @@ export const parseImport = action({
         importDoc: {
           storageId: Id<"_storage">;
           status: string;
+          fileName: string;
+          sourceMarket?: string;
         };
       } | null = await ctx.runQuery(api.registrationImports.getImportDetail, {
         importId,
@@ -269,7 +331,15 @@ export const parseImport = action({
 
       const workbookBuffer = Buffer.from(await blob.arrayBuffer());
       const workbook = XLSX.read(workbookBuffer, { type: "buffer" });
-      const parsedRows = parseWorkbookRows(workbook);
+      const defaultCountry =
+        importDetail.importDoc.sourceMarket === "UAE" ? "UAE" : undefined;
+      const parsedRows = parseWorkbookRows(workbook, {
+        defaultCountry,
+        matchExplanationPrefix:
+          defaultCountry === "UAE"
+            ? "Parsed from UAE official directory workbook."
+            : undefined,
+      });
       const snapshot: MatchingSnapshot = await ctx.runQuery(
         internal.registrationImports.getMatchingSnapshot,
         {}
@@ -283,6 +353,7 @@ export const parseImport = action({
           applyState: "pending" as const,
           matchedDrugId: match.matchedDrugId,
           matchedCompanyId: match.matchedCompanyId,
+          matchExplanation: match.matchExplanation ?? row.matchExplanation,
           validationIssues: match.validationIssues,
         };
       });
@@ -334,9 +405,10 @@ export const applyImport = action({
   },
   handler: async (ctx, { importId, batchSize }) => {
     let appliedCount = 0;
+    const touchedDrugIds = new Set<string>();
 
     for (;;) {
-      const result: { appliedCount: number; done: boolean } = await ctx.runMutation(
+      const result: { appliedCount: number; touchedDrugIds: string[]; done: boolean } = await ctx.runMutation(
         internal.registrationImports.applyImportBatch,
         {
           importId,
@@ -344,9 +416,12 @@ export const applyImport = action({
         }
       );
       appliedCount += result.appliedCount;
+      for (const drugId of result.touchedDrugIds) {
+        touchedDrugIds.add(drugId);
+      }
       if (result.done) break;
     }
 
-    return { appliedCount };
+    return { appliedCount, touchedDrugCount: touchedDrugIds.size };
   },
 });

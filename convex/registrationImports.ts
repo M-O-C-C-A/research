@@ -8,6 +8,7 @@ import {
 } from "./_generated/server";
 import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
+import { api } from "./_generated/api";
 import {
   RegistrationImportStatus,
   RegistrationStatus,
@@ -46,10 +47,20 @@ const importRowValidator = v.object({
   genericName: v.optional(v.string()),
   manufacturerName: v.optional(v.string()),
   mahName: v.optional(v.string()),
+  supplierName: v.optional(v.string()),
   country: v.string(),
   registrationStatus: registrationStatusValidator,
   registrationNumber: v.optional(v.string()),
   approvalDate: v.optional(v.string()),
+  strength: v.optional(v.string()),
+  form: v.optional(v.string()),
+  packSize: v.optional(v.string()),
+  priceAed: v.optional(v.string()),
+  classification: v.optional(v.string()),
+  dispensingMode: v.optional(v.string()),
+  countryOfOrigin: v.optional(v.string()),
+  productKind: v.optional(v.union(v.literal("medicine"), v.literal("device"))),
+  matchExplanation: v.optional(v.string()),
   sourceNote: v.optional(v.string()),
   sourceSheet: v.string(),
   sourceRowNumber: v.number(),
@@ -66,10 +77,20 @@ type ImportRowInput = {
   genericName?: string;
   manufacturerName?: string;
   mahName?: string;
+  supplierName?: string;
   country: string;
   registrationStatus: RegistrationStatus;
   registrationNumber?: string;
   approvalDate?: string;
+  strength?: string;
+  form?: string;
+  packSize?: string;
+  priceAed?: string;
+  classification?: string;
+  dispensingMode?: string;
+  countryOfOrigin?: string;
+  productKind?: "medicine" | "device";
+  matchExplanation?: string;
   sourceNote?: string;
   sourceSheet: string;
   sourceRowNumber: number;
@@ -151,11 +172,18 @@ export const createImport = mutation({
     storageId: v.id("_storage"),
     fileName: v.string(),
     sourceMarket: v.optional(v.string()),
+    sourceType: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
     return await ctx.db.insert("registrationImports", {
       ...args,
+      sourceType:
+        args.sourceType ??
+        ((args.sourceMarket?.trim().toLowerCase() === "uae" ||
+          args.fileName.toLowerCase().includes("drugdirectory_products"))
+          ? "uae_official_directory"
+          : undefined),
       status: "uploaded",
       sheetNames: [],
       totalRows: 0,
@@ -233,6 +261,7 @@ export const resolveRowMatch = mutation({
         applyState: "skipped",
         matchedDrugId: undefined,
         matchedCompanyId: undefined,
+        matchExplanation: "Skipped by reviewer.",
         updatedAt: now,
       });
       await syncImportSummary(ctx, row.importId);
@@ -245,6 +274,7 @@ export const resolveRowMatch = mutation({
         applyState: "pending",
         matchedDrugId: undefined,
         matchedCompanyId: undefined,
+        matchExplanation: "Match cleared for manual review.",
         updatedAt: now,
       });
       await syncImportSummary(ctx, row.importId);
@@ -259,6 +289,7 @@ export const resolveRowMatch = mutation({
       applyState: "pending",
       matchedDrugId,
       matchedCompanyId: drug.companyId,
+      matchExplanation: `Matched manually to ${drug.name}.`,
       updatedAt: now,
     });
     await syncImportSummary(ctx, row.importId);
@@ -338,6 +369,10 @@ export const getMatchingSnapshot = internalQuery({
           companyId: drug.companyId,
           name: drug.name,
           genericName: drug.genericName,
+          category: drug.category,
+          isDevice: ["medical device", "diagnostic"].includes(
+            drug.category?.trim().toLowerCase() ?? ""
+          ),
           manufacturerCandidates,
           mahCandidates,
         };
@@ -466,9 +501,11 @@ export const applyImportBatch = internalMutation({
         registrations: NonNullable<Doc<"drugs">["menaRegistrations"]>;
       }
     >();
+    const touchedDrugIds = new Set<Id<"drugs">>();
 
     for (const row of rows) {
       if (!row.matchedDrugId) continue;
+      touchedDrugIds.add(row.matchedDrugId);
       let drugState = drugPatchState.get(row.matchedDrugId);
       if (!drugState) {
         const drug = await ctx.db.get(row.matchedDrugId);
@@ -508,6 +545,85 @@ export const applyImportBatch = internalMutation({
     }
 
     for (const row of rows) {
+      if (!row.matchedDrugId) continue;
+      const existingOpportunity = await ctx.db
+        .query("opportunities")
+        .withIndex("by_drug_and_country", (q) =>
+          q.eq("drugId", row.matchedDrugId!).eq("country", row.country)
+        )
+        .unique();
+      const existingEvidence = existingOpportunity?.evidenceItems ?? [];
+      const uaeEvidenceClaim =
+        row.registrationStatus === "registered"
+          ? `${row.productName} is listed as registered in UAE official directory.`
+          : `${row.productName} appears in UAE import with status ${row.registrationStatus}.`;
+      const derivedRegulatoryStatus =
+        row.registrationStatus === "registered"
+          ? "registered"
+          : row.registrationStatus === "not_found"
+            ? "not_registered"
+            : "pending_registration";
+      const derivedAvailabilityStatus =
+        row.registrationStatus === "registered"
+          ? "formally_registered"
+          : row.registrationStatus === "not_found"
+            ? "not_found"
+            : "unverified";
+      await ctx.runMutation(api.opportunities.upsert, {
+        drugId: row.matchedDrugId,
+        country: row.country,
+        regulatoryStatus:
+          row.registrationStatus === "registered"
+            ? "registered"
+            : existingOpportunity?.regulatoryStatus ?? derivedRegulatoryStatus,
+        availabilityStatus:
+          row.registrationStatus === "registered"
+            ? "formally_registered"
+            : existingOpportunity?.availabilityStatus ?? derivedAvailabilityStatus,
+        matchedBrandName: row.productName,
+        matchedGenericName: row.genericName ?? existingOpportunity?.matchedGenericName,
+        marketAccessNotes:
+          existingOpportunity?.marketAccessNotes ??
+          row.dispensingMode ??
+          undefined,
+        evidenceItems: existingEvidence.some((item) => item.claim === uaeEvidenceClaim)
+          ? existingEvidence
+          : [
+              ...existingEvidence,
+              {
+                claim: uaeEvidenceClaim,
+                title: importDoc.fileName,
+                url: undefined,
+                sourceType: "official_registry",
+                confidence: "confirmed",
+              },
+            ],
+      });
+
+      if (row.priceAed && row.registrationStatus === "registered") {
+        const numericPrice = Number(String(row.priceAed).replace(/[^0-9.]/g, ""));
+        if (Number.isFinite(numericPrice)) {
+          await ctx.runMutation(api.opportunities.upsertPriceEvidence, {
+            drugId: row.matchedDrugId,
+            country: row.country,
+            sourceCategory: "official",
+            sourceSystem: "mohap_uae",
+            priceType: "registered",
+            amount: numericPrice,
+            currency: "AED",
+            presentation: [row.strength, row.form, row.packSize].filter(Boolean).join(" · ") || undefined,
+            unitBasis: row.packSize || undefined,
+            observedAt: now,
+            sourceTitle: `${importDoc.fileName} · UAE official directory`,
+            sourceUrl: undefined,
+            confidence: "confirmed",
+            notes: row.dispensingMode || row.classification || undefined,
+          });
+        }
+      }
+    }
+
+    for (const row of rows) {
       await ctx.db.patch(row._id, {
         applyState: "applied",
         appliedAt: now,
@@ -531,6 +647,7 @@ export const applyImportBatch = internalMutation({
 
     return {
       appliedCount: rows.length,
+      touchedDrugIds: [...touchedDrugIds],
       done: remainingRows.length === 0,
     };
   },

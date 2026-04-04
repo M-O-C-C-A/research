@@ -33,10 +33,20 @@ export interface ParsedRegistrationRow {
   genericName?: string;
   manufacturerName?: string;
   mahName?: string;
+  supplierName?: string;
   country: string;
   registrationStatus: RegistrationStatus;
   registrationNumber?: string;
   approvalDate?: string;
+  strength?: string;
+  form?: string;
+  packSize?: string;
+  priceAed?: string;
+  classification?: string;
+  dispensingMode?: string;
+  countryOfOrigin?: string;
+  productKind?: "medicine" | "device";
+  matchExplanation?: string;
   sourceNote?: string;
   sourceSheet: string;
   sourceRowNumber: number;
@@ -100,6 +110,7 @@ export const GENERIC_NAME_HEADERS = [
   "generic name",
   "inn",
   "active ingredient",
+  "ingredients",
   "molecule",
   "generic",
 ] as const;
@@ -117,6 +128,14 @@ export const MAH_HEADERS = [
   "marketing authorization holder",
   "license holder",
   "commercial owner",
+  "supplier name",
+] as const;
+
+export const SUPPLIER_HEADERS = [
+  "supplier name",
+  "supplier",
+  "local supplier",
+  "local distributor",
 ] as const;
 
 export const COUNTRY_HEADERS = [
@@ -144,6 +163,17 @@ export const APPROVAL_DATE_HEADERS = [
   "approval date",
   "registration date",
   "date approved",
+] as const;
+
+export const STRENGTH_HEADERS = ["strength"] as const;
+export const FORM_HEADERS = ["form", "dosage form"] as const;
+export const PACK_SIZE_HEADERS = ["pack size", "presentation", "pack"] as const;
+export const PRICE_AED_HEADERS = ["price aed", "price (aed)", "uae price"] as const;
+export const CLASSIFICATION_HEADERS = ["classification"] as const;
+export const DISPENSING_MODE_HEADERS = ["dispensing mode"] as const;
+export const COUNTRY_OF_ORIGIN_HEADERS = [
+  "country of origin",
+  "origin country",
 ] as const;
 
 export const SOURCE_NOTE_HEADERS = [
@@ -182,6 +212,37 @@ export function normalizeRegistrationStatus(
   if (NOT_FOUND_ALIASES.has(normalized)) return "not_found";
   if (UNVERIFIED_ALIASES.has(normalized)) return "unverified";
   return "unverified";
+}
+
+export function normalizeIngredients(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  const parts = trimmed
+    .split("!")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.length === 0) return undefined;
+  return [...new Set(parts)].join(" + ");
+}
+
+export function classifyImportedProduct(args: {
+  classification?: string;
+  form?: string;
+  dispensingMode?: string;
+}): "medicine" | "device" {
+  const haystack = [args.classification, args.form, args.dispensingMode]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  if (
+    haystack.includes("device") ||
+    haystack.includes("diagnostic") ||
+    haystack.includes("kit") ||
+    haystack.includes("consumable")
+  ) {
+    return "device";
+  }
+  return "medicine";
 }
 
 export function stringifyCell(value: unknown): string {

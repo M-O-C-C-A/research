@@ -204,6 +204,12 @@ export function RegistrationImportWorkspace() {
   const hasPendingMatchedRows = selectedImport
     ? selectedImport.matchedRows > selectedImportAppliedRows
     : false;
+  const likelyWarningReason =
+    selectedImport?.sourceType === "uae_official_directory" && selectedImportParseErrorCount > 0
+      ? "Most warnings in this UAE file come from rows that need market confirmation or cleaner parsing, not from failed uploads."
+      : selectedImportParseErrorCount > 0
+        ? "Warnings usually mean the row is missing a field the matcher needs, not that the file is broken."
+        : null;
   const applyBlockedReason = !selectedImport
     ? "Select an import first."
     : selectedImport.unresolvedRows > 0
@@ -363,24 +369,48 @@ export function RegistrationImportWorkspace() {
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                     <p className="text-xs uppercase tracking-wide text-zinc-500">Total</p>
                     <p className="mt-1 text-xl font-semibold text-white">{selectedImport.totalRows}</p>
+                    <p className="mt-1 text-xs text-zinc-500">Rows parsed from this workbook.</p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Matched</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Matched automatically
+                    </p>
                     <p className="mt-1 text-xl font-semibold text-emerald-300">{selectedImport.matchedRows}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Rows confidently linked to a product already in the system.
+                    </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Unresolved</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">Needs review</p>
                     <p className="mt-1 text-xl font-semibold text-amber-300">{selectedImport.unresolvedRows}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Rows that still need a match or should be skipped manually.
+                    </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                     <p className="text-xs uppercase tracking-wide text-zinc-500">Applied</p>
                     <p className="mt-1 text-xl font-semibold text-[var(--brand-300)]">{selectedImportAppliedRows}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Rows already written into UAE market evidence.
+                    </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Issues</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Validation warnings
+                    </p>
                     <p className="mt-1 text-xl font-semibold text-red-300">{selectedImportParseErrorCount}</p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Rows with missing or unclear fields that need review.
+                    </p>
                   </div>
                 </div>
+
+                {likelyWarningReason && (
+                  <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+                    <p className="font-medium text-amber-200">About the warnings</p>
+                    <p className="mt-1">{likelyWarningReason}</p>
+                  </div>
+                )}
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">

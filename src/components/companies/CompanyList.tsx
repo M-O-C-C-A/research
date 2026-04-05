@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { AddCompanyDialog } from "./AddCompanyDialog";
+import { ImportEmaCompaniesButton } from "./ImportEmaCompaniesButton";
 import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompaniesButton";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
@@ -53,6 +54,7 @@ export function CompanyList() {
             manually so the rest of the workflow can continue.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
+            <ImportEmaCompaniesButton />
             <DiscoverCompaniesButton size="sm" label="Research this company" />
             <AddCompanyDialog />
           </div>

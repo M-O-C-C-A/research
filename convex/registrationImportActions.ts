@@ -601,7 +601,7 @@ export const applyImport = action({
     const touchedDrugIds = new Set<string>();
 
     for (;;) {
-      const result: { appliedCount: number; touchedDrugIds: string[]; done: boolean } = await ctx.runMutation(
+      const result: { appliedCount: number; touchedDrugIds?: string[]; done: boolean } = await ctx.runMutation(
         internal.registrationImports.applyImportBatch,
         {
           importId,
@@ -609,7 +609,7 @@ export const applyImport = action({
         }
       );
       appliedCount += result.appliedCount;
-      for (const drugId of result.touchedDrugIds) {
+      for (const drugId of result.touchedDrugIds ?? []) {
         touchedDrugIds.add(drugId);
       }
       if (result.done) break;

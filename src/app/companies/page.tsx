@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { CompanyList } from "@/components/companies/CompanyList";
 import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompaniesButton";
+import { ImportEmaCompaniesButton } from "@/components/companies/ImportEmaCompaniesButton";
 import { BRAND_NAME } from "@/lib/brand";
 
 export const metadata = { title: `Company Directory | ${BRAND_NAME}` };
@@ -11,7 +12,12 @@ export default function CompaniesPage() {
       <PageHeader
         title="Company Directory"
         description="Browse target manufacturers, review fit, and launch deeper company or portfolio research before moving into opportunity and outreach."
-        action={<DiscoverCompaniesButton label="Research companies" />}
+        action={
+          <div className="flex flex-wrap items-center gap-2">
+            <ImportEmaCompaniesButton />
+            <DiscoverCompaniesButton label="Research companies" />
+          </div>
+        }
       />
       <CompanyList />
     </main>

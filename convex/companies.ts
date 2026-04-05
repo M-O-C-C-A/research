@@ -1,5 +1,6 @@
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery, MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
+import { Doc, Id } from "./_generated/dataModel";
 import {
   buildDisqualifierReasons,
   normalizePipelineStage,
@@ -55,6 +56,10 @@ const KEY_CONTACT_VALIDATOR = v.object({
   lastVerifiedAt: v.optional(v.number()),
 });
 
+function normalizeCompanyKey(name: string, country: string) {
+  return `${name.trim().toLowerCase()}::${country.trim().toLowerCase()}`;
+}
+
 export const list = query({
   args: { search: v.optional(v.string()) },
   handler: async (ctx, { search }) => {
@@ -67,6 +72,18 @@ export const list = query({
         c.country.toLowerCase().includes(q) ||
         c.therapeuticAreas.some((a) => a.toLowerCase().includes(q))
     );
+  },
+});
+
+export const getImportSnapshot = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const companies = await ctx.db.query("companies").collect();
+    return companies.map((company) => ({
+      _id: company._id,
+      name: company.name,
+      country: company.country,
+    }));
   },
 });
 
@@ -183,6 +200,142 @@ export const create = mutation({
   },
   handler: async (ctx, args) =>
     ctx.db.insert("companies", { ...args, status: "active" }),
+});
+
+export const importEmaSmeBatch = internalMutation({
+  args: {
+    rows: v.array(
+      v.object({
+        name: v.string(),
+        country: v.string(),
+        sourceUrl: v.string(),
+      })
+    ),
+  },
+  handler: async (ctx, { rows }) => {
+    const normalizedRows = rows.map((row) => ({
+      ...row,
+      source: "EMA SME Register",
+      description: "Imported from the EMA SME Register.",
+      bdNotes: "Imported from EMA SME Register.",
+      companySize: "sme" as const,
+    }));
+    return await importCompanyDirectoryRows(ctx, normalizedRows);
+  },
+});
+
+async function importCompanyDirectoryRows(
+  ctx: MutationCtx,
+  rows: Array<{
+    name: string;
+    country: string;
+    source: string;
+    sourceUrl: string;
+    description?: string;
+    bdNotes?: string;
+    companySize?: "sme" | "mid" | "large";
+  }>
+) {
+    const existingCompanies = await ctx.db.query("companies").collect();
+    const existingByKey = new Map<
+      string,
+      {
+        _id: Id<"companies">;
+        bdEvidenceItems?: Doc<"companies">["bdEvidenceItems"];
+        bdNotes?: string;
+      }
+    >(
+      existingCompanies.map((company) => [
+        normalizeCompanyKey(company.name, company.country),
+        {
+          _id: company._id,
+          bdEvidenceItems: company.bdEvidenceItems,
+          bdNotes: company.bdNotes,
+        },
+      ])
+    );
+
+    let createdCount = 0;
+    let updatedCount = 0;
+
+    for (const row of rows) {
+      const key = normalizeCompanyKey(row.name, row.country);
+      const existing = existingByKey.get(key);
+      if (existing) {
+        const nextEvidenceItems = [
+          ...(existing.bdEvidenceItems ?? []),
+          {
+            claim: `${row.name} appears in ${row.source}.`,
+            source: row.source,
+            url: row.sourceUrl,
+          },
+        ].filter(
+          (item, index, items) =>
+            items.findIndex(
+              (candidate) => candidate.claim === item.claim && candidate.url === item.url
+            ) === index
+        );
+
+        await ctx.db.patch(existing._id, {
+          companySize: row.companySize ?? "sme",
+          bdStatus: "screened",
+          bdEvidenceItems: nextEvidenceItems,
+          bdNotes:
+            existing.bdNotes?.includes(row.source)
+              ? existing.bdNotes
+              : [existing.bdNotes, row.bdNotes]
+                  .filter(Boolean)
+                  .join(" "),
+        });
+        updatedCount += 1;
+        continue;
+      }
+
+      const companyId = await ctx.db.insert("companies", {
+        name: row.name,
+        country: row.country,
+        therapeuticAreas: [],
+        status: "active",
+        companySize: row.companySize ?? "sme",
+        bdStatus: "screened",
+        description: row.description,
+        bdNotes: row.bdNotes,
+        bdEvidenceItems: [
+          {
+            claim: `${row.name} appears in ${row.source}.`,
+            source: row.source,
+            url: row.sourceUrl,
+          },
+        ],
+      });
+      existingByKey.set(key, { _id: companyId });
+      createdCount += 1;
+    }
+
+    return {
+      createdCount,
+      updatedCount,
+      totalProcessed: rows.length,
+    };
+}
+
+export const importStarterDirectoryBatch = internalMutation({
+  args: {
+    rows: v.array(
+      v.object({
+        name: v.string(),
+        country: v.string(),
+        source: v.string(),
+        sourceUrl: v.string(),
+        description: v.optional(v.string()),
+        bdNotes: v.optional(v.string()),
+        companySize: v.optional(v.union(v.literal("sme"), v.literal("mid"), v.literal("large"))),
+      })
+    ),
+  },
+  handler: async (ctx, { rows }) => {
+    return await importCompanyDirectoryRows(ctx, rows);
+  },
 });
 
 export const update = mutation({

@@ -499,9 +499,15 @@ export const rebuildFromResearch = action({
       ctx.runQuery(api.opportunities.listAllForEngine, {}),
     ]);
 
-    const companiesById = new Map(companies.map((item) => [item._id, item]));
-    const gapsById = new Map(gaps.map((item) => [item._id, item]));
-    const reportByDrugId = new Map(reports.map((item) => [item.drugId, item]));
+    const companiesById = new Map<Id<"companies">, Doc<"companies">>(
+      companies.map((item) => [item._id, item])
+    );
+    const gapsById = new Map<Id<"gapOpportunities">, Doc<"gapOpportunities">>(
+      gaps.map((item) => [item._id, item])
+    );
+    const reportByDrugId = new Map<Id<"drugs">, Doc<"reports">>(
+      reports.map((item) => [item.drugId, item])
+    );
     const opportunitiesByDrugId = new Map<
       Id<"drugs">,
       Array<(typeof opportunities)[number]>

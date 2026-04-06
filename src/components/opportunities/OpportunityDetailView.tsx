@@ -334,8 +334,8 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         )}
       </section>
 
-      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <div className="space-y-6">
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <div className="min-w-0 space-y-6">
           <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6" open>
             <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Decision details and scoring
@@ -394,13 +394,13 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             <div className="mt-4 grid gap-4">
               <div className="rounded-lg bg-zinc-950 p-4">
                 <p className="text-xs uppercase tracking-wider text-zinc-500">Short email</p>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-300">
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-zinc-300">
                   {outreachPackage.shortEmail}
                 </pre>
               </div>
               <div className="rounded-lg bg-zinc-950 p-4">
                 <p className="text-xs uppercase tracking-wider text-zinc-500">Long email</p>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-300">
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-zinc-300">
                   {outreachPackage.longEmail}
                 </pre>
               </div>
@@ -420,7 +420,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
               </div>
               <div className="rounded-lg bg-zinc-950 p-4">
                 <p className="text-xs uppercase tracking-wider text-zinc-500">Attachment brief</p>
-                <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-zinc-300">
+                <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-zinc-300">
                   {outreachPackage.attachmentBrief}
                 </pre>
               </div>
@@ -462,7 +462,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Contact Direction

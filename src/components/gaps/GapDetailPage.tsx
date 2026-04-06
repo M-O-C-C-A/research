@@ -247,7 +247,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
                   <Zap className="h-3 w-3 text-[var(--brand-300)]" />
                   Tender Signals
                 </p>
-                <pre className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zinc-300">
+                <pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-zinc-300">
                   {typedGap.tenderSignals}
                 </pre>
               </div>
@@ -300,8 +300,8 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
           </section>
         )}
 
-        <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <section className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+          <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <div className="mb-4 flex items-center justify-between">
               <p className="flex items-center gap-1 text-xs uppercase tracking-wider text-zinc-500">
                 <Building2 className="h-3 w-3" />
@@ -360,7 +360,7 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
             )}
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <p className="flex items-center gap-1 text-xs uppercase tracking-wider text-zinc-500">
               <MapPin className="h-3 w-3" />
               Promotion Status

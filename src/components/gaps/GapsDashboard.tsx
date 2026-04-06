@@ -1061,9 +1061,9 @@ export function GapsDashboard() {
           </div>
         </div>
 
-        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-5 mb-6">
-          <div className="grid gap-5 xl:grid-cols-[1.15fr_1fr]">
-            <div className="space-y-3">
+        <div className="mb-6 rounded-2xl border border-zinc-800 bg-zinc-900 p-5">
+          <div className="grid gap-5 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+            <div className="min-w-0 space-y-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Filter The List</p>
                 <p className="mt-1 text-sm text-zinc-400">

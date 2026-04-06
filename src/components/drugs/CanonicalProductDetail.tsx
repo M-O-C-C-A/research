@@ -191,8 +191,8 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
         )}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">Regulatory identity</p>
           <div className="mt-4 space-y-3">
             {product.sources.map((source) => (
@@ -246,7 +246,7 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
           </div>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">Ownership map</p>
             <div className="mt-4 space-y-3">

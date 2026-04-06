@@ -91,8 +91,8 @@ export default function MatchingHelpPage() {
         </div>
       </section>
 
-      <section className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+      <section className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
             In plain language
           </p>
@@ -115,7 +115,7 @@ export default function MatchingHelpPage() {
           </div>
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
             Opportunity outcomes
           </p>

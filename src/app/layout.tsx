@@ -34,7 +34,7 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body
-        className="min-h-full overflow-x-clip bg-zinc-950 font-sans selection:bg-[color:var(--brand-selection)]"
+        className="min-h-full bg-zinc-950 font-sans selection:bg-[color:var(--brand-selection)]"
         suppressHydrationWarning
       >
         <ConvexClientProvider>

@@ -444,8 +444,8 @@ export function CountryCellEditor({
             </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
-            <div className="space-y-4">
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+            <div className="min-w-0 space-y-4">
               <div className="space-y-1.5">
                 <label className="text-sm text-zinc-400">
                   Opportunity Score <span className="text-zinc-600">(1–10)</span>

@@ -106,8 +106,8 @@ export function HomeDashboard() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+        <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-400">
             Continue Where You Left Off
           </p>

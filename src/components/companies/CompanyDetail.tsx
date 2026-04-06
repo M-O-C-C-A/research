@@ -288,10 +288,10 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
 
       {/* Main company card */}
       <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
-          <div>
+        <div className="mb-4 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0">
             <h2 className="text-xl font-bold text-white">{company.name}</h2>
-            <div className="flex items-center gap-4 mt-1.5 text-sm text-zinc-500">
+            <div className="mt-1.5 flex flex-wrap items-center gap-4 text-sm text-zinc-500">
               <span className="flex items-center gap-1.5">
                 <MapPin className="h-3.5 w-3.5" />
                 {company.country}
@@ -309,7 +309,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href="/gaps"
               className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
@@ -412,7 +412,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
         {showBD && (
           <div className="px-6 pb-6 space-y-5 border-t border-zinc-800 pt-4">
             {/* Stage + Score row */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <div>
                 <p className="text-xs text-zinc-500 mb-1.5">Pipeline Stage</p>
                 <Select
@@ -595,7 +595,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
 
             {/* Revenue / employees */}
             {(company.revenueEstimate || company.employeeCount) && (
-              <div className="flex gap-6">
+              <div className="flex flex-wrap gap-6">
                 {company.revenueEstimate && (
                   <div>
                     <p className="text-xs text-zinc-500">Revenue</p>

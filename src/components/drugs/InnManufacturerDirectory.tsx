@@ -47,8 +47,8 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
         </p>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <p className="text-xs uppercase tracking-wider text-zinc-500">Manufacturers</p>
           <div className="mt-4 space-y-3">
             {data.manufacturers.map((manufacturer) => (
@@ -69,7 +69,7 @@ export function InnManufacturerDirectory({ genericName }: InnManufacturerDirecto
           </div>
         </div>
 
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <p className="text-xs uppercase tracking-wider text-zinc-500">Brand Products</p>
           <div className="mt-4 space-y-3">
             {data.brandProducts.map((product) => (

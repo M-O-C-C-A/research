@@ -250,8 +250,8 @@ export function MarketSimulator({ drugId, country }: MarketSimulatorProps) {
         </div>
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
-        <div className="space-y-6 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+      <section className="grid gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)]">
+        <div className="min-w-0 space-y-6 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
               Simulator inputs
@@ -288,7 +288,7 @@ export function MarketSimulator({ drugId, country }: MarketSimulatorProps) {
           </Button>
         </div>
 
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
               Scenario outputs

@@ -318,6 +318,37 @@ const marketEvidenceItem = v.object({
   confidence: evidenceConfidence,
 });
 
+const productMarketChannelMix = v.object({
+  privateShare: v.optional(v.number()),
+  tenderShare: v.optional(v.number()),
+  hospitalShare: v.optional(v.number()),
+});
+
+const productGenericAvailability = v.union(
+  v.literal("originator_only"),
+  v.literal("originator_plus_generics"),
+  v.literal("generic_only"),
+  v.literal("not_available"),
+  v.literal("unclear")
+);
+
+const productMarketEvidenceItem = v.object({
+  claim: v.string(),
+  title: v.optional(v.string()),
+  url: v.optional(v.string()),
+  sourceType: v.union(
+    v.literal("official_registry"),
+    v.literal("shortage_list"),
+    v.literal("tender_portal"),
+    v.literal("public_procurement"),
+    v.literal("essential_medicines"),
+    v.literal("market_report"),
+    v.literal("internal")
+  ),
+  confidence: evidenceConfidence,
+  country: v.optional(v.string()),
+});
+
 const countryScoreBreakdown = v.object({
   demand: v.number(),
   competition: v.number(),
@@ -712,6 +743,54 @@ export default defineSchema({
     .index("by_country", ["country"])
     .index("by_drug_and_country", ["drugId", "country"]),
 
+  canonicalProductMarketAnalyses: defineTable({
+    canonicalProductId: v.id("canonicalProducts"),
+    country: v.string(),
+    availabilityStatus: opportunityAvailabilityStatus,
+    marketedNames: v.array(v.string()),
+    matchedBrandName: v.optional(v.string()),
+    matchedGenericName: v.optional(v.string()),
+    genericAvailability: productGenericAvailability,
+    marketSizeUnits: v.optional(v.number()),
+    marketSizeUnitsText: v.optional(v.string()),
+    marketSizeValue: v.optional(v.number()),
+    marketSizeValueText: v.optional(v.string()),
+    marketValueCurrency: v.optional(v.string()),
+    patientPopulation: v.optional(v.number()),
+    patientPopulationText: v.optional(v.string()),
+    prevalenceText: v.optional(v.string()),
+    incidenceText: v.optional(v.string()),
+    epidemiologySummary: v.optional(v.string()),
+    channelMix: v.optional(productMarketChannelMix),
+    channelSummary: v.optional(v.string()),
+    tenderVsPrivateSummary: v.optional(v.string()),
+    payerMixSummary: v.optional(v.string()),
+    publicChannelShare: v.optional(v.number()),
+    privateChannelShare: v.optional(v.number()),
+    hospitalChannelShare: v.optional(v.number()),
+    tenderOpportunity: v.optional(v.boolean()),
+    tenderSignalStrength: v.optional(tenderSignalStrength),
+    marketAccessRoute: v.optional(marketAccessRoute),
+    opportunityKind: v.optional(commercialOpportunityKind),
+    commercialOpportunityScore: v.optional(v.number()),
+    annualOpportunityRange: v.optional(v.string()),
+    priorityScore: v.optional(v.number()),
+    priorityReason: v.optional(v.string()),
+    availabilityNarrative: v.optional(v.string()),
+    competitionSummary: v.optional(v.string()),
+    marketAccessNotes: v.optional(v.string()),
+    insuredShare: v.optional(v.number()),
+    outOfPocketShare: v.optional(v.number()),
+    evidenceConfidence: evidenceConfidence,
+    evidenceItems: v.array(productMarketEvidenceItem),
+    lastAnalyzedAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_canonical_product", ["canonicalProductId"])
+    .index("by_canonical_product_and_country", ["canonicalProductId", "country"])
+    .index("by_country", ["country"]),
+
   priceEvidence: defineTable({
     drugId: v.id("drugs"),
     country: v.string(),
@@ -730,6 +809,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index("by_drug", ["drugId"])
     .index("by_drug_and_country", ["drugId", "country"])
     .index("by_source_system", ["sourceSystem"])
     .index("by_drug_country_and_observed_at", ["drugId", "country", "observedAt"]),
@@ -750,6 +830,7 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
+    .index("by_drug", ["drugId"])
     .index("by_drug_and_country", ["drugId", "country"])
     .index("by_signal_type", ["signalType"])
     .index("by_source_system", ["sourceSystem"]),

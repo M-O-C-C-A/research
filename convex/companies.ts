@@ -257,6 +257,8 @@ async function importCompanyDirectoryRows(
 
     let createdCount = 0;
     let updatedCount = 0;
+    const createdIds: Id<"companies">[] = [];
+    const updatedIds: Id<"companies">[] = [];
 
     for (const row of rows) {
       const key = normalizeCompanyKey(row.name, row.country);
@@ -288,6 +290,7 @@ async function importCompanyDirectoryRows(
                   .join(" "),
         });
         updatedCount += 1;
+        updatedIds.push(existing._id);
         continue;
       }
 
@@ -310,11 +313,14 @@ async function importCompanyDirectoryRows(
       });
       existingByKey.set(key, { _id: companyId });
       createdCount += 1;
+      createdIds.push(companyId);
     }
 
     return {
       createdCount,
       updatedCount,
+      createdIds,
+      updatedIds,
       totalProcessed: rows.length,
     };
 }

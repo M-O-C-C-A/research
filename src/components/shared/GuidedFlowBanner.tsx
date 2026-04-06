@@ -8,6 +8,8 @@ import { api } from "../../../convex/_generated/api";
 interface GuidedFlowBannerProps {
   hereLabel: string;
   helperText: string;
+  nextHref?: string;
+  nextLabel?: string;
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -19,11 +21,16 @@ const STEP_LABELS: Record<string, string> = {
   follow_up: "Continue follow-up",
 };
 
-export function GuidedFlowBanner({ hereLabel, helperText }: GuidedFlowBannerProps) {
+export function GuidedFlowBanner({
+  hereLabel,
+  helperText,
+  nextHref: nextHrefOverride,
+  nextLabel: nextLabelOverride,
+}: GuidedFlowBannerProps) {
   const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
 
-  const nextLabel = guidedFlow?.primaryAction.label ?? "Start with a company";
-  const nextHref = guidedFlow?.resumeHref ?? "/workflow";
+  const nextLabel = nextLabelOverride ?? guidedFlow?.primaryAction.label ?? "Start with a company";
+  const nextHref = nextHrefOverride ?? guidedFlow?.resumeHref ?? "/workflow";
   const currentStep = guidedFlow?.currentStep
     ? STEP_LABELS[guidedFlow.currentStep] ?? guidedFlow.currentStep
     : "Choose a company";

@@ -7,7 +7,8 @@ import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/EmptyState";
 import { FindDrugsButton } from "@/components/discovery/FindDrugsButton";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import {
@@ -30,6 +31,7 @@ import {
   ShieldQuestion,
   Zap,
   ArrowRight,
+  Building2,
 } from "lucide-react";
 import {
   Select,
@@ -39,6 +41,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { normalizePipelineStage, PIPELINE_STAGES } from "@/lib/distributorFit";
+import { cn } from "@/lib/utils";
 
 type BdStatus = (typeof PIPELINE_STAGES)[number]["key"];
 
@@ -198,7 +201,40 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
     );
   }
 
-  if (!company) return null;
+  if (!company) {
+    return (
+      <EmptyState
+        icon={<Building2 className="h-10 w-10" />}
+        title="Company not found"
+        description="This company record could not be loaded. The link may be stale, or the company may have been removed."
+        action={
+          <Link
+            href="/companies"
+            className={cn(
+              buttonVariants({ variant: "outline" }),
+              "border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+            )}
+          >
+            Back to companies
+          </Link>
+        }
+      />
+    );
+  }
+
+  const hasProfileData = Boolean(
+    company.description ||
+      company.website ||
+      company.therapeuticAreas.length > 0 ||
+      (company.distributorFitScore ?? company.bdScore) != null ||
+      company.distributorFitRationale ||
+      company.bdScoreRationale ||
+      company.exportMarketsKnown?.length ||
+      company.existingMenaPartners?.length ||
+      company.partnerabilitySignals?.length ||
+      company.manufacturingFootprint ||
+      company.partneringHistory
+  );
 
   const effectiveNotes = bdNotes ?? company.bdNotes ?? "";
 
@@ -323,6 +359,36 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                 </Badge>
               ))}
             </div>
+          </div>
+        )}
+
+        {!hasProfileData && (
+          <div className="mt-4">
+            <EmptyState
+              icon={<Building2 className="h-8 w-8" />}
+              title="No company research yet"
+              description="This company exists in the directory, but its profile has not been enriched yet. Research the company or add products to make this page useful."
+              action={
+                <div className="flex flex-wrap justify-center gap-3">
+                  <FindDrugsButton companyId={companyId} label="Find products" />
+                  <Button
+                    variant="outline"
+                    onClick={handleBuildDossier}
+                    disabled={isDossierRunning}
+                    className="border-zinc-700 bg-zinc-900 text-zinc-200 hover:bg-zinc-800"
+                  >
+                    {isDossierRunning ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Researching...
+                      </>
+                    ) : (
+                      "Research company"
+                    )}
+                  </Button>
+                </div>
+              }
+            />
           </div>
         )}
       </div>

@@ -1,8 +1,8 @@
 "use node";
 
 import * as XLSX from "xlsx";
-import { action } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { action, ActionCtx } from "./_generated/server";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 
@@ -54,6 +54,45 @@ async function fetchEmaPage(page: number) {
   };
 }
 
+const POST_IMPORT_ENRICH_LIMIT = 3;
+
+async function enrichImportedCompanies(
+  ctx: ActionCtx,
+  companyIds: Id<"companies">[],
+  limit = POST_IMPORT_ENRICH_LIMIT
+) {
+  const uniqueIds = [...new Set(companyIds)];
+  const selected: Id<"companies">[] = [];
+
+  for (const companyId of uniqueIds) {
+    if (selected.length >= limit) break;
+    const company = await ctx.runQuery(api.companies.get, { id: companyId });
+    if (!company || company.researchedAt) continue;
+    selected.push(companyId);
+  }
+
+  const enrichedCompanyIds: Id<"companies">[] = [];
+  const failedCompanyIds: Id<"companies">[] = [];
+
+  for (const companyId of selected) {
+    try {
+      await ctx.runAction(api.discovery.findDrugsForCompany, { companyId });
+      await ctx.runAction(api.research.buildProspectDossier, { companyId });
+      enrichedCompanyIds.push(companyId);
+    } catch {
+      failedCompanyIds.push(companyId);
+    }
+  }
+
+  return {
+    attemptedCount: selected.length,
+    enrichedCount: enrichedCompanyIds.length,
+    failedCount: failedCompanyIds.length,
+    enrichedCompanyIds,
+    failedCompanyIds,
+  };
+}
+
 export const importEmaSmeCompanies = action({
   args: {
     limitPages: v.optional(v.number()),
@@ -87,22 +126,31 @@ export const importEmaSmeCompanies = action({
 
     let createdCount = 0;
     let updatedCount = 0;
+    const createdIds: Id<"companies">[] = [];
+    const updatedIds: Id<"companies">[] = [];
     for (let index = 0; index < uniqueRows.length; index += 100) {
       const batch = uniqueRows.slice(index, index + 100);
       const result: {
         createdCount: number;
         updatedCount: number;
+        createdIds: Id<"companies">[];
+        updatedIds: Id<"companies">[];
         totalProcessed: number;
       } = await ctx.runMutation(internal.companies.importEmaSmeBatch, { rows: batch });
       createdCount += result.createdCount;
       updatedCount += result.updatedCount;
+      createdIds.push(...result.createdIds);
+      updatedIds.push(...result.updatedIds);
     }
+
+    const enrichment = await enrichImportedCompanies(ctx, [...createdIds, ...updatedIds]);
 
     return {
       pageCount: maxPages,
       totalFound: uniqueRows.length,
       createdCount,
       updatedCount,
+      enrichment,
       sourceUrl: EMA_SME_BASE_URL,
     };
   },
@@ -204,21 +252,30 @@ export const importPharmaDirectoryStarterPack = action({
 
     let createdCount = 0;
     let updatedCount = 0;
+    const createdIds: Id<"companies">[] = [];
+    const updatedIds: Id<"companies">[] = [];
     for (let index = 0; index < rows.length; index += 100) {
       const batch = rows.slice(index, index + 100);
       const result: {
         createdCount: number;
         updatedCount: number;
+        createdIds: Id<"companies">[];
+        updatedIds: Id<"companies">[];
         totalProcessed: number;
       } = await ctx.runMutation(internal.companies.importStarterDirectoryBatch, { rows: batch });
       createdCount += result.createdCount;
       updatedCount += result.updatedCount;
+      createdIds.push(...result.createdIds);
+      updatedIds.push(...result.updatedIds);
     }
+
+    const enrichment = await enrichImportedCompanies(ctx, [...createdIds, ...updatedIds]);
 
     return {
       totalFound: rows.length,
       createdCount,
       updatedCount,
+      enrichment,
     };
   },
 });

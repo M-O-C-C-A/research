@@ -16,6 +16,7 @@ interface OpportunityDetailViewProps {
 }
 
 export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewProps) {
+  const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
   const opportunity = useQuery(api.decisionOpportunities.get, {
     id: opportunityId as Id<"decisionOpportunities">,
   });
@@ -53,12 +54,18 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
     callOpening: "Rebuild the opportunity engine to generate a call-opening script.",
     attachmentBrief: "Rebuild the opportunity engine to generate a one-page brief.",
   };
+  const currentOpportunityHref = `/opportunities/${opportunityId}`;
+  const bannerNextHref =
+    guidedFlow?.resumeHref === currentOpportunityHref
+      ? `${currentOpportunityHref}#outreach-readiness`
+      : undefined;
 
   return (
     <div className="space-y-6">
       <GuidedFlowBanner
         hereLabel="Best opportunity detail"
         helperText="Use this page to validate the recommendation, clear blockers, and decide whether KEMEDICA is ready to send outreach now."
+        nextHref={bannerNextHref}
       />
 
       <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
@@ -273,7 +280,10 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         </section>
       )}
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+      <section
+        id="outreach-readiness"
+        className="scroll-mt-24 rounded-xl border border-zinc-800 bg-zinc-900 p-6"
+      >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">

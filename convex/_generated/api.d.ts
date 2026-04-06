@@ -36,6 +36,7 @@ import type * as opportunities from "../opportunities.js";
 import type * as productIntelligence from "../productIntelligence.js";
 import type * as productIntelligenceActions from "../productIntelligenceActions.js";
 import type * as productIntelligenceHelpers from "../productIntelligenceHelpers.js";
+import type * as productMarketAnalysis from "../productMarketAnalysis.js";
 import type * as registrationImportActions from "../registrationImportActions.js";
 import type * as registrationImports from "../registrationImports.js";
 import type * as reports from "../reports.js";
@@ -78,6 +79,7 @@ declare const fullApi: ApiFromModules<{
   productIntelligence: typeof productIntelligence;
   productIntelligenceActions: typeof productIntelligenceActions;
   productIntelligenceHelpers: typeof productIntelligenceHelpers;
+  productMarketAnalysis: typeof productMarketAnalysis;
   registrationImportActions: typeof registrationImportActions;
   registrationImports: typeof registrationImports;
   reports: typeof reports;

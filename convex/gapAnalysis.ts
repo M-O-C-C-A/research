@@ -1247,6 +1247,28 @@ export const analyzeCanonicalProductGaps = action({
       if (!product) {
         continue;
       }
+      const existingMarketAnalysis = await ctx.runQuery(
+        api.productMarketAnalysis.getByCanonicalProduct,
+        { canonicalProductId }
+      );
+      const marketAnalysisRows: Array<{
+        country: string;
+        availabilityStatus: string;
+        genericAvailability: string;
+        evidenceItems: Array<{
+          claim: string;
+          title?: string;
+          url?: string;
+          sourceType: string;
+          confidence: "confirmed" | "likely" | "inferred";
+        }>;
+      }> = existingMarketAnalysis?.countries ?? [];
+      const marketAnalysisByCountry = new Map(
+        marketAnalysisRows.map((row) => [
+          normalizeGapCountry(row.country),
+          row,
+        ])
+      );
 
       const linkedDrugIds = new Set(product.linkedDrugs.map((drug) => drug._id));
       const linkedOpportunities = allOpportunities.filter((row) =>
@@ -1296,6 +1318,7 @@ export const analyzeCanonicalProductGaps = action({
         const matchedGenericNames = dedupeSimpleStrings(
           countryOpportunities.map((entry) => entry.matchedGenericName)
         );
+        const analyzedMarket = marketAnalysisByCountry.get(normalizedCountry);
 
         let state: MarketPresenceState = "unclear";
         if (
@@ -1331,6 +1354,14 @@ export const analyzeCanonicalProductGaps = action({
           ) ||
           countryRegistrations.some((registration) => registration.status === "not_found")
         ) {
+          state = "absent";
+        } else if (analyzedMarket?.availabilityStatus === "formally_registered") {
+          state = analyzedMarket.genericAvailability === "generic_only" ? "generic_present" : "present";
+        } else if (analyzedMarket?.availabilityStatus === "tender_formulary_only") {
+          state = "present";
+        } else if (analyzedMarket?.availabilityStatus === "hospital_import_only") {
+          state = "present";
+        } else if (analyzedMarket?.availabilityStatus === "not_found") {
           state = "absent";
         }
 
@@ -1369,6 +1400,22 @@ export const analyzeCanonicalProductGaps = action({
                 registration.status === "registered"
                   ? ("confirmed" as const)
                   : ("likely" as const),
+            })),
+          ...(analyzedMarket?.evidenceItems ?? [])
+            .filter((item) => item.url)
+            .map((item) => ({
+              title: item.title ?? `${country} market evidence`,
+              url: normalizeExternalUrl(item.url!),
+              claim: item.claim,
+              sourceKind:
+                item.sourceType === "official_registry"
+                  ? ("official_registry" as const)
+                  : item.sourceType === "tender_portal" || item.sourceType === "public_procurement"
+                    ? ("tender_portal" as const)
+                    : ("market_report" as const),
+              country,
+              productOrClass: product.inn,
+              confidence: item.confidence,
             })),
         ].filter(
           (item): item is {

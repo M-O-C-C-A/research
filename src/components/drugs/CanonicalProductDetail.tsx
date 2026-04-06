@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { ProductMarketAnalysisPanel } from "@/components/drugs/ProductMarketAnalysisPanel";
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -34,25 +35,30 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
   const existingGaps = useQuery(api.gapOpportunities.listByCanonicalProduct, {
     canonicalProductId: productId as Id<"canonicalProducts">,
   });
-  const analyzeProductGap = useAction(api.gapAnalysis.analyzeSingleCanonicalProductGap);
+  const marketAnalysis = useQuery(api.productMarketAnalysis.getByCanonicalProduct, {
+    canonicalProductId: productId as Id<"canonicalProducts">,
+  });
+  const analyzeProductMarkets = useAction(api.productMarketAnalysis.analyzeCanonicalProductMarkets);
 
   async function handleAnalyzeProductGap() {
     setAnalysisState({
       tone: "info",
-      title: "Analyzing GCC++ whitespace",
-      body: "Checking product approvals, target-market presence, and patent / biosimilar timing.",
+      title: "Analyzing GCC++ availability",
+      body: "Checking UAE and the other GCC++ markets for local availability, naming, channels, and market signals.",
     });
     try {
-      const result = await analyzeProductGap({
+      const result = await analyzeProductMarkets({
         canonicalProductId: productId as Id<"canonicalProducts">,
       });
       setAnalysisState({
-        tone: result.created > 0 ? "success" : "error",
+        tone: result.countriesAnalyzed > 0 ? "success" : "error",
         title:
-          result.created > 0 ? "Product-led gap ready" : "No product-led gap created",
+          result.countriesAnalyzed > 0
+            ? "GCC++ availability scan ready"
+            : "No GCC++ availability result captured",
         body:
-          result.created > 0
-            ? "The gap list has been refreshed with this product-led whitespace review."
+          result.countriesAnalyzed > 0
+            ? `Refreshed the GCC++ product scan across ${result.countriesAnalyzed} markets.`
             : result.summary,
       });
     } catch (error) {
@@ -124,10 +130,10 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
               type="button"
               onClick={() => void handleAnalyzeProductGap()}
             >
-              Analyze GCC++ whitespace
+              Analyze GCC++ availability
             </Button>
             <Link
-              href="/gaps"
+              href={`/drugs/catalog/${productId}/opportunity`}
               className="inline-flex items-center rounded-lg border border-zinc-700 px-3 py-2 text-sm font-medium text-zinc-200 transition-colors hover:border-zinc-600 hover:text-white"
             >
               Check market opportunity
@@ -179,6 +185,10 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
           <Metric label="Route" value={product.route ?? "—"} />
           <Metric label="ATC / therapy" value={product.atcCode ?? product.therapeuticArea ?? "—"} />
         </div>
+
+        {marketAnalysis && marketAnalysis.countries.length > 0 && (
+          <ProductMarketAnalysisPanel analysis={marketAnalysis} />
+        )}
       </section>
 
       <section className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">

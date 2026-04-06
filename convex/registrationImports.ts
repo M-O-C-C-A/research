@@ -9,10 +9,6 @@ import {
 import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import { api } from "./_generated/api";
-import {
-  RegistrationImportStatus,
-  RegistrationStatus,
-} from "../src/lib/registrationImports";
 
 const registrationStatusValidator = v.union(
   v.literal("registered"),
@@ -71,36 +67,6 @@ const importRowValidator = v.object({
   validationIssues: v.array(v.string()),
   rawRow: v.record(v.string(), v.string()),
 });
-
-type ImportRowInput = {
-  productName: string;
-  genericName?: string;
-  manufacturerName?: string;
-  mahName?: string;
-  supplierName?: string;
-  country: string;
-  registrationStatus: RegistrationStatus;
-  registrationNumber?: string;
-  approvalDate?: string;
-  strength?: string;
-  form?: string;
-  packSize?: string;
-  priceAed?: string;
-  classification?: string;
-  dispensingMode?: string;
-  countryOfOrigin?: string;
-  productKind?: "medicine" | "device";
-  matchExplanation?: string;
-  sourceNote?: string;
-  sourceSheet: string;
-  sourceRowNumber: number;
-  matchStatus: "matched" | "unmatched" | "ambiguous" | "skipped";
-  applyState: "pending" | "applied" | "skipped";
-  matchedDrugId?: Id<"drugs">;
-  matchedCompanyId?: Id<"companies">;
-  validationIssues: string[];
-  rawRow: Record<string, string>;
-};
 
 type DbCtx = QueryCtx | MutationCtx;
 

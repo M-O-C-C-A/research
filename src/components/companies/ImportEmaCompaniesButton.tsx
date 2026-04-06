@@ -18,8 +18,12 @@ export function ImportEmaCompaniesButton() {
     setMessage(null);
     try {
       const result = await importEmaSmeCompanies({});
+      const enrichmentMessage =
+        result.enrichment.attemptedCount > 0
+          ? ` Started enrichment for ${result.enrichment.enrichedCount} companies${result.enrichment.failedCount > 0 ? ` (${result.enrichment.failedCount} failed to start or complete)` : ""}.`
+          : "";
       setMessage(
-        `Imported ${result.totalFound} EMA SME companies across ${result.pageCount} pages. Added ${result.createdCount} new records and refreshed ${result.updatedCount} existing ones.`
+        `Imported ${result.totalFound} EMA SME companies across ${result.pageCount} pages. Added ${result.createdCount} new records and refreshed ${result.updatedCount} existing ones.${enrichmentMessage}`
       );
     } catch (importError) {
       setError(

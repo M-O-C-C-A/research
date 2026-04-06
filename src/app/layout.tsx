@@ -34,13 +34,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body
-        className="min-h-full flex flex-col bg-zinc-950 font-sans selection:bg-[color:var(--brand-selection)]"
+        className="min-h-full overflow-x-clip bg-zinc-950 font-sans selection:bg-[color:var(--brand-selection)]"
         suppressHydrationWarning
       >
         <ConvexClientProvider>
           <NavBar />
-          <div className="flex-1 mt-16">{children}</div>
-          <footer className="border-t border-zinc-800 bg-zinc-950 py-8 px-6 text-center text-sm text-zinc-500">
+          <div className="mt-16 flex-1">{children}</div>
+          <footer className="border-t border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500 sm:px-6">
             © 2026 {BRAND_NAME}. {BRAND_TAGLINE}
           </footer>
         </ConvexClientProvider>

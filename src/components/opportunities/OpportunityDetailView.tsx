@@ -61,14 +61,14 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
       : undefined;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 sm:space-y-6">
       <GuidedFlowBanner
         hereLabel="Best opportunity detail"
         helperText="Use this page to validate the recommendation, clear blockers, and decide whether KEMEDICA is ready to send outreach now."
         nextHref={bannerNextHref}
       />
 
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0">
             <div className="mb-2 flex flex-wrap items-center gap-2">
@@ -91,7 +91,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </p>
           </div>
 
-          <div className="rounded-xl border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] px-4 py-3 text-right">
+          <div className="w-full rounded-xl border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] px-4 py-3 text-left sm:w-auto sm:text-right">
             <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">Priority Score</p>
             <p className="mt-1 text-3xl font-bold text-white">{opportunity.priorityScore.toFixed(1)}</p>
             <p className="text-xs text-zinc-500">Focus: {opportunity.focusMarkets.join(", ")}</p>
@@ -99,7 +99,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         </div>
       </section>
 
-      <section className="rounded-xl border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] p-6">
+      <section className="rounded-xl border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
@@ -122,7 +122,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           </Link>
         </div>
 
-        <div className="mt-5 grid gap-4 lg:grid-cols-2">
+        <div className="mt-5 grid gap-4 md:grid-cols-2">
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
               Why this is worth pursuing
@@ -162,7 +162,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-4">
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
           <p className="text-xs uppercase tracking-wider text-zinc-500">Why This Market</p>
           <p className="mt-2 text-sm text-zinc-300">{opportunity.whyThisMarket}</p>
@@ -189,7 +189,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
       </section>
 
       {marketOpportunities && marketOpportunities.length > 0 && (
-        <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
@@ -207,7 +207,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="mt-5 grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
             {marketOpportunities
               .filter((item) => opportunity.focusMarkets.includes(item.country))
               .map((item) => (
@@ -282,7 +282,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
 
       <section
         id="outreach-readiness"
-        className="scroll-mt-24 rounded-xl border border-zinc-800 bg-zinc-900 p-6"
+        className="scroll-mt-24 rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6"
       >
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -304,7 +304,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           </span>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
             { label: "Gap confirmed", complete: outreachReadiness.gapConfirmed },
             { label: "Ownership confirmed", complete: outreachReadiness.ownershipConfirmed },
@@ -334,9 +334,9 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         )}
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <div className="space-y-6">
-          <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-6" open>
+          <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6" open>
             <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Decision details and scoring
             </summary>
@@ -347,7 +347,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Decision Summary
             </h3>
-            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+            <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
                 <p className="text-xs text-zinc-500">Gap Type</p>
                 <p className="mt-1 text-sm text-zinc-300">{opportunity.gapType.replace("_", " ")}</p>
@@ -384,7 +384,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </div>
           </details>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
             <div className="flex items-center justify-between gap-4">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
                 Outreach Package
@@ -404,7 +404,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                   {outreachPackage.longEmail}
                 </pre>
               </div>
-              <div className="grid gap-4 lg:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-lg bg-zinc-950 p-4">
                   <p className="text-xs uppercase tracking-wider text-zinc-500">LinkedIn message</p>
                   <p className="mt-2 text-sm leading-relaxed text-zinc-300">
@@ -427,7 +427,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Evidence And Transparency
             </h3>
@@ -463,7 +463,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         </div>
 
         <div className="space-y-6">
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Contact Direction
             </h3>
@@ -502,7 +502,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Score Breakdown
             </h3>
@@ -532,7 +532,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             <p className="mt-4 text-xs leading-relaxed text-zinc-500">{opportunity.scoreExplanation}</p>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Assumptions
             </h3>

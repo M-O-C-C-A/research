@@ -50,7 +50,7 @@ export function GuidedFlowBanner({
           </p>
         </div>
 
-        <div className="rounded-lg border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] px-4 py-3">
+        <div className="w-full rounded-lg border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] px-4 py-3 sm:w-auto sm:min-w-[16rem]">
           <p className="text-xs uppercase tracking-[0.22em] text-[var(--brand-300)]">Next Step</p>
           <p className="mt-1 text-sm font-medium text-white">{nextLabel}</p>
           <Link

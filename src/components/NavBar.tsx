@@ -72,7 +72,7 @@ export function NavBar() {
                 {BRAND_NAME}
               </span>
             </Link>
-            <div className="hidden min-w-0 md:flex md:items-center md:gap-1">
+            <div className="hidden min-w-0 lg:flex lg:items-center lg:gap-1">
               {NAV_LINKS.map((item) => {
                 const active =
                   item.href === "/"
@@ -102,7 +102,7 @@ export function NavBar() {
             </span>
             <Link
               href={startProcessHref}
-              className="hidden md:inline-flex items-center rounded-lg bg-[color:var(--brand-500)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[color:var(--brand-600)]"
+              className="hidden lg:inline-flex items-center rounded-lg bg-[color:var(--brand-500)] px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-[color:var(--brand-600)]"
             >
               {startProcessLabel}
             </Link>
@@ -111,7 +111,7 @@ export function NavBar() {
               aria-expanded={mobileOpen}
               aria-controls="mobile-navigation"
               aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
-              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[color:var(--brand-border)] bg-zinc-900 text-zinc-200 transition-colors hover:bg-[color:var(--brand-surface)] md:hidden"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[color:var(--brand-border)] bg-zinc-900 text-zinc-200 transition-colors hover:bg-[color:var(--brand-surface)] lg:hidden"
               onClick={() => setMobileOpen((open) => !open)}
             >
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
@@ -121,7 +121,7 @@ export function NavBar() {
       </div>
       <div
         className={cn(
-          "md:hidden overflow-hidden border-t border-[color:var(--brand-border)] bg-zinc-950/95 transition-[max-height,opacity] duration-200",
+          "overflow-hidden border-t border-[color:var(--brand-border)] bg-zinc-950/95 transition-[max-height,opacity] duration-200 lg:hidden",
           mobileOpen ? "max-h-[24rem] opacity-100" : "max-h-0 opacity-0"
         )}
       >

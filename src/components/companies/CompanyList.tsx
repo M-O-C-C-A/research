@@ -25,8 +25,8 @@ export function CompanyList() {
         helperText="Use this list to choose a manufacturer, then either research the company further or connect it to products and opportunities."
       />
 
-      <div className="mt-6 flex gap-3 mb-6">
-        <div className="relative flex-1 max-w-sm">
+      <div className="mb-6 mt-6 flex flex-wrap gap-3">
+        <div className="relative w-full flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input
             value={search}

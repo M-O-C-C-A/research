@@ -314,7 +314,7 @@ export function DrugList() {
                 : "Loading sync stats..."}
             </p>
           </div>
-          <div className="w-full max-w-xl space-y-3">
+          <div className="w-full space-y-3 xl:max-w-xl">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
               <Input
@@ -329,7 +329,7 @@ export function DrugList() {
                 type="button"
                 onClick={() => void runSync("system")}
                 disabled={syncingSource !== null}
-                className="min-w-44"
+                className="w-full sm:w-auto sm:min-w-44"
                 variant="secondary"
               >
                 {isRebuildingSystem ? (
@@ -343,7 +343,7 @@ export function DrugList() {
                 type="button"
                 onClick={() => void runSync("update")}
                 disabled={syncingSource !== null}
-                className="min-w-44"
+                className="w-full sm:w-auto sm:min-w-44"
               >
                 {isUpdatingDirectory ? (
                   <LoaderCircle className="h-4 w-4 animate-spin" />
@@ -449,8 +449,8 @@ export function DrugList() {
         </div>
       </div>
 
-      <div className="flex gap-3 mb-6 flex-wrap">
-        <div className="relative flex-1 min-w-48 max-w-sm">
+      <div className="mb-6 flex flex-wrap gap-3">
+        <div className="relative w-full flex-1 sm:min-w-48 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
           <Input
             value={search}
@@ -460,7 +460,7 @@ export function DrugList() {
           />
         </div>
         <Select value={area} onValueChange={(v) => setArea(v ?? "")}>
-          <SelectTrigger className="w-52 bg-zinc-900 border-zinc-800 text-white">
+          <SelectTrigger className="w-full bg-zinc-900 border-zinc-800 text-white sm:w-52">
             <SelectValue placeholder="All therapeutic areas" />
           </SelectTrigger>
           <SelectContent className="bg-zinc-800 border-zinc-700">
@@ -549,7 +549,7 @@ export function DrugList() {
         />
       ) : (
         <div className="rounded-lg border border-zinc-800 overflow-hidden">
-          <Table>
+          <Table className="min-w-[72rem]">
             <TableHeader>
               <TableRow className="border-zinc-800 hover:bg-transparent">
                 <TableHead className="text-zinc-500">Product Name</TableHead>

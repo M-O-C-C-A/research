@@ -137,7 +137,7 @@
   }
   html {
     @apply font-sans;
-    font-size: 17px;
+    font-size: 16px;
   }
   body {
     @apply bg-background text-foreground;
@@ -150,5 +150,13 @@
   h3,
   h4 {
     @apply font-heading tracking-tight;
+  }
+}
+
+@media (min-width: 768px) {
+  @layer base {
+    html {
+      font-size: 17px;
+    }
   }
 }

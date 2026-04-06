@@ -126,9 +126,10 @@ function CompanyRow({
 
   return (
     <div className="border-b border-zinc-800 last:border-0">
-      <div className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors">
+      <div className="flex flex-col gap-4 px-4 py-4 transition-colors hover:bg-zinc-800/40 md:flex-row md:items-center md:gap-3 md:py-3">
         {/* BD Score */}
-        <div className="w-14 shrink-0 text-right">
+        <div className="flex items-center justify-between gap-3 md:w-14 md:shrink-0 md:justify-end md:text-right">
+          <span className="text-[11px] uppercase tracking-wider text-zinc-600 md:hidden">Score</span>
           {(company.distributorFitScore ?? company.bdScore) != null ? (
             <span className={`text-sm font-bold flex items-center justify-end gap-0.5 ${(company.distributorFitScore ?? company.bdScore)! >= 7 ? "text-emerald-400" : (company.distributorFitScore ?? company.bdScore)! >= 5 ? "text-yellow-400" : "text-zinc-500"}`}>
               <Star className="h-3 w-3" />
@@ -140,7 +141,7 @@ function CompanyRow({
         </div>
 
         {/* Company info */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
             <Link
               href={`/companies/${company._id}`}
@@ -169,7 +170,8 @@ function CompanyRow({
         </div>
 
         {/* Top drug */}
-        <div className="hidden sm:block w-36 shrink-0">
+        <div className="flex items-center justify-between gap-3 md:block md:w-36 md:shrink-0">
+          <span className="text-[11px] uppercase tracking-wider text-zinc-600 md:hidden">Top drug</span>
           {topDrug ? (
             <span className="text-xs text-zinc-400 bg-zinc-800 rounded px-2 py-1 truncate block">
               {topDrug.genericName}
@@ -181,14 +183,18 @@ function CompanyRow({
         </div>
 
         {/* Contact */}
-        <div className="hidden md:block w-32 shrink-0">
+        <div className="flex items-center justify-between gap-3 md:block md:w-32 md:shrink-0">
+          <span className="text-[11px] uppercase tracking-wider text-zinc-600 md:hidden">Contact</span>
           <p className="text-xs text-zinc-500 truncate">
             {company.contactName ?? "—"}
           </p>
         </div>
 
         {/* Stage select */}
-        <div className="w-36 shrink-0">
+        <div className="w-full md:w-36 md:shrink-0">
+          <span className="mb-2 block text-[11px] uppercase tracking-wider text-zinc-600 md:hidden">
+            Stage
+          </span>
           <Select
             value={normalizePipelineStage(company.bdStatus)}
             onValueChange={(v) => onStageChange(company._id, v as BdStatus)}
@@ -210,7 +216,7 @@ function CompanyRow({
         </div>
 
         {/* Actions */}
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center justify-end gap-1 md:shrink-0">
           {!company.researchedAt && (
             <button
               onClick={() => onEnrich(company._id)}
@@ -336,24 +342,24 @@ export function PipelineBoard() {
   return (
     <div>
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 gap-4">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Outreach Pipeline</h1>
           <p className="mt-1 text-sm text-zinc-400">
             Track manufacturers from first review through active outreach and outcome
           </p>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2 lg:shrink-0">
           {unscoredCount > 0 && (
-            <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800 text-xs" onClick={handleScoreAll} disabled={scoringId != null}>
+            <Button variant="outline" size="sm" className="max-sm:w-full border-zinc-700 text-xs hover:bg-zinc-800" onClick={handleScoreAll} disabled={scoringId != null}>
               {scoringId != null ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Scoring…</> : <>Score {Math.min(unscoredCount, 5)} unscored</>}
             </Button>
           )}
-          <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800 text-xs" onClick={handleRunQueue} disabled={isQueueRunning}>
+          <Button variant="outline" size="sm" className="max-sm:w-full border-zinc-700 text-xs hover:bg-zinc-800" onClick={handleRunQueue} disabled={isQueueRunning}>
             {isQueueRunning ? <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Enriching…</> : <>⚡ Enrich 3 targets</>}
           </Button>
           <Link href="/companies">
-            <Button variant="outline" size="sm" className="border-zinc-700 hover:bg-zinc-800 text-xs">
+            <Button variant="outline" size="sm" className="max-sm:w-full border-zinc-700 text-xs hover:bg-zinc-800">
               <Building2 className="h-3.5 w-3.5 mr-1.5" />
               All Companies
             </Button>
@@ -362,7 +368,7 @@ export function PipelineBoard() {
       </div>
 
       {/* Stage tabs */}
-      <div className="flex gap-1.5 flex-wrap mb-4">
+      <div className="-mx-1 mb-4 flex gap-1.5 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0">
         {ALL_STAGES.map((stage) => {
           const count = pipelineStats?.counts[stage.key] ?? 0;
           const isActive = activeStage === stage.key;
@@ -407,9 +413,9 @@ export function PipelineBoard() {
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900 overflow-hidden">
+      <div className="overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900">
         {/* Column headers */}
-        <div className="flex items-center gap-3 px-4 py-2 border-b border-zinc-800 bg-zinc-800/50">
+        <div className="hidden items-center gap-3 border-b border-zinc-800 bg-zinc-800/50 px-4 py-2 md:flex">
           <div className="w-14 shrink-0 text-right">
             <span className="text-xs text-zinc-600 uppercase tracking-wider">Score</span>
           </div>

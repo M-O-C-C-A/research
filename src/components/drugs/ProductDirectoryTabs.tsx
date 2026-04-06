@@ -38,22 +38,22 @@ export function ProductDirectoryTabs() {
 
   return (
     <Tabs value={activeTab} onValueChange={handleTabChange}>
-      <TabsList className="mb-6 border border-zinc-800 bg-zinc-900">
+      <TabsList className="mb-6 h-auto w-full flex-wrap justify-start gap-2 border border-zinc-800 bg-zinc-900 p-2">
         <TabsTrigger
           value="brands"
-          className="text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+          className="min-w-[11rem] flex-1 text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
         >
           Products by Brand
         </TabsTrigger>
         <TabsTrigger
           value="inns"
-          className="text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+          className="min-w-[11rem] flex-1 text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
         >
           INNs
         </TabsTrigger>
         <TabsTrigger
           value="devices"
-          className="text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
+          className="min-w-[11rem] flex-1 text-zinc-400 data-[state=active]:bg-zinc-800 data-[state=active]:text-white"
         >
           Medical Devices
         </TabsTrigger>

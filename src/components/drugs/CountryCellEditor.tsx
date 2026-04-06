@@ -40,6 +40,22 @@ import {
   SIGNAL_STRENGTH_OPTIONS,
 } from "@/lib/constants";
 
+const WEBSITE_SOURCE_TYPE_OPTIONS = [
+  { value: "official_registry", label: "Official Registry" },
+  { value: "tender_portal", label: "Tender Portal" },
+  { value: "public_procurement", label: "Public Procurement" },
+  { value: "essential_medicines", label: "Essential Medicines" },
+  { value: "market_report", label: "Market Report" },
+  { value: "company", label: "Company Website" },
+  { value: "internal", label: "Internal Note" },
+] as const;
+
+const EVIDENCE_CONFIDENCE_OPTIONS = [
+  { value: "confirmed", label: "Confirmed" },
+  { value: "likely", label: "Likely" },
+  { value: "inferred", label: "Inferred" },
+] as const;
+
 interface CountryOpportunity {
   drugId: Id<"drugs">;
   country: string;
@@ -207,12 +223,24 @@ export function CountryCellEditor({
   const [signalSourceUrl, setSignalSourceUrl] = useState("");
   const [signalConfidence, setSignalConfidence] = useState("likely");
   const [signalNotes, setSignalNotes] = useState("");
+  const [websiteSaving, setWebsiteSaving] = useState(false);
+  const [websiteSourceType, setWebsiteSourceType] = useState("official_registry");
+  const [websiteSourceCategory, setWebsiteSourceCategory] = useState("official");
+  const [websiteSourceSystem, setWebsiteSourceSystem] = useState("manual");
+  const [websiteConfidence, setWebsiteConfidence] = useState("likely");
+  const [websiteObservedAt, setWebsiteObservedAt] = useState(todayInputValue());
+  const [websiteTitle, setWebsiteTitle] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
+  const [websiteClaim, setWebsiteClaim] = useState("");
+  const [websiteNotes, setWebsiteNotes] = useState("");
 
   const upsert = useMutation(api.opportunities.upsert);
   const upsertPriceEvidence = useMutation(api.opportunities.upsertPriceEvidence);
   const deletePriceEvidence = useMutation(api.opportunities.deletePriceEvidence);
   const upsertCommercialSignal = useMutation(api.opportunities.upsertCommercialSignal);
   const deleteCommercialSignal = useMutation(api.opportunities.deleteCommercialSignal);
+  const upsertWebsiteEvidence = useMutation(api.opportunities.upsertWebsiteEvidence);
+  const deleteWebsiteEvidence = useMutation(api.opportunities.deleteWebsiteEvidence);
   const recomputeCommercialSummary = useMutation(
     api.opportunities.recomputeCommercialSummaryForDrugCountry
   );
@@ -225,9 +253,14 @@ export function CountryCellEditor({
     api.opportunities.listCommercialSignals,
     open ? { drugId: opportunity.drugId, country: opportunity.country } : "skip"
   );
+  const websiteEvidence = useQuery(
+    api.opportunities.listWebsiteEvidenceForDrugCountry,
+    open ? { drugId: opportunity.drugId, country: opportunity.country } : "skip"
+  );
 
   const observedPriceCount = priceEvidence?.length ?? 0;
   const observedSignalCount = commercialSignals?.length ?? 0;
+  const observedWebsiteEvidenceCount = websiteEvidence?.length ?? 0;
   const tenderSignalCount = useMemo(
     () =>
       (commercialSignals ?? []).filter(
@@ -394,6 +427,56 @@ export function CountryCellEditor({
     }
   }
 
+  async function handleAddWebsiteEvidence() {
+    if (!websiteClaim.trim() || !websiteTitle.trim() || !websiteUrl.trim()) return;
+    setWebsiteSaving(true);
+    try {
+      await upsertWebsiteEvidence({
+        drugId: opportunity.drugId,
+        country: opportunity.country,
+        claim: websiteClaim,
+        title: websiteTitle,
+        url: websiteUrl,
+        sourceType: websiteSourceType as
+          | "official_registry"
+          | "shortage_list"
+          | "tender_portal"
+          | "public_procurement"
+          | "essential_medicines"
+          | "market_report"
+          | "company"
+          | "internal",
+        sourceSystem: websiteSourceSystem as
+          | "cms"
+          | "nhsbsa"
+          | "sfda"
+          | "eda_egypt"
+          | "mohap_uae"
+          | "bfarm_amice"
+          | "who"
+          | "nupco"
+          | "evaluate"
+          | "clarivate"
+          | "lauer_taxe"
+          | "manual"
+          | "other",
+        sourceCategory: websiteSourceCategory as
+          | "official"
+          | "commercial_database"
+          | "proxy",
+        confidence: websiteConfidence as "confirmed" | "likely" | "inferred",
+        observedAt: websiteObservedAt ? new Date(websiteObservedAt).getTime() : undefined,
+        notes: websiteNotes || undefined,
+      });
+      setWebsiteTitle("");
+      setWebsiteUrl("");
+      setWebsiteClaim("");
+      setWebsiteNotes("");
+    } finally {
+      setWebsiteSaving(false);
+    }
+  }
+
   async function handleResetAutoSummary() {
     setLoading(true);
     try {
@@ -427,6 +510,7 @@ export function CountryCellEditor({
               <div className="flex flex-wrap items-center gap-3 text-sm text-zinc-300">
                 <span>{observedPriceCount} price record{observedPriceCount === 1 ? "" : "s"}</span>
                 <span>{observedSignalCount} commercial signal{observedSignalCount === 1 ? "" : "s"}</span>
+                <span>{observedWebsiteEvidenceCount} website reference{observedWebsiteEvidenceCount === 1 ? "" : "s"}</span>
                 <span>{tenderSignalCount} tender/procurement signal{tenderSignalCount === 1 ? "" : "s"}</span>
               </div>
               <Link
@@ -738,10 +822,54 @@ export function CountryCellEditor({
                   )}
                 </div>
               </section>
+
+              <section className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
+                <h3 className="text-sm font-semibold text-white">Website-backed availability evidence</h3>
+                <div className="mt-3 space-y-2">
+                  {websiteEvidence === undefined ? (
+                    <p className="text-sm text-zinc-500">Loading website references…</p>
+                  ) : websiteEvidence.length === 0 ? (
+                    <p className="text-sm text-zinc-500">No website references yet.</p>
+                  ) : (
+                    websiteEvidence.map((entry) => (
+                      <div
+                        key={entry._id}
+                        className="rounded-lg border border-zinc-800 bg-zinc-900 px-3 py-2.5"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <p className="text-sm text-white">{entry.title}</p>
+                            <p className="mt-1 text-xs text-zinc-400">{entry.claim}</p>
+                            <p className="mt-1 text-xs text-zinc-500">
+                              {entry.sourceType.replaceAll("_", " ")} · {entry.sourceCategory.replaceAll("_", " ")} · {entry.sourceSystem.replaceAll("_", " ")}
+                            </p>
+                            <a
+                              href={entry.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="mt-1 inline-block text-xs text-[var(--brand-300)] hover:text-white"
+                            >
+                              {entry.url}
+                            </a>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-auto px-0 text-zinc-500 hover:bg-transparent hover:text-zinc-300"
+                            onClick={() => void deleteWebsiteEvidence({ id: entry._id })}
+                          >
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
             </div>
           </section>
 
-          <section className="grid gap-6 xl:grid-cols-2">
+          <section className="grid gap-6 xl:grid-cols-3">
             <EvidenceComposer
               title="Add price evidence"
               fields={
@@ -769,11 +897,7 @@ export function CountryCellEditor({
                       label="Confidence"
                       value={priceConfidence}
                       onValueChange={setPriceConfidence}
-                      options={[
-                        { value: "confirmed", label: "Confirmed" },
-                        { value: "likely", label: "Likely" },
-                        { value: "inferred", label: "Inferred" },
-                      ]}
+                      options={EVIDENCE_CONFIDENCE_OPTIONS}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
@@ -873,11 +997,7 @@ export function CountryCellEditor({
                       label="Confidence"
                       value={signalConfidence}
                       onValueChange={setSignalConfidence}
-                      options={[
-                        { value: "confirmed", label: "Confirmed" },
-                        { value: "likely", label: "Likely" },
-                        { value: "inferred", label: "Inferred" },
-                      ]}
+                      options={EVIDENCE_CONFIDENCE_OPTIONS}
                     />
                   </div>
                   <Field
@@ -924,6 +1044,88 @@ export function CountryCellEditor({
               action={
                 <Button size="sm" onClick={() => void handleAddSignal()} disabled={signalSaving}>
                   {signalSaving ? "Saving..." : "Add signal"}
+                </Button>
+              }
+            />
+
+            <EvidenceComposer
+              title="Add website reference"
+              fields={
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    <SelectField
+                      label="Source Type"
+                      value={websiteSourceType}
+                      onValueChange={setWebsiteSourceType}
+                      options={WEBSITE_SOURCE_TYPE_OPTIONS}
+                    />
+                    <SelectField
+                      label="Source Category"
+                      value={websiteSourceCategory}
+                      onValueChange={setWebsiteSourceCategory}
+                      options={PRICE_SOURCE_CATEGORY_OPTIONS}
+                    />
+                    <SelectField
+                      label="Source System"
+                      value={websiteSourceSystem}
+                      onValueChange={setWebsiteSourceSystem}
+                      options={PRICE_SOURCE_SYSTEM_OPTIONS}
+                    />
+                    <SelectField
+                      label="Confidence"
+                      value={websiteConfidence}
+                      onValueChange={setWebsiteConfidence}
+                      options={EVIDENCE_CONFIDENCE_OPTIONS}
+                    />
+                  </div>
+                  <Field
+                    label="Observed Date"
+                    value={websiteObservedAt}
+                    onChange={setWebsiteObservedAt}
+                    placeholder="YYYY-MM-DD"
+                    type="date"
+                  />
+                  <Field
+                    label="Page Title"
+                    value={websiteTitle}
+                    onChange={setWebsiteTitle}
+                    placeholder="e.g. MOHAP registered medicines search"
+                  />
+                  <Field
+                    label="Source URL"
+                    value={websiteUrl}
+                    onChange={setWebsiteUrl}
+                    placeholder="https://..."
+                  />
+                  <div className="space-y-1.5">
+                    <label className="text-sm text-zinc-400">Claim / Summary</label>
+                    <Textarea
+                      value={websiteClaim}
+                      onChange={(e) => setWebsiteClaim(e.target.value)}
+                      rows={3}
+                      placeholder="Describe what this page proves about availability, registration, absence, or channel access."
+                      className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600 resize-none"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-sm text-zinc-400">Notes</label>
+                    <Textarea
+                      value={websiteNotes}
+                      onChange={(e) => setWebsiteNotes(e.target.value)}
+                      rows={2}
+                      placeholder="Optional context, caveats, translation notes..."
+                      className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600 resize-none"
+                    />
+                  </div>
+                </>
+              }
+              action={
+                <Button
+                  size="sm"
+                  onClick={() => void handleAddWebsiteEvidence()}
+                  disabled={websiteSaving}
+                >
+                  {websiteSaving ? "Saving..." : "Add website reference"}
                 </Button>
               }
             />

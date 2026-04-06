@@ -29,13 +29,17 @@ export type RegistrationImportApplyState =
 export type RegistrationStatus = "registered" | "not_found" | "unverified";
 
 export interface ParsedRegistrationRow {
+  source?: string;
+  sourceRecordId?: string;
   productName: string;
   genericName?: string;
   manufacturerName?: string;
   mahName?: string;
   supplierName?: string;
+  supplierAddress?: string;
   country: string;
   registrationStatus: RegistrationStatus;
+  sourceStatus?: string;
   registrationNumber?: string;
   approvalDate?: string;
   strength?: string;
@@ -45,6 +49,8 @@ export interface ParsedRegistrationRow {
   classification?: string;
   dispensingMode?: string;
   countryOfOrigin?: string;
+  bodySystem?: string;
+  therapeuticGroup?: string;
   productKind?: "medicine" | "device";
   matchExplanation?: string;
   sourceNote?: string;
@@ -72,6 +78,7 @@ const REGISTERED_ALIASES = new Set([
   "available",
   "listed",
   "active",
+  "active ingredient",
   "yes",
   "y",
   "true",
@@ -106,6 +113,13 @@ export const PRODUCT_NAME_HEADERS = [
   "trade name",
 ] as const;
 
+export const SOURCE_HEADERS = ["source"] as const;
+export const SOURCE_RECORD_ID_HEADERS = [
+  "source id",
+  "source record id",
+  "record id",
+] as const;
+
 export const GENERIC_NAME_HEADERS = [
   "generic name",
   "inn",
@@ -136,6 +150,11 @@ export const SUPPLIER_HEADERS = [
   "supplier",
   "local supplier",
   "local distributor",
+] as const;
+
+export const SUPPLIER_ADDRESS_HEADERS = [
+  "supplier address",
+  "local supplier address",
 ] as const;
 
 export const COUNTRY_HEADERS = [
@@ -174,6 +193,12 @@ export const DISPENSING_MODE_HEADERS = ["dispensing mode"] as const;
 export const COUNTRY_OF_ORIGIN_HEADERS = [
   "country of origin",
   "origin country",
+] as const;
+
+export const BODY_SYSTEM_HEADERS = ["body system"] as const;
+export const THERAPEUTIC_GROUP_HEADERS = [
+  "therapeutic group",
+  "therapeutic class",
 ] as const;
 
 export const SOURCE_NOTE_HEADERS = [
@@ -219,7 +244,12 @@ export function normalizeIngredients(value: string | null | undefined): string |
   if (!trimmed) return undefined;
   const parts = trimmed
     .split("!")
-    .map((part) => part.trim())
+    .map((part) =>
+      part
+        .replace(/\([^)]*\)/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+    )
     .filter(Boolean);
   if (parts.length === 0) return undefined;
   return [...new Set(parts)].join(" + ");

@@ -7,6 +7,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import {
   APPROVAL_DATE_HEADERS,
+  BODY_SYSTEM_HEADERS,
   classifyImportedProduct,
   canonicalizeHeader,
   CLASSIFICATION_HEADERS,
@@ -28,10 +29,14 @@ import {
   PRICE_AED_HEADERS,
   PRODUCT_NAME_HEADERS,
   REGISTRATION_NUMBER_HEADERS,
+  SOURCE_HEADERS,
   SOURCE_NOTE_HEADERS,
+  SOURCE_RECORD_ID_HEADERS,
   STRENGTH_HEADERS,
   STATUS_HEADERS,
   SUPPLIER_HEADERS,
+  SUPPLIER_ADDRESS_HEADERS,
+  THERAPEUTIC_GROUP_HEADERS,
 } from "../src/lib/registrationImports";
 
 type MatchingSnapshot = {
@@ -86,9 +91,39 @@ function toCanonicalRow(rawRow: Record<string, unknown>): Record<string, string>
   return canonicalRow;
 }
 
+function workbookLooksLikeMohapCompleteList(workbook: XLSX.WorkBook) {
+  const requiredHeaders = [
+    "source",
+    "source id",
+    "product name",
+    "price aed",
+    "registration date",
+    "ingredients",
+  ];
+  return workbook.SheetNames.some((sheetName) => {
+    const sheet = workbook.Sheets[sheetName];
+    if (!sheet) return false;
+    const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
+      defval: "",
+      raw: false,
+      range: 0,
+    });
+    const firstRow = rows[0];
+    if (!firstRow) return false;
+    const canonicalHeaders = new Set(
+      Object.keys(firstRow).map((value) => canonicalizeHeader(value))
+    );
+    return requiredHeaders.every((header) => canonicalHeaders.has(header));
+  });
+}
+
 function parseWorkbookRows(
   workbook: XLSX.WorkBook,
-  options?: { defaultCountry?: string; matchExplanationPrefix?: string }
+  options?: {
+    defaultCountry?: string;
+    matchExplanationPrefix?: string;
+    sourceType?: string;
+  }
 ): ParsedRegistrationRow[] {
   const parsedRows: ParsedRegistrationRow[] = [];
 
@@ -105,6 +140,10 @@ function parseWorkbookRows(
       const canonicalRow = toCanonicalRow(rawRow);
       if (!rowHasData(canonicalRow)) return;
 
+      const source = compactText(getRowValue(canonicalRow, SOURCE_HEADERS));
+      const sourceRecordId = compactText(
+        getRowValue(canonicalRow, SOURCE_RECORD_ID_HEADERS)
+      );
       const productName = compactText(getRowValue(canonicalRow, PRODUCT_NAME_HEADERS)) ?? "";
       const genericName = normalizeIngredients(
         getRowValue(canonicalRow, GENERIC_NAME_HEADERS)
@@ -112,6 +151,9 @@ function parseWorkbookRows(
       const manufacturerName = compactText(getRowValue(canonicalRow, MANUFACTURER_HEADERS));
       const mahName = compactText(getRowValue(canonicalRow, MAH_HEADERS));
       const supplierName = compactText(getRowValue(canonicalRow, SUPPLIER_HEADERS));
+      const supplierAddress = compactText(
+        getRowValue(canonicalRow, SUPPLIER_ADDRESS_HEADERS)
+      );
       const strength = compactText(getRowValue(canonicalRow, STRENGTH_HEADERS));
       const form = compactText(getRowValue(canonicalRow, FORM_HEADERS));
       const packSize = compactText(getRowValue(canonicalRow, PACK_SIZE_HEADERS));
@@ -127,18 +169,24 @@ function parseWorkbookRows(
         normalizeCountry(getRowValue(canonicalRow, COUNTRY_HEADERS)) ??
         options?.defaultCountry ??
         "";
-      const registrationStatus = normalizeRegistrationStatus(
-        getRowValue(canonicalRow, STATUS_HEADERS)
-      );
+      const sourceStatus = compactText(getRowValue(canonicalRow, STATUS_HEADERS));
+      const registrationStatus = normalizeRegistrationStatus(sourceStatus);
       const registrationNumber = compactText(
         getRowValue(canonicalRow, REGISTRATION_NUMBER_HEADERS)
       );
       const approvalDate = compactText(getRowValue(canonicalRow, APPROVAL_DATE_HEADERS));
+      const bodySystem = compactText(getRowValue(canonicalRow, BODY_SYSTEM_HEADERS));
+      const therapeuticGroup = compactText(
+        getRowValue(canonicalRow, THERAPEUTIC_GROUP_HEADERS)
+      );
       const sourceNote = compactText(getRowValue(canonicalRow, SOURCE_NOTE_HEADERS));
 
       const validationIssues: string[] = [];
       if (!productName) validationIssues.push("Missing product/brand name.");
       if (!country) validationIssues.push("Missing country/market.");
+      if (options?.sourceType === "mohap_uae_complete_product_list" && !sourceRecordId) {
+        validationIssues.push("Missing MOHAP Source ID.");
+      }
       const productKind = classifyImportedProduct({
         classification,
         form,
@@ -146,13 +194,17 @@ function parseWorkbookRows(
       });
 
       parsedRows.push({
+        source,
+        sourceRecordId,
         productName,
         genericName,
         manufacturerName,
         mahName,
         supplierName,
+        supplierAddress,
         country,
         registrationStatus,
+        sourceStatus,
         registrationNumber,
         approvalDate,
         strength,
@@ -162,6 +214,8 @@ function parseWorkbookRows(
         classification,
         dispensingMode,
         countryOfOrigin,
+        bodySystem,
+        therapeuticGroup,
         productKind,
         matchExplanation: options?.matchExplanationPrefix,
         sourceNote,
@@ -192,7 +246,7 @@ function matchByEntityName(
   if (companyNames.length === 0) return drugs;
   return drugs.filter((drug) =>
     [...drug.manufacturerCandidates, ...drug.mahCandidates].some((candidate) =>
-      companyNames.includes(normalizeText(candidate))
+      companyNames.some((companyName) => entityNamesOverlap(candidate, companyName))
     )
   );
 }
@@ -233,6 +287,28 @@ function ingredientSignalsMatch(left?: string, right?: string) {
   return false;
 }
 
+function normalizeBrandToken(value?: string | null) {
+  return normalizeText(value)
+    .replace(/\b\d+(?:\.\d+)?\s*(mg|mcg|g|ml)\b/g, " ")
+    .replace(
+      /\b(tablet|tablets|capsule|capsules|vial|vials|syrup|solution|injection|cream|ointment|suspension)\b/g,
+      " "
+    )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function entityNamesOverlap(left?: string | null, right?: string | null) {
+  const leftNormalized = normalizeText(left);
+  const rightNormalized = normalizeText(right);
+  if (!leftNormalized || !rightNormalized) return false;
+  if (leftNormalized === rightNormalized) return true;
+  return (
+    leftNormalized.includes(rightNormalized) ||
+    rightNormalized.includes(leftNormalized)
+  );
+}
+
 function canonicalMatchesEntity(
   product: MatchingSnapshot["canonicalProducts"][number],
   companyNames: string[]
@@ -260,7 +336,9 @@ function chooseLinkedDrugFromCanonical(args: {
 
   if (linkedCandidates.length > 1) {
     const brandExact = linkedCandidates.filter(
-      (drug) => normalizeText(drug.name) === args.productName
+      (drug) =>
+        normalizeText(drug.name) === args.productName ||
+        normalizeBrandToken(drug.name) === normalizeBrandToken(args.productName)
     );
     if (brandExact.length === 1) linkedCandidates = brandExact;
   }
@@ -290,11 +368,14 @@ function matchViaCanonicalProduct(
   if (row.productKind === "device") return null;
 
   const productName = normalizeText(row.productName);
+  const baseProductName = normalizeBrandToken(row.productName);
   const genericName = normalizeText(row.genericName);
   const canonicalProducts = snapshot.canonicalProducts;
 
   let canonicalCandidates = canonicalProducts.filter(
-    (product) => product.normalizedBrandName === productName
+    (product) =>
+      product.normalizedBrandName === productName ||
+      normalizeBrandToken(product.brandName) === baseProductName
   );
 
   if (canonicalCandidates.length > 1 && genericName) {
@@ -393,6 +474,7 @@ function matchParsedRow(
   }
 
   const productName = normalizeText(row.productName);
+  const baseProductName = normalizeBrandToken(row.productName);
   const genericName = normalizeText(row.genericName);
   const companyNames = [row.manufacturerName, row.mahName, row.supplierName]
     .map((value) => normalizeText(value))
@@ -402,7 +484,9 @@ function matchParsedRow(
   );
 
   let brandCandidates = eligibleDrugs.filter(
-    (drug) => normalizeText(drug.name) === productName
+    (drug) =>
+      normalizeText(drug.name) === productName ||
+      normalizeBrandToken(drug.name) === baseProductName
   );
   if (genericName) {
     const narrowed = brandCandidates.filter(
@@ -511,6 +595,7 @@ export const parseImport = action({
           status: string;
           fileName: string;
           sourceMarket?: string;
+          sourceType?: string;
         };
       } | null = await ctx.runQuery(api.registrationImports.getImportDetail, {
         importId,
@@ -524,15 +609,31 @@ export const parseImport = action({
 
       const workbookBuffer = Buffer.from(await blob.arrayBuffer());
       const workbook = XLSX.read(workbookBuffer, { type: "buffer" });
+      const looksLikeMohapWorkbook = workbookLooksLikeMohapCompleteList(workbook);
       const defaultCountry =
-        importDetail.importDoc.sourceMarket === "UAE" ? "UAE" : undefined;
+        importDetail.importDoc.sourceMarket === "UAE" || looksLikeMohapWorkbook ? "UAE" : undefined;
+      const sourceType =
+        importDetail.importDoc.sourceMarket === "UAE" && looksLikeMohapWorkbook
+          ? "mohap_uae_complete_product_list"
+          : importDetail.importDoc.sourceMarket === "UAE"
+            ? "uae_official_directory"
+            : undefined;
       const parsedRows = parseWorkbookRows(workbook, {
         defaultCountry,
         matchExplanationPrefix:
-          defaultCountry === "UAE"
-            ? "Parsed from UAE official directory workbook."
-            : undefined,
+          sourceType === "mohap_uae_complete_product_list"
+            ? "Parsed from MOHAP UAE complete product list."
+            : defaultCountry === "UAE"
+              ? "Parsed from UAE official directory workbook."
+              : undefined,
+        sourceType,
       });
+      if (sourceType && sourceType !== importDetail.importDoc.sourceType) {
+        await ctx.runMutation(internal.registrationImports.setImportSourceType, {
+          importId,
+          sourceType,
+        });
+      }
       const snapshot: MatchingSnapshot = await ctx.runQuery(
         internal.registrationImports.getMatchingSnapshot,
         {}
@@ -551,7 +652,15 @@ export const parseImport = action({
         };
       });
 
-      await ctx.runMutation(internal.registrationImports.clearImportRows, { importId });
+      let resetSummary = true;
+      for (;;) {
+        const clearResult: { deletedCount: number; done: boolean } = await ctx.runMutation(
+          internal.registrationImports.clearImportRowsBatch,
+          { importId, resetSummary }
+        );
+        if (clearResult.done) break;
+        resetSummary = false;
+      }
       for (let index = 0; index < stagedRows.length; index += 100) {
         await ctx.runMutation(internal.registrationImports.insertImportRowsChunk, {
           importId,
@@ -613,6 +722,18 @@ export const applyImport = action({
         touchedDrugIds.add(drugId);
       }
       if (result.done) break;
+    }
+
+    if (touchedDrugIds.size > 0) {
+      const canonicalProductIds: Id<"canonicalProducts">[] = await ctx.runQuery(
+        internal.registrationImports.getCanonicalProductIdsForDrugs,
+        { drugIds: [...touchedDrugIds] as Id<"drugs">[] }
+      );
+      for (const canonicalProductId of canonicalProductIds) {
+        await ctx.runAction(api.productMarketAnalysis.analyzeCanonicalProductMarkets, {
+          canonicalProductId,
+        });
+      }
     }
 
     return { appliedCount, touchedDrugCount: touchedDrugIds.size };

@@ -1,9 +1,7 @@
 import {
   internalMutation,
   internalQuery,
-  MutationCtx,
   mutation,
-  QueryCtx,
   query,
 } from "./_generated/server";
 import { v } from "convex/values";
@@ -39,13 +37,17 @@ const applyStateValidator = v.union(
 );
 
 const importRowValidator = v.object({
+  source: v.optional(v.string()),
+  sourceRecordId: v.optional(v.string()),
   productName: v.string(),
   genericName: v.optional(v.string()),
   manufacturerName: v.optional(v.string()),
   mahName: v.optional(v.string()),
   supplierName: v.optional(v.string()),
+  supplierAddress: v.optional(v.string()),
   country: v.string(),
   registrationStatus: registrationStatusValidator,
+  sourceStatus: v.optional(v.string()),
   registrationNumber: v.optional(v.string()),
   approvalDate: v.optional(v.string()),
   strength: v.optional(v.string()),
@@ -55,6 +57,8 @@ const importRowValidator = v.object({
   classification: v.optional(v.string()),
   dispensingMode: v.optional(v.string()),
   countryOfOrigin: v.optional(v.string()),
+  bodySystem: v.optional(v.string()),
+  therapeuticGroup: v.optional(v.string()),
   productKind: v.optional(v.union(v.literal("medicine"), v.literal("device"))),
   matchExplanation: v.optional(v.string()),
   sourceNote: v.optional(v.string()),
@@ -67,15 +71,6 @@ const importRowValidator = v.object({
   validationIssues: v.array(v.string()),
   rawRow: v.record(v.string(), v.string()),
 });
-
-type DbCtx = QueryCtx | MutationCtx;
-
-async function loadImportRows(ctx: DbCtx, importId: Id<"registrationImports">) {
-  return await ctx.db
-    .query("registrationImportRows")
-    .withIndex("by_import", (q) => q.eq("importId", importId))
-    .collect();
-}
 
 function importCountDeltaForStatus(status: Doc<"registrationImportRows">["matchStatus"]) {
   return {
@@ -111,10 +106,13 @@ export const createImport = mutation({
       ...args,
       sourceType:
         args.sourceType ??
-        ((args.sourceMarket?.trim().toLowerCase() === "uae" ||
+        ((args.fileName.toLowerCase().includes("mohap_complete_product_list") ||
+          args.fileName.toLowerCase().includes("mohap complete product list"))
+          ? "mohap_uae_complete_product_list"
+          : (args.sourceMarket?.trim().toLowerCase() === "uae" ||
           args.fileName.toLowerCase().includes("drugdirectory_products"))
-          ? "uae_official_directory"
-          : undefined),
+            ? "uae_official_directory"
+            : undefined),
       status: "uploaded",
       sheetNames: [],
       totalRows: 0,
@@ -190,6 +188,64 @@ export const getImportDetail = query({
     });
 
     return { importDoc, rows: limitedRows, totalRowCount: importDoc.totalRows };
+  },
+});
+
+export const searchImportRows = query({
+  args: {
+    importId: v.id("registrationImports"),
+    search: v.string(),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, { importId, search, limit }) => {
+    const term = search.trim().toLowerCase();
+    if (!term) return [];
+    const matches: Doc<"registrationImportRows">[] = [];
+    const query = ctx.db
+      .query("registrationImportRows")
+      .withIndex("by_import", (q) => q.eq("importId", importId));
+
+    for await (const row of query) {
+      const matched = [
+        row.productName,
+        row.genericName,
+        row.manufacturerName,
+        row.supplierName,
+        row.sourceRecordId,
+      ]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(term));
+      if (!matched) continue;
+      matches.push(row);
+      if (matches.length >= (limit ?? 50)) break;
+    }
+
+    return matches.filter((row) =>
+        [
+          row.productName,
+          row.genericName,
+          row.manufacturerName,
+          row.supplierName,
+          row.sourceRecordId,
+        ]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(term))
+      );
+  },
+});
+
+export const getImportRowBySourceRecordId = query({
+  args: {
+    importId: v.id("registrationImports"),
+    sourceRecordId: v.string(),
+  },
+  handler: async (ctx, { importId, sourceRecordId }) => {
+    return await ctx.db
+      .query("registrationImportRows")
+      .withIndex("by_import_and_source_record_id", (q) =>
+        q.eq("importId", importId).eq("sourceRecordId", sourceRecordId)
+      )
+      .unique();
   },
 });
 
@@ -297,17 +353,12 @@ export const requestApply = mutation({
     const importDoc = await ctx.db.get(importId);
     if (!importDoc) throw new Error("Import not found.");
 
-    const rows = await loadImportRows(ctx, importId);
-    const unresolvedRows = rows.filter(
-      (row) => row.matchStatus === "unmatched" || row.matchStatus === "ambiguous"
-    );
-    if (unresolvedRows.length > 0) {
-      throw new Error("Resolve or skip all unmatched rows before applying.");
-    }
-
-    const pendingMatchedRows = rows.filter(
-      (row) => row.matchStatus === "matched" && row.applyState === "pending"
-    );
+    const pendingMatchedRows = await ctx.db
+      .query("registrationImportRows")
+      .withIndex("by_import_and_match_status_and_apply_state", (q) =>
+        q.eq("importId", importId).eq("matchStatus", "matched").eq("applyState", "pending")
+      )
+      .take(1);
     if (pendingMatchedRows.length === 0) {
       throw new Error("There are no matched rows left to apply.");
     }
@@ -393,28 +444,49 @@ export const getMatchingSnapshot = internalQuery({
   },
 });
 
-export const clearImportRows = internalMutation({
-  args: { importId: v.id("registrationImports") },
-  handler: async (ctx, { importId }) => {
+export const clearImportRowsBatch = internalMutation({
+  args: {
+    importId: v.id("registrationImports"),
+    resetSummary: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { importId, resetSummary }) => {
     const rows = await ctx.db
       .query("registrationImportRows")
       .withIndex("by_import", (q) => q.eq("importId", importId))
-      .collect();
+      .take(128);
 
     for (const row of rows) {
       await ctx.db.delete(row._id);
     }
 
-    await ctx.db.patch(importId, {
-      totalRows: 0,
-      matchedRows: 0,
-      unresolvedRows: 0,
-      ambiguousRows: 0,
-      skippedRows: 0,
-      appliedRows: 0,
-      parseErrorCount: 0,
-      updatedAt: Date.now(),
-    });
+    if (resetSummary) {
+      await ctx.db.patch(importId, {
+        totalRows: 0,
+        matchedRows: 0,
+        unresolvedRows: 0,
+        ambiguousRows: 0,
+        skippedRows: 0,
+        appliedRows: 0,
+        parseErrorCount: 0,
+        updatedAt: Date.now(),
+      });
+    }
+
+    return { deletedCount: rows.length, done: rows.length < 128 };
+  },
+});
+
+export const getCanonicalProductIdsForDrugs = internalQuery({
+  args: { drugIds: v.array(v.id("drugs")) },
+  handler: async (ctx, { drugIds }) => {
+    const canonicalIds = new Set<Id<"canonicalProducts">>();
+    for (const drugId of drugIds) {
+      const drug = await ctx.db.get(drugId);
+      if (drug?.canonicalProductId) {
+        canonicalIds.add(drug.canonicalProductId);
+      }
+    }
+    return [...canonicalIds];
   },
 });
 
@@ -482,6 +554,19 @@ export const markImportFailed = internalMutation({
   },
 });
 
+export const setImportSourceType = internalMutation({
+  args: {
+    importId: v.id("registrationImports"),
+    sourceType: v.string(),
+  },
+  handler: async (ctx, { importId, sourceType }) => {
+    await ctx.db.patch(importId, {
+      sourceType,
+      updatedAt: Date.now(),
+    });
+  },
+});
+
 export const applyImportBatch = internalMutation({
   args: {
     importId: v.id("registrationImports"),
@@ -528,11 +613,41 @@ export const applyImportBatch = internalMutation({
         registrationNumber: row.registrationNumber,
         source: `Manual import · ${importDoc.fileName}${importDoc.sourceMarket ? ` · ${importDoc.sourceMarket}` : ""}`,
         verifiedAt: now,
+        sourceSystem:
+          importDoc.sourceType === "mohap_uae_complete_product_list" ||
+          importDoc.sourceType === "uae_official_directory"
+            ? ("mohap_uae" as const)
+            : undefined,
+        sourceTitle:
+          importDoc.sourceType === "mohap_uae_complete_product_list"
+            ? "MOHAP UAE complete product list"
+            : importDoc.fileName,
+        sourceRecordId: row.sourceRecordId,
+        observedAt: now,
+        strength: row.strength,
+        form: row.form,
+        packSize: row.packSize,
+        notes: [
+          row.source,
+          row.supplierName,
+          row.sourceStatus ? `Status: ${row.sourceStatus}` : undefined,
+        ]
+          .filter(Boolean)
+          .join(" · ") || undefined,
       };
 
-      const existingIndex = drugState.registrations.findIndex(
-        (registration) => registration.country === row.country
-      );
+      const existingIndex = drugState.registrations.findIndex((registration) => {
+        if (row.sourceRecordId && registration.sourceRecordId) {
+          return registration.sourceRecordId === row.sourceRecordId;
+        }
+        return (
+          registration.country === row.country &&
+          registration.registrationNumber === row.registrationNumber &&
+          registration.strength === row.strength &&
+          registration.form === row.form &&
+          registration.packSize === row.packSize
+        );
+      });
       if (existingIndex >= 0) {
         drugState.registrations[existingIndex] = {
           ...drugState.registrations[existingIndex],
@@ -544,11 +659,14 @@ export const applyImportBatch = internalMutation({
     }
 
     for (const [drugId, state] of drugPatchState) {
+      const registeredCountries = new Set(
+        state.registrations
+          .filter((registration) => registration.status === "registered")
+          .map((registration) => registration.country)
+      );
       await ctx.db.patch(drugId, {
         menaRegistrations: state.registrations,
-        menaRegistrationCount: state.registrations.filter(
-          (registration) => registration.status === "registered"
-        ).length,
+        menaRegistrationCount: registeredCountries.size,
       });
     }
 
@@ -563,8 +681,8 @@ export const applyImportBatch = internalMutation({
       const existingEvidence = existingOpportunity?.evidenceItems ?? [];
       const uaeEvidenceClaim =
         row.registrationStatus === "registered"
-          ? `${row.productName} is listed as registered in UAE official directory.`
-          : `${row.productName} appears in UAE import with status ${row.registrationStatus}.`;
+          ? `${row.productName} is listed as registered in UAE${row.sourceRecordId ? ` (MOHAP ${row.sourceRecordId})` : ""}.`
+          : `${row.productName} appears in UAE import with status ${row.registrationStatus}${row.sourceRecordId ? ` (MOHAP ${row.sourceRecordId})` : ""}.`;
       const derivedRegulatoryStatus =
         row.registrationStatus === "registered"
           ? "registered"
@@ -600,10 +718,20 @@ export const applyImportBatch = internalMutation({
               ...existingEvidence,
               {
                 claim: uaeEvidenceClaim,
-                title: importDoc.fileName,
+                title:
+                  importDoc.sourceType === "mohap_uae_complete_product_list"
+                    ? "MOHAP UAE complete product list"
+                    : importDoc.fileName,
                 url: undefined,
                 sourceType: "official_registry",
                 confidence: "confirmed",
+                sourceSystem: "mohap_uae",
+                sourceCategory: "official",
+                observedAt: now,
+                notes: [row.source, row.supplierName, row.supplierAddress]
+                  .filter(Boolean)
+                  .join(" · ") || undefined,
+                sourceRecordId: row.sourceRecordId,
               },
             ],
       });
@@ -611,7 +739,19 @@ export const applyImportBatch = internalMutation({
       if (row.priceAed && row.registrationStatus === "registered") {
         const numericPrice = Number(String(row.priceAed).replace(/[^0-9.]/g, ""));
         if (Number.isFinite(numericPrice)) {
+          const existingPriceRows = await ctx.db
+            .query("priceEvidence")
+            .withIndex("by_drug_and_country", (q) =>
+              q.eq("drugId", row.matchedDrugId!).eq("country", row.country)
+            )
+            .collect();
+          const existingPrice = existingPriceRows.find((priceRow) =>
+            row.sourceRecordId
+              ? priceRow.sourceRecordId === row.sourceRecordId
+              : priceRow.sourceTitle === `${importDoc.fileName} · UAE official directory`
+          );
           await ctx.runMutation(api.opportunities.upsertPriceEvidence, {
+            id: existingPrice?._id,
             drugId: row.matchedDrugId,
             country: row.country,
             sourceCategory: "official",
@@ -619,13 +759,27 @@ export const applyImportBatch = internalMutation({
             priceType: "registered",
             amount: numericPrice,
             currency: "AED",
-            presentation: [row.strength, row.form, row.packSize].filter(Boolean).join(" · ") || undefined,
+            presentation:
+              [row.productName, row.strength, row.form, row.packSize]
+                .filter(Boolean)
+                .join(" · ") || undefined,
             unitBasis: row.packSize || undefined,
             observedAt: now,
-            sourceTitle: `${importDoc.fileName} · UAE official directory`,
+            sourceTitle:
+              importDoc.sourceType === "mohap_uae_complete_product_list"
+                ? "MOHAP UAE complete product list"
+                : `${importDoc.fileName} · UAE official directory`,
             sourceUrl: undefined,
+            sourceRecordId: row.sourceRecordId,
             confidence: "confirmed",
-            notes: row.dispensingMode || row.classification || undefined,
+            notes:
+              [
+                row.dispensingMode,
+                row.classification,
+                row.sourceRecordId ? `MOHAP Source ID ${row.sourceRecordId}` : undefined,
+              ]
+                .filter(Boolean)
+                .join(" · ") || undefined,
           });
         }
       }

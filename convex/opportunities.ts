@@ -40,6 +40,7 @@ const EVIDENCE_ITEM_VALIDATOR = v.object({
     v.literal("public_procurement"),
     v.literal("essential_medicines"),
     v.literal("market_report"),
+    v.literal("company"),
     v.literal("internal")
   ),
   confidence: v.union(
@@ -47,6 +48,29 @@ const EVIDENCE_ITEM_VALIDATOR = v.object({
     v.literal("likely"),
     v.literal("inferred")
   ),
+  sourceSystem: v.optional(v.union(
+    v.literal("cms"),
+    v.literal("nhsbsa"),
+    v.literal("sfda"),
+    v.literal("eda_egypt"),
+    v.literal("mohap_uae"),
+    v.literal("bfarm_amice"),
+    v.literal("who"),
+    v.literal("nupco"),
+    v.literal("evaluate"),
+    v.literal("clarivate"),
+    v.literal("lauer_taxe"),
+    v.literal("manual"),
+    v.literal("other")
+  )),
+  sourceCategory: v.optional(v.union(
+    v.literal("official"),
+    v.literal("commercial_database"),
+    v.literal("proxy")
+  )),
+  observedAt: v.optional(v.number()),
+  notes: v.optional(v.string()),
+  sourceRecordId: v.optional(v.string()),
 });
 
 const SOURCE_CATEGORY_VALIDATOR = v.union(
@@ -887,6 +911,28 @@ export const listCommercialSignals = query({
       .collect(),
 });
 
+export const listWebsiteEvidenceForDrugCountry = query({
+  args: { drugId: v.id("drugs"), country: v.string() },
+  handler: async (ctx, { drugId, country }) =>
+    ctx.db
+      .query("marketWebsiteEvidence")
+      .withIndex("by_drug_and_country", (q) => q.eq("drugId", drugId).eq("country", country))
+      .order("desc")
+      .collect(),
+});
+
+export const listWebsiteEvidenceForCanonicalProductCountry = query({
+  args: { canonicalProductId: v.id("canonicalProducts"), country: v.string() },
+  handler: async (ctx, { canonicalProductId, country }) =>
+    ctx.db
+      .query("marketWebsiteEvidence")
+      .withIndex("by_canonical_product_and_country", (q) =>
+        q.eq("canonicalProductId", canonicalProductId).eq("country", country)
+      )
+      .order("desc")
+      .collect(),
+});
+
 export const summarizeByDrugAndCountry = query({
   args: { drugId: v.id("drugs"), country: v.string() },
   handler: async (ctx, { drugId, country }) => {
@@ -1031,6 +1077,7 @@ export const upsertPriceEvidence = mutation({
     observedAt: v.number(),
     sourceTitle: v.string(),
     sourceUrl: v.optional(v.string()),
+    sourceRecordId: v.optional(v.string()),
     confidence: v.union(
       v.literal("confirmed"),
       v.literal("likely"),
@@ -1056,6 +1103,87 @@ export const upsertPriceEvidence = mutation({
     }
     await recomputeCommercialSummary(ctx, args.drugId, args.country);
     return recordId;
+  },
+});
+
+export const upsertWebsiteEvidence = mutation({
+  args: {
+    id: v.optional(v.id("marketWebsiteEvidence")),
+    drugId: v.optional(v.id("drugs")),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    country: v.string(),
+    claim: v.string(),
+    title: v.string(),
+    url: v.string(),
+    sourceType: v.union(
+      v.literal("official_registry"),
+      v.literal("shortage_list"),
+      v.literal("tender_portal"),
+      v.literal("public_procurement"),
+      v.literal("essential_medicines"),
+      v.literal("market_report"),
+      v.literal("company"),
+      v.literal("internal")
+    ),
+    sourceSystem: SOURCE_SYSTEM_VALIDATOR,
+    sourceCategory: SOURCE_CATEGORY_VALIDATOR,
+    confidence: v.union(
+      v.literal("confirmed"),
+      v.literal("likely"),
+      v.literal("inferred")
+    ),
+    observedAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+  },
+  handler: async (ctx, args) => {
+    if (!args.drugId && !args.canonicalProductId) {
+      throw new Error("Website evidence must be linked to a drug or canonical product.");
+    }
+    const now = Date.now();
+    const existingRows = args.drugId
+      ? await ctx.db
+          .query("marketWebsiteEvidence")
+          .withIndex("by_drug_and_country", (q) =>
+            q.eq("drugId", args.drugId!).eq("country", args.country)
+          )
+          .collect()
+      : await ctx.db
+          .query("marketWebsiteEvidence")
+          .withIndex("by_canonical_product_and_country", (q) =>
+            q.eq("canonicalProductId", args.canonicalProductId!).eq("country", args.country)
+          )
+          .collect();
+
+    const existing =
+      (args.id ? await ctx.db.get(args.id) : null) ??
+      existingRows.find(
+        (row) =>
+          row.url.trim().toLowerCase() === args.url.trim().toLowerCase() &&
+          row.claim.trim().toLowerCase() === args.claim.trim().toLowerCase()
+      );
+
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        ...args,
+        updatedAt: now,
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("marketWebsiteEvidence", {
+      ...args,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+export const deleteWebsiteEvidence = mutation({
+  args: { id: v.id("marketWebsiteEvidence") },
+  handler: async (ctx, { id }) => {
+    const existing = await ctx.db.get(id);
+    if (!existing) return;
+    await ctx.db.delete(id);
   },
 });
 

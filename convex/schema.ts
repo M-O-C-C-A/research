@@ -313,9 +313,15 @@ const marketEvidenceItem = v.object({
     v.literal("public_procurement"),
     v.literal("essential_medicines"),
     v.literal("market_report"),
+    v.literal("company"),
     v.literal("internal")
   ),
   confidence: evidenceConfidence,
+  sourceSystem: v.optional(priceEvidenceSourceSystem),
+  sourceCategory: v.optional(priceSourceCategory),
+  observedAt: v.optional(v.number()),
+  notes: v.optional(v.string()),
+  sourceRecordId: v.optional(v.string()),
 });
 
 const productMarketChannelMix = v.object({
@@ -343,10 +349,16 @@ const productMarketEvidenceItem = v.object({
     v.literal("public_procurement"),
     v.literal("essential_medicines"),
     v.literal("market_report"),
+    v.literal("company"),
     v.literal("internal")
   ),
   confidence: evidenceConfidence,
   country: v.optional(v.string()),
+  sourceSystem: v.optional(priceEvidenceSourceSystem),
+  sourceCategory: v.optional(priceSourceCategory),
+  observedAt: v.optional(v.number()),
+  notes: v.optional(v.string()),
+  sourceRecordId: v.optional(v.string()),
 });
 
 const countryScoreBreakdown = v.object({
@@ -547,6 +559,14 @@ export default defineSchema({
       source: v.string(),
       url: v.optional(v.string()),
       verifiedAt: v.number(),
+      sourceSystem: v.optional(priceEvidenceSourceSystem),
+      sourceTitle: v.optional(v.string()),
+      sourceRecordId: v.optional(v.string()),
+      observedAt: v.optional(v.number()),
+      strength: v.optional(v.string()),
+      form: v.optional(v.string()),
+      packSize: v.optional(v.string()),
+      notes: v.optional(v.string()),
     }))),
   })
     .index("by_company", ["companyId"])
@@ -804,6 +824,7 @@ export default defineSchema({
     observedAt: v.number(),
     sourceTitle: v.string(),
     sourceUrl: v.optional(v.string()),
+    sourceRecordId: v.optional(v.string()),
     confidence: evidenceConfidence,
     notes: v.optional(v.string()),
     createdAt: v.number(),
@@ -834,6 +855,35 @@ export default defineSchema({
     .index("by_drug_and_country", ["drugId", "country"])
     .index("by_signal_type", ["signalType"])
     .index("by_source_system", ["sourceSystem"]),
+
+  marketWebsiteEvidence: defineTable({
+    drugId: v.optional(v.id("drugs")),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    country: v.string(),
+    claim: v.string(),
+    title: v.string(),
+    url: v.string(),
+    sourceType: v.union(
+      v.literal("official_registry"),
+      v.literal("shortage_list"),
+      v.literal("tender_portal"),
+      v.literal("public_procurement"),
+      v.literal("essential_medicines"),
+      v.literal("market_report"),
+      v.literal("company"),
+      v.literal("internal")
+    ),
+    sourceSystem: priceEvidenceSourceSystem,
+    sourceCategory: priceSourceCategory,
+    confidence: evidenceConfidence,
+    observedAt: v.optional(v.number()),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_drug_and_country", ["drugId", "country"])
+    .index("by_canonical_product_and_country", ["canonicalProductId", "country"])
+    .index("by_country", ["country"]),
 
   marketSimulations: defineTable({
     drugId: v.id("drugs"),
@@ -1294,17 +1344,21 @@ export default defineSchema({
 
   registrationImportRows: defineTable({
     importId: v.id("registrationImports"),
+    source: v.optional(v.string()),
+    sourceRecordId: v.optional(v.string()),
     productName: v.string(),
     genericName: v.optional(v.string()),
     manufacturerName: v.optional(v.string()),
     mahName: v.optional(v.string()),
     supplierName: v.optional(v.string()),
+    supplierAddress: v.optional(v.string()),
     country: v.string(),
     registrationStatus: v.union(
       v.literal("registered"),
       v.literal("not_found"),
       v.literal("unverified")
     ),
+    sourceStatus: v.optional(v.string()),
     registrationNumber: v.optional(v.string()),
     approvalDate: v.optional(v.string()),
     strength: v.optional(v.string()),
@@ -1314,6 +1368,8 @@ export default defineSchema({
     classification: v.optional(v.string()),
     dispensingMode: v.optional(v.string()),
     countryOfOrigin: v.optional(v.string()),
+    bodySystem: v.optional(v.string()),
+    therapeuticGroup: v.optional(v.string()),
     productKind: v.optional(v.union(v.literal("medicine"), v.literal("device"))),
     matchExplanation: v.optional(v.string()),
     sourceNote: v.optional(v.string()),
@@ -1337,5 +1393,6 @@ export default defineSchema({
       "matchStatus",
       "applyState",
     ])
-    .index("by_import_and_source_sheet", ["importId", "sourceSheet"]),
+    .index("by_import_and_source_sheet", ["importId", "sourceSheet"])
+    .index("by_import_and_source_record_id", ["importId", "sourceRecordId"]),
 });

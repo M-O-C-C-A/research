@@ -109,13 +109,19 @@ export function RegistrationImportWorkspace() {
       const inferredSourceMarket =
         sourceMarket.trim() ||
         (file.name.toLowerCase().includes("drugdirectory_products") ? "UAE" : "");
+      const lowerFileName = file.name.toLowerCase();
       const { storageId } = await uploadFileToConvex(file, generateUploadUrl);
       const importId = await createImport({
         storageId: storageId as Id<"_storage">,
         fileName: file.name,
         sourceMarket: inferredSourceMarket || undefined,
         sourceType:
-          inferredSourceMarket === "UAE" ? "uae_official_directory" : undefined,
+          lowerFileName.includes("mohap_complete_product_list") ||
+          lowerFileName.includes("mohap complete product list")
+            ? "mohap_uae_complete_product_list"
+            : inferredSourceMarket === "UAE"
+              ? "uae_official_directory"
+              : undefined,
       });
       setSelectedImportId(importId);
       const result = await parseImport({ importId });
@@ -167,10 +173,6 @@ export function RegistrationImportWorkspace() {
 
   async function handleApplyImport() {
     if (!selectedImportId || !selectedImport) return;
-    if (selectedImport.unresolvedRows > 0) {
-      setError("Resolve or skip all unmatched rows before applying.");
-      return;
-    }
 
     setBusy(true);
     setError(null);
@@ -212,9 +214,7 @@ export function RegistrationImportWorkspace() {
         : null;
   const applyBlockedReason = !selectedImport
     ? "Select an import first."
-    : selectedImport.unresolvedRows > 0
-      ? "Resolve or skip all unmatched rows before applying."
-      : !hasPendingMatchedRows
+    : !hasPendingMatchedRows
         ? "There are no matched rows left to apply."
         : selectedImport.status === "uploaded"
           ? "Parse the workbook before applying."
@@ -346,9 +346,11 @@ export function RegistrationImportWorkspace() {
                     <p className="mt-2 text-xs text-zinc-500">
                       {selectedImport.sourceType === "uae_official_directory"
                         ? "Official UAE directory import"
-                        : selectedImport.sourceMarket
-                          ? `${selectedImport.sourceMarket} registration import`
-                          : "General registration import"}
+                        : selectedImport.sourceType === "mohap_uae_complete_product_list"
+                          ? "MOHAP UAE complete product list"
+                          : selectedImport.sourceMarket
+                            ? `${selectedImport.sourceMarket} registration import`
+                            : "General registration import"}
                     </p>
                   </div>
                   <Button
@@ -364,6 +366,12 @@ export function RegistrationImportWorkspace() {
                 {applyBlockedReason && (
                   <p className="mt-3 text-sm text-amber-300">{applyBlockedReason}</p>
                 )}
+
+                {selectedImport.unresolvedRows > 0 && hasPendingMatchedRows ? (
+                  <p className="mt-3 text-sm text-zinc-400">
+                    Applying now will write the matched rows and leave unresolved rows staged for later review.
+                  </p>
+                ) : null}
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
@@ -417,6 +425,9 @@ export function RegistrationImportWorkspace() {
                     <p className="text-xs uppercase tracking-wide text-zinc-500">Parser coverage</p>
                     <p className="mt-1 text-sm text-zinc-300">
                       Brand, ingredients, manufacturer, supplier, price, form, pack size, and UAE status.
+                      {selectedImport.sourceType === "mohap_uae_complete_product_list"
+                        ? " MOHAP provenance like Source ID and registration date is preserved."
+                        : null}
                     </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
@@ -501,6 +512,7 @@ export function RegistrationImportWorkspace() {
                         <TableHead className="text-zinc-500">Type</TableHead>
                         <TableHead className="text-zinc-500">Country</TableHead>
                         <TableHead className="text-zinc-500">Status</TableHead>
+                        <TableHead className="text-zinc-500">Provenance</TableHead>
                         <TableHead className="text-zinc-500">Match</TableHead>
                         <TableHead className="text-zinc-500">Resolve</TableHead>
                         <TableHead className="text-zinc-500">Issues</TableHead>
@@ -547,6 +559,18 @@ export function RegistrationImportWorkspace() {
                                 {row.priceAed ? (
                                   <div className="mt-1 text-xs text-zinc-500">AED {row.priceAed}</div>
                                 ) : null}
+                              </TableCell>
+                              <TableCell className="whitespace-normal text-xs text-zinc-500">
+                                {[
+                                  row.source,
+                                  row.sourceRecordId ? `ID ${row.sourceRecordId}` : undefined,
+                                  row.sourceStatus,
+                                  row.approvalDate,
+                                  row.supplierName,
+                                  row.genericName,
+                                ]
+                                  .filter(Boolean)
+                                  .join(" • ") || "—"}
                               </TableCell>
                               <TableCell>
                                 <Badge
@@ -626,7 +650,7 @@ export function RegistrationImportWorkspace() {
                         })
                       ) : (
                         <TableRow className="border-zinc-800">
-                          <TableCell colSpan={7} className="py-8 text-center text-zinc-500">
+                          <TableCell colSpan={8} className="py-8 text-center text-zinc-500">
                             {selectedImport.status === "uploaded"
                               ? "Upload and parse a workbook to see staged rows."
                               : "No staged rows available."}

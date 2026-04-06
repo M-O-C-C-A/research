@@ -53,10 +53,34 @@ const EVIDENCE_ITEM_VALIDATOR = v.object({
     v.literal("public_procurement"),
     v.literal("essential_medicines"),
     v.literal("market_report"),
+    v.literal("company"),
     v.literal("internal")
   ),
   confidence: EVIDENCE_CONFIDENCE_VALIDATOR,
   country: v.optional(v.string()),
+  sourceSystem: v.optional(v.union(
+    v.literal("cms"),
+    v.literal("nhsbsa"),
+    v.literal("sfda"),
+    v.literal("eda_egypt"),
+    v.literal("mohap_uae"),
+    v.literal("bfarm_amice"),
+    v.literal("who"),
+    v.literal("nupco"),
+    v.literal("evaluate"),
+    v.literal("clarivate"),
+    v.literal("lauer_taxe"),
+    v.literal("manual"),
+    v.literal("other")
+  )),
+  sourceCategory: v.optional(v.union(
+    v.literal("official"),
+    v.literal("commercial_database"),
+    v.literal("proxy")
+  )),
+  observedAt: v.optional(v.number()),
+  notes: v.optional(v.string()),
+  sourceRecordId: v.optional(v.string()),
 });
 
 const MARKET_ACCESS_ROUTE_VALIDATOR = v.union(
@@ -135,6 +159,7 @@ type OpportunityDoc = Doc<"opportunities">;
 type PriceEvidenceDoc = Doc<"priceEvidence">;
 type CommercialSignalDoc = Doc<"commercialSignals">;
 type GapDoc = Doc<"gapOpportunities">;
+type WebsiteEvidenceDoc = Doc<"marketWebsiteEvidence">;
 
 function normalizeCountry(value: string) {
   return value.trim().toLowerCase();
@@ -249,15 +274,34 @@ function uniqueEvidenceItems(
       | "public_procurement"
       | "essential_medicines"
       | "market_report"
+      | "company"
       | "internal";
     confidence: "confirmed" | "likely" | "inferred";
     country?: string;
+    sourceSystem?:
+      | "cms"
+      | "nhsbsa"
+      | "sfda"
+      | "eda_egypt"
+      | "mohap_uae"
+      | "bfarm_amice"
+      | "who"
+      | "nupco"
+      | "evaluate"
+      | "clarivate"
+      | "lauer_taxe"
+      | "manual"
+      | "other";
+    sourceCategory?: "official" | "commercial_database" | "proxy";
+    observedAt?: number;
+    notes?: string;
+    sourceRecordId?: string;
   }>
 ) {
   return [
     ...new Map(
       items.map((item) => [
-        `${item.title ?? ""}|${item.url ?? ""}|${item.claim}|${item.country ?? ""}`,
+        `${item.title ?? ""}|${item.url ?? ""}|${item.claim}|${item.country ?? ""}|${item.sourceRecordId ?? ""}`,
         item,
       ])
     ).values(),
@@ -458,6 +502,23 @@ export const getAnalysisInputs = internalQuery({
       .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", canonicalProductId))
       .collect();
 
+    const websiteEvidenceFromDrugs = (
+      await Promise.all(
+        linkedDrugs.map((drug) =>
+          ctx.db
+            .query("marketWebsiteEvidence")
+            .withIndex("by_drug_and_country", (q) => q.eq("drugId", drug._id))
+            .collect()
+        )
+      )
+    ).flat();
+    const websiteEvidenceFromCanonical = await ctx.db
+      .query("marketWebsiteEvidence")
+      .withIndex("by_canonical_product_and_country", (q) =>
+        q.eq("canonicalProductId", canonicalProductId)
+      )
+      .collect();
+
     return {
       product,
       linkedDrugs,
@@ -465,6 +526,7 @@ export const getAnalysisInputs = internalQuery({
       priceEvidence,
       commercialSignals,
       gaps,
+      websiteEvidence: [...websiteEvidenceFromDrugs, ...websiteEvidenceFromCanonical],
     };
   },
 });
@@ -529,6 +591,9 @@ export const analyzeCanonicalProductMarkets = action({
       const countrySignals = inputs.commercialSignals.filter(
         (item) => normalizeCountry(item.country) === countryKey
       );
+      const countryWebsiteEvidence = inputs.websiteEvidence.filter(
+        (item) => normalizeCountry(item.country) === countryKey
+      );
       const strongestOpportunity = [...countryOpportunities].sort(
         (left, right) =>
           (right.commercialOpportunityScore ?? right.opportunityScore ?? 0) -
@@ -563,11 +628,16 @@ export const analyzeCanonicalProductMarkets = action({
             sourceType: evidence.sourceType,
             confidence: evidence.confidence,
             country,
+            sourceSystem: evidence.sourceSystem,
+            sourceCategory: evidence.sourceCategory,
+            observedAt: evidence.observedAt,
+            notes: evidence.notes,
+            sourceRecordId: evidence.sourceRecordId,
           }))
         ),
         ...countryRegistrations.map((item) => ({
           claim: `${inputs.product.brandName} was marked ${item.status.replaceAll("_", " ")} in ${country}.`,
-          title: `${country} registration record`,
+          title: item.sourceTitle ?? `${country} registration record`,
           url: item.url,
           sourceType: "official_registry" as const,
           confidence:
@@ -577,6 +647,11 @@ export const analyzeCanonicalProductMarkets = action({
                 ? ("likely" as const)
                 : ("inferred" as const),
           country,
+          sourceSystem: item.sourceSystem,
+          sourceCategory: item.sourceSystem ? ("official" as const) : undefined,
+          observedAt: item.observedAt ?? item.verifiedAt,
+          notes: item.notes,
+          sourceRecordId: item.sourceRecordId,
         })),
         ...countryPriceEvidence.map((item) => ({
           claim: `${item.sourceTitle}: ${item.currency} ${item.amount} (${item.priceType})`,
@@ -590,6 +665,11 @@ export const analyzeCanonicalProductMarkets = action({
                 : ("market_report" as const),
           confidence: item.confidence,
           country,
+          sourceSystem: item.sourceSystem,
+          sourceCategory: item.sourceCategory,
+          observedAt: item.observedAt,
+          notes: item.notes,
+          sourceRecordId: item.sourceRecordId,
         })),
         ...countrySignals.map((item) => ({
           claim: item.summary,
@@ -603,6 +683,22 @@ export const analyzeCanonicalProductMarkets = action({
                 : ("market_report" as const),
           confidence: item.confidence,
           country,
+          sourceSystem: item.sourceSystem,
+          sourceCategory: item.sourceCategory,
+          observedAt: item.observedAt,
+          notes: item.notes,
+        })),
+        ...countryWebsiteEvidence.map((item: WebsiteEvidenceDoc) => ({
+          claim: item.claim,
+          title: item.title,
+          url: item.url,
+          sourceType: item.sourceType,
+          confidence: item.confidence,
+          country,
+          sourceSystem: item.sourceSystem,
+          sourceCategory: item.sourceCategory,
+          observedAt: item.observedAt,
+          notes: item.notes,
         })),
       ]);
 

@@ -8,6 +8,7 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button, buttonVariants } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FindDrugsButton } from "@/components/discovery/FindDrugsButton";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
@@ -190,6 +191,11 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
   const [activityType, setActivityType] = useState<"note" | "email_sent" | "email_received" | "call" | "meeting">("note");
   const [savingNotes, setSavingNotes] = useState(false);
   const [bdNotes, setBdNotes] = useState<string | undefined>(undefined);
+  const [contactName, setContactName] = useState<string | undefined>(undefined);
+  const [contactTitle, setContactTitle] = useState<string | undefined>(undefined);
+  const [contactEmail, setContactEmail] = useState<string | undefined>(undefined);
+  const [contactLinkedinUrl, setContactLinkedinUrl] = useState<string | undefined>(undefined);
+  const [savingContact, setSavingContact] = useState(false);
 
   if (company === undefined) {
     return (
@@ -237,6 +243,16 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
   );
 
   const effectiveNotes = bdNotes ?? company.bdNotes ?? "";
+  const effectiveContactName = contactName ?? company.contactName ?? "";
+  const effectiveContactTitle = contactTitle ?? company.contactTitle ?? "";
+  const effectiveContactEmail = contactEmail ?? company.contactEmail ?? "";
+  const effectiveContactLinkedinUrl = contactLinkedinUrl ?? company.linkedinUrl ?? "";
+  const hasManualContactPath = Boolean(
+    effectiveContactName ||
+      effectiveContactTitle ||
+      effectiveContactEmail ||
+      effectiveContactLinkedinUrl
+  );
 
   async function handleScore() {
     setIsScoring(true);
@@ -277,6 +293,28 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
       bdNotes: effectiveNotes,
     });
     setSavingNotes(false);
+  }
+
+  async function handleSaveContact() {
+    if (!effectiveContactName.trim() && !effectiveContactEmail.trim() && !effectiveContactLinkedinUrl.trim()) {
+      return;
+    }
+    setSavingContact(true);
+    try {
+      await updateCompany({
+        id: companyId as Id<"companies">,
+        contactName: effectiveContactName.trim() || undefined,
+        contactTitle: effectiveContactTitle.trim() || undefined,
+        contactEmail: effectiveContactEmail.trim() || undefined,
+        linkedinUrl: effectiveContactLinkedinUrl.trim() || undefined,
+      });
+      setContactName(undefined);
+      setContactTitle(undefined);
+      setContactEmail(undefined);
+      setContactLinkedinUrl(undefined);
+    } finally {
+      setSavingContact(false);
+    }
   }
 
   return (
@@ -340,6 +378,74 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
             Use this page to decide whether this company is worth moving forward. Review its fit,
             products, and MENA position, then move into the opportunity or outreach flow once the
             case is strong enough.
+          </p>
+        </div>
+
+        <div className="mb-4 rounded-xl border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
+                Outreach Contact
+              </p>
+              <p className="mt-2 text-sm text-zinc-300">
+                Add one reachable person here so outreach readiness can clear without waiting for automated research.
+              </p>
+            </div>
+            <Button
+              size="sm"
+              onClick={() => void handleSaveContact()}
+              disabled={
+                savingContact ||
+                (!effectiveContactName.trim() &&
+                  !effectiveContactEmail.trim() &&
+                  !effectiveContactLinkedinUrl.trim())
+              }
+            >
+              {savingContact ? "Saving..." : hasManualContactPath ? "Save contact" : "Add contact"}
+            </Button>
+          </div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-sm text-zinc-400">Contact Name</label>
+              <Input
+                value={effectiveContactName}
+                onChange={(e) => setContactName(e.target.value)}
+                placeholder="e.g. Regional Business Development Director"
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm text-zinc-400">Contact Title</label>
+              <Input
+                value={effectiveContactTitle}
+                onChange={(e) => setContactTitle(e.target.value)}
+                placeholder="e.g. Head of International Partnerships"
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm text-zinc-400">Work Email</label>
+              <Input
+                value={effectiveContactEmail}
+                onChange={(e) => setContactEmail(e.target.value)}
+                placeholder="name@company.com"
+                type="email"
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm text-zinc-400">LinkedIn URL</label>
+              <Input
+                value={effectiveContactLinkedinUrl}
+                onChange={(e) => setContactLinkedinUrl(e.target.value)}
+                placeholder="https://www.linkedin.com/in/..."
+                type="url"
+                className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-600"
+              />
+            </div>
+          </div>
+          <p className="mt-3 text-xs text-zinc-500">
+            Add an email or LinkedIn URL to satisfy the contact-confirmed check.
           </p>
         </div>
 

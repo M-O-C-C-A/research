@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "convex/react";
 import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
@@ -9,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
 import { normalizeExternalUrl } from "@/lib/urlUtils";
+import { Button } from "@/components/ui/button";
+import { CountryCellEditor } from "@/components/drugs/CountryCellEditor";
 import { ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight } from "lucide-react";
 
 interface OpportunityDetailViewProps {
@@ -16,6 +19,7 @@ interface OpportunityDetailViewProps {
 }
 
 export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewProps) {
+  const [editingCountry, setEditingCountry] = useState<string | null>(null);
   const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
   const opportunity = useQuery(api.decisionOpportunities.get, {
     id: opportunityId as Id<"decisionOpportunities">,
@@ -36,6 +40,54 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
   }
 
   if (!opportunity) return null;
+
+  type MarketOpportunityRow = NonNullable<typeof marketOpportunities>[number];
+  const opportunityByCountry = new Map<string, MarketOpportunityRow>(
+    (marketOpportunities ?? []).map((item) => [item.country, item])
+  );
+  const marketRows = opportunity.focusMarkets.map((country) => {
+    const current = opportunityByCountry.get(country);
+    return {
+      drugId: opportunity.drugId,
+      country,
+      opportunityScore: current?.commercialOpportunityScore ?? current?.opportunityScore,
+      regulatoryStatus: current?.regulatoryStatus,
+      competitorPresence: current?.competitorPresence,
+      marketSizeEstimate: current?.marketSizeEstimate,
+      availabilityStatus: current?.availabilityStatus,
+      treatmentVolumeProxy: current?.treatmentVolumeProxy,
+      priceCorridor: current?.priceCorridor,
+      primaryPriceBenchmark: current?.primaryPriceBenchmark,
+      pricingConfidence: current?.pricingConfidence,
+      pricePositioning: current?.pricePositioning,
+      competitionIntensity: current?.competitionIntensity,
+      competitivePriceSummary: current?.competitivePriceSummary,
+      euReferenceAnchor: current?.euReferenceAnchor,
+      gccRegisteredAnchor: current?.gccRegisteredAnchor,
+      tenderBenchmarkAnchor: current?.tenderBenchmarkAnchor,
+      priceCorridorBand: current?.priceCorridorBand,
+      recommendedPricingBand: current?.recommendedPricingBand,
+      priceReferencingRisk: current?.priceReferencingRisk,
+      opportunityKind: current?.opportunityKind,
+      tenderOpportunity: current?.tenderOpportunity,
+      tenderSignalStrength: current?.tenderSignalStrength,
+      annualOpportunityRange: current?.annualOpportunityRange,
+      estimatedCustomers: current?.estimatedCustomers,
+      accessibleShare: current?.accessibleShare,
+      physicianAdoptionRate: current?.physicianAdoptionRate,
+      accessibleVolumeEstimate: current?.accessibleVolumeEstimate,
+      publicPrivateMixSummary: current?.publicPrivateMixSummary,
+      physicianAdoptionSummary: current?.physicianAdoptionSummary,
+      reimbursementConstraintLevel: current?.reimbursementConstraintLevel,
+      tenderBarrierLevel: current?.tenderBarrierLevel,
+      entryStrategyRecommendation: current?.entryStrategyRecommendation,
+      entryStrategyChannel: current?.entryStrategyChannel,
+      entryStrategySequencing: current?.entryStrategySequencing,
+      marketAccessRoute: current?.marketAccessRoute,
+      notes: current?.notes,
+    };
+  });
+  const activeMarketRow = marketRows.find((row) => row.country === editingCountry) ?? null;
 
   const outreachReadiness = opportunity.outreachReadiness ?? {
     gapConfirmed: false,
@@ -62,6 +114,13 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
 
   return (
     <div className="space-y-5 sm:space-y-6">
+      {activeMarketRow && (
+        <CountryCellEditor
+          open={Boolean(activeMarketRow)}
+          onClose={() => setEditingCountry(null)}
+          opportunity={activeMarketRow}
+        />
+      )}
       <GuidedFlowBanner
         hereLabel="Best opportunity detail"
         helperText="Use this page to validate the recommendation, clear blockers, and decide whether KEMEDICA is ready to send outreach now."
@@ -332,6 +391,25 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </div>
           </div>
         )}
+
+        <div className="mt-5 flex flex-wrap gap-3">
+          {opportunity.companyId && (
+            <Link
+              href={`/companies/${opportunity.companyId}`}
+              className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
+            >
+              Add contact on company page
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
+          <Button
+            variant="outline"
+            onClick={() => setEditingCountry(opportunity.focusMarkets[0] ?? null)}
+            className="border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] text-[var(--brand-300)] hover:border-[color:var(--brand-500)] hover:bg-[color:var(--brand-surface)] hover:text-white"
+          >
+            Edit route for {opportunity.focusMarkets[0] ?? "focus market"}
+          </Button>
+        </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">

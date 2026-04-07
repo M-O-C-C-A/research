@@ -777,6 +777,93 @@ export const updateWithEntities = mutation({
   },
 });
 
+export const adminDetachCompanyFromDrug = mutation({
+  args: {
+    id: v.id("drugs"),
+    companyId: v.id("companies"),
+    clearNamePrefixes: v.optional(v.array(v.string())),
+  },
+  handler: async (ctx, { id, companyId, clearNamePrefixes }) => {
+    const existingDrug = await ctx.db.get(id);
+    if (!existingDrug) {
+      throw new Error("Drug not found");
+    }
+
+    const existingLinks = await ctx.db
+      .query("drugEntityLinks")
+      .withIndex("by_drug", (q) => q.eq("drugId", id))
+      .collect();
+
+    const prefixes = (clearNamePrefixes ?? [])
+      .map((value) => value.trim().toLowerCase())
+      .filter(Boolean);
+
+    const shouldClearName = (value?: string) =>
+      !!value &&
+      prefixes.some(
+        (prefix) =>
+          value.toLowerCase() === prefix || value.toLowerCase().includes(prefix)
+      );
+
+    const filteredLinks = existingLinks
+      .filter((link) => link.companyId !== companyId)
+      .filter((link) => !shouldClearName(link.entityName));
+
+    const {
+      manufacturerName: existingManufacturerName,
+      primaryManufacturerName: existingPrimaryManufacturerName,
+      primaryMarketAuthorizationHolderName: existingPrimaryMahName,
+      ...existingWithoutNames
+    } = existingDrug;
+    const rest = { ...existingWithoutNames } as Omit<
+      typeof existingWithoutNames,
+      "_id" | "_creationTime" | "companyId"
+    > & {
+      _id?: never;
+      _creationTime?: never;
+      companyId?: never;
+    };
+    delete (rest as Record<string, unknown>)._id;
+    delete (rest as Record<string, unknown>)._creationTime;
+    delete (rest as Record<string, unknown>).companyId;
+
+    await ctx.db.replace("drugs", id, {
+      ...rest,
+      ...(shouldClearName(existingManufacturerName)
+        ? {}
+        : existingManufacturerName
+          ? { manufacturerName: existingManufacturerName }
+          : {}),
+      ...(shouldClearName(existingPrimaryManufacturerName)
+        ? {}
+        : existingPrimaryManufacturerName
+          ? { primaryManufacturerName: existingPrimaryManufacturerName }
+          : {}),
+      ...(shouldClearName(existingPrimaryMahName)
+        ? {}
+        : existingPrimaryMahName
+          ? { primaryMarketAuthorizationHolderName: existingPrimaryMahName }
+          : {}),
+    });
+
+    await ctx.runMutation(api.drugEntityLinks.replaceForDrug, {
+      drugId: id,
+      links: filteredLinks.map((link) => ({
+        companyId: link.companyId,
+        entityName: link.entityName,
+        relationshipType: link.relationshipType,
+        jurisdiction: link.jurisdiction,
+        isPrimary: link.isPrimary,
+        notes: link.notes,
+        source: link.source,
+        url: link.url,
+        confidence: link.confidence,
+      })),
+    });
+
+  },
+});
+
 export const updateMenaRegistrations = mutation({
   args: {
     id: v.id("drugs"),

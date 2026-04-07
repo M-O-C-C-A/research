@@ -897,8 +897,7 @@ export const findDrugsForCompany = action({
 
         if (
           drug.relationshipToCompany === "manufacturer" ||
-          drug.relationshipToCompany === "both" ||
-          !drug.relationshipToCompany
+          drug.relationshipToCompany === "both"
         ) {
           rawLinks.push({
             companyId,
@@ -952,7 +951,6 @@ export const findDrugsForCompany = action({
         }
 
         await ctx.runMutation(api.drugs.createWithEntities, {
-          companyId,
           name: drug.name,
           genericName: drug.genericName,
           therapeuticArea: drug.therapeuticArea,
@@ -962,10 +960,17 @@ export const findDrugsForCompany = action({
           approvalDate: drug.approvalDate ?? undefined,
           category: drug.category ?? undefined,
           primaryManufacturerName:
-            drug.manufacturerEntityName ?? company.name,
+            drug.manufacturerEntityName ??
+            (drug.relationshipToCompany === "manufacturer" ||
+            drug.relationshipToCompany === "both"
+              ? company.name
+              : undefined),
           primaryMarketAuthorizationHolderName:
             drug.marketAuthorizationHolderName ??
-            (drug.relationshipToCompany === "manufacturer" ? undefined : company.name),
+            (drug.relationshipToCompany === "market_authorization_holder" ||
+            drug.relationshipToCompany === "both"
+              ? company.name
+              : undefined),
           patentExpiryYear: drug.patentExpiryYear ?? undefined,
           emaApprovalDate: drug.emaApprovalDate ?? undefined,
           menaRegistrationCount: menaCount,

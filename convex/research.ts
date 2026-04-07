@@ -334,7 +334,7 @@ export const buildProspectDossier = action({
   handler: async (ctx, { companyId }): Promise<Id<"discoveryJobs">> => {
     const company = await ctx.runQuery(api.companies.get, { id: companyId });
     if (!company) throw new Error("Company not found");
-    const drugs = await ctx.runQuery(api.drugs.listByCompany, { companyId });
+    let drugs = await ctx.runQuery(api.drugs.listByCompany, { companyId });
 
     const jobId = await ctx.runMutation(api.discoveryJobs.create, {
       type: "prospect_research",
@@ -350,6 +350,18 @@ export const buildProspectDossier = action({
     const client = createResearchClient(process.env.OPENAI_API_KEY!);
 
     try {
+      if (drugs.length === 0) {
+        await log("No linked products found. Running product discovery before dossier research…");
+        await ctx.runAction(api.discovery.findDrugsForCompany, { companyId });
+        drugs = await ctx.runQuery(api.drugs.listByCompany, { companyId });
+        await log(
+          drugs.length > 0
+            ? `Product discovery added ${drugs.length} linked product${drugs.length === 1 ? "" : "s"}. Continuing dossier research…`
+            : "Product discovery finished without linked products. Continuing with company-only research…",
+          drugs.length > 0 ? "success" : "warning"
+        );
+      }
+
       // ── Stage 1: Company Intelligence ────────────────────────────────────────
       await log("Stage 1/3 — Company intelligence & BD qualification…");
 

@@ -810,40 +810,30 @@ export const adminDetachCompanyFromDrug = mutation({
       .filter((link) => !shouldClearName(link.entityName));
 
     const {
+      _id,
+      _creationTime,
+      companyId: removedCompanyId,
       manufacturerName: existingManufacturerName,
       primaryManufacturerName: existingPrimaryManufacturerName,
       primaryMarketAuthorizationHolderName: existingPrimaryMahName,
-      ...existingWithoutNames
+      ...replacement
     } = existingDrug;
-    const rest = { ...existingWithoutNames } as Omit<
-      typeof existingWithoutNames,
-      "_id" | "_creationTime" | "companyId"
-    > & {
-      _id?: never;
-      _creationTime?: never;
-      companyId?: never;
-    };
-    delete (rest as Record<string, unknown>)._id;
-    delete (rest as Record<string, unknown>)._creationTime;
-    delete (rest as Record<string, unknown>).companyId;
+    void _id;
+    void _creationTime;
+    void removedCompanyId;
 
-    await ctx.db.replace("drugs", id, {
-      ...rest,
-      ...(shouldClearName(existingManufacturerName)
-        ? {}
-        : existingManufacturerName
-          ? { manufacturerName: existingManufacturerName }
-          : {}),
-      ...(shouldClearName(existingPrimaryManufacturerName)
-        ? {}
-        : existingPrimaryManufacturerName
-          ? { primaryManufacturerName: existingPrimaryManufacturerName }
-          : {}),
-      ...(shouldClearName(existingPrimaryMahName)
-        ? {}
-        : existingPrimaryMahName
-          ? { primaryMarketAuthorizationHolderName: existingPrimaryMahName }
-          : {}),
+    await ctx.db.replace(id, {
+      ...replacement,
+      ...(!shouldClearName(existingManufacturerName) && existingManufacturerName
+        ? { manufacturerName: existingManufacturerName }
+        : {}),
+      ...(!shouldClearName(existingPrimaryManufacturerName) &&
+      existingPrimaryManufacturerName
+        ? { primaryManufacturerName: existingPrimaryManufacturerName }
+        : {}),
+      ...(!shouldClearName(existingPrimaryMahName) && existingPrimaryMahName
+        ? { primaryMarketAuthorizationHolderName: existingPrimaryMahName }
+        : {}),
     });
 
     await ctx.runMutation(api.drugEntityLinks.replaceForDrug, {

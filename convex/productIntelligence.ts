@@ -269,6 +269,31 @@ export const getCanonicalProduct = query({
   },
 });
 
+export const listCanonicalProductsByCompany = query({
+  args: { companyId: v.id("companies") },
+  handler: async (ctx, { companyId }) => {
+    const entityRows = await ctx.db
+      .query("canonicalProductEntities")
+      .withIndex("by_company", (q) => q.eq("companyId", companyId))
+      .collect();
+
+    const canonicalProductIds = [...new Set(entityRows.map((row) => row.canonicalProductId))];
+    const products = await Promise.all(
+      canonicalProductIds.map(async (id) => await ctx.db.get(id))
+    );
+
+    return products
+      .filter((product): product is NonNullable<typeof product> => Boolean(product))
+      .sort((left, right) => left.brandName.localeCompare(right.brandName))
+      .map((product) => ({
+        _id: product._id,
+        brandName: product.brandName,
+        inn: product.inn,
+        therapeuticArea: product.therapeuticArea,
+      }));
+  },
+});
+
 export const getCanonicalInnManufacturers = query({
   args: { genericName: v.string() },
   handler: async (ctx, { genericName }) => {

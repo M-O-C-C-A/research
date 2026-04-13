@@ -77,6 +77,16 @@ const opportunityArgs = {
   marketAttractiveness: v.string(),
   marketSizeEstimate: v.optional(v.string()),
   demandProxy: v.string(),
+  companyFootprintStatus: v.optional(v.union(
+    v.literal("clean_whitespace"),
+    v.literal("regional_representation_detected"),
+    v.literal("portfolio_presence_detected"),
+    v.literal("regional_representation_and_portfolio_presence"),
+    v.literal("unclear_company_presence")
+  )),
+  companyFootprintReason: v.optional(v.string()),
+  companyFootprintCountries: v.optional(v.array(v.string())),
+  companyPortfolioPresenceCount: v.optional(v.number()),
   competitivePressure: v.string(),
   regulatoryFeasibility: v.union(
     v.literal("easy"),

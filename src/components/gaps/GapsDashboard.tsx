@@ -68,6 +68,15 @@ export type Gap = {
   tenderSignals?: string;
   whoDiseaseBurden?: string;
   regulatoryFeasibility?: "high" | "medium" | "low";
+  companyFootprintStatus?:
+    | "clean_whitespace"
+    | "regional_representation_detected"
+    | "portfolio_presence_detected"
+    | "regional_representation_and_portfolio_presence"
+    | "unclear_company_presence";
+  companyFootprintReason?: string;
+  companyFootprintCountries?: string[];
+  companyPortfolioPresenceCount?: number;
   linkedCompanyIds?: Id<"companies">[];
   linkedDrugIds?: Id<"drugs">[];
   lastEnrichedAt?: number;

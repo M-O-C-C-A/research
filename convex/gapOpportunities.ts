@@ -191,6 +191,16 @@ export const create = mutation({
     evidenceSummary: v.optional(v.string()),
     verifiedRegisteredCount: v.optional(v.number()),
     verifiedMissingCount: v.optional(v.number()),
+    companyFootprintStatus: v.optional(v.union(
+      v.literal("clean_whitespace"),
+      v.literal("regional_representation_detected"),
+      v.literal("portfolio_presence_detected"),
+      v.literal("regional_representation_and_portfolio_presence"),
+      v.literal("unclear_company_presence")
+    )),
+    companyFootprintReason: v.optional(v.string()),
+    companyFootprintCountries: v.optional(v.array(v.string())),
+    companyPortfolioPresenceCount: v.optional(v.number()),
     demandEvidence: v.string(),
     supplyGap: v.string(),
     competitorLandscape: v.string(),
@@ -284,6 +294,18 @@ export const create = mutation({
           existing.verifiedMissingCount ?? 0,
           args.verifiedMissingCount ?? 0
         ),
+        companyFootprintStatus: args.companyFootprintStatus ?? existing.companyFootprintStatus,
+        companyFootprintReason:
+          mergeMultilineText(existing.companyFootprintReason, args.companyFootprintReason) ??
+          existing.companyFootprintReason,
+        companyFootprintCountries: mergeUniqueStrings([
+          ...(existing.companyFootprintCountries ?? []),
+          ...(args.companyFootprintCountries ?? []),
+        ]),
+        companyPortfolioPresenceCount: Math.max(
+          existing.companyPortfolioPresenceCount ?? 0,
+          args.companyPortfolioPresenceCount ?? 0
+        ),
         demandEvidence: mergeMultilineText(existing.demandEvidence, args.demandEvidence),
         supplyGap: mergeMultilineText(existing.supplyGap, args.supplyGap) ?? existing.supplyGap,
         competitorLandscape:
@@ -356,6 +378,16 @@ export const update = mutation({
     evidenceSummary: v.optional(v.string()),
     verifiedRegisteredCount: v.optional(v.number()),
     verifiedMissingCount: v.optional(v.number()),
+    companyFootprintStatus: v.optional(v.union(
+      v.literal("clean_whitespace"),
+      v.literal("regional_representation_detected"),
+      v.literal("portfolio_presence_detected"),
+      v.literal("regional_representation_and_portfolio_presence"),
+      v.literal("unclear_company_presence")
+    )),
+    companyFootprintReason: v.optional(v.string()),
+    companyFootprintCountries: v.optional(v.array(v.string())),
+    companyPortfolioPresenceCount: v.optional(v.number()),
     demandEvidence: v.optional(v.string()),
     supplyGap: v.optional(v.string()),
     competitorLandscape: v.optional(v.string()),

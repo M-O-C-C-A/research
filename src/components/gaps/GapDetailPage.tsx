@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight,
+  AlertTriangle,
   Building2,
   FlaskConical,
   MapPin,
@@ -233,6 +234,33 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
           </section>
         )}
 
+        {typedGap.companyFootprintStatus &&
+          typedGap.companyFootprintStatus !== "clean_whitespace" && (
+            <section className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-6">
+              <p className="flex items-center gap-2 text-xs uppercase tracking-wider text-amber-200">
+                <AlertTriangle className="h-3.5 w-3.5" />
+                Commercial Caution
+              </p>
+              <p className="mt-3 text-sm leading-relaxed text-amber-100">
+                {typedGap.companyFootprintReason ??
+                  "The product still looks like whitespace, but the linked company already shows some GCC++ footprint."}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2 text-xs text-amber-100/90">
+                {typedGap.companyFootprintCountries?.map((country) => (
+                  <span key={country} className="rounded bg-amber-500/15 px-2 py-1">
+                    {country}
+                  </span>
+                ))}
+                {(typedGap.companyPortfolioPresenceCount ?? 0) > 0 && (
+                  <span className="rounded bg-amber-500/15 px-2 py-1">
+                    {typedGap.companyPortfolioPresenceCount} other linked product
+                    {(typedGap.companyPortfolioPresenceCount ?? 0) === 1 ? "" : "s"} in GCC++
+                  </span>
+                )}
+              </div>
+            </section>
+          )}
+
         {(typedGap.whoDiseaseBurden || typedGap.tenderSignals) && (
           <section className="grid gap-4 lg:grid-cols-2">
             {typedGap.whoDiseaseBurden && (
@@ -351,6 +379,12 @@ export function GapDetailPage({ gapId }: { gapId: string }) {
                         <p className="truncate text-sm font-medium text-white">{c.name}</p>
                         <p className="text-xs text-zinc-500">{c.country}</p>
                         <p className="mt-1 line-clamp-2 text-xs text-zinc-400">{entry.rationale}</p>
+                        {entry.companyFootprintReason &&
+                          entry.companyFootprintStatus !== "clean_whitespace" && (
+                            <p className="mt-1 line-clamp-2 text-xs text-amber-300">
+                              {entry.companyFootprintReason}
+                            </p>
+                          )}
                       </div>
                       <ArrowRight className="h-4 w-4 shrink-0 text-zinc-600" />
                     </Link>

@@ -60,6 +60,16 @@ export const upsert = mutation({
       v.union(v.literal("high"), v.literal("medium"), v.literal("low"))
     ),
     competitiveWhitespace: v.optional(v.string()),
+    companyFootprintStatus: v.optional(v.union(
+      v.literal("clean_whitespace"),
+      v.literal("regional_representation_detected"),
+      v.literal("portfolio_presence_detected"),
+      v.literal("regional_representation_and_portfolio_presence"),
+      v.literal("unclear_company_presence")
+    )),
+    companyFootprintReason: v.optional(v.string()),
+    companyFootprintCountries: v.optional(v.array(v.string())),
+    companyPortfolioPresenceCount: v.optional(v.number()),
     recommendedFirstOutreachAngle: v.optional(v.string()),
     confidence: v.optional(
       v.union(v.literal("high"), v.literal("medium"), v.literal("low"))

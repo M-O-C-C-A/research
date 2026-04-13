@@ -385,6 +385,14 @@ const outreachPackage = v.object({
   attachmentBrief: v.string(),
 });
 
+const companyFootprintStatus = v.union(
+  v.literal("clean_whitespace"),
+  v.literal("regional_representation_detected"),
+  v.literal("portfolio_presence_detected"),
+  v.literal("regional_representation_and_portfolio_presence"),
+  v.literal("unclear_company_presence")
+);
+
 export default defineSchema({
   companies: defineTable({
     name: v.string(),
@@ -971,6 +979,7 @@ export default defineSchema({
       v.literal("product_sync_ema"),
       v.literal("product_sync_bfarm"),
       v.literal("canonical_product_linking"),
+      v.literal("canonical_gcc_pipeline"),
     ),
     status: v.union(
       v.literal("running"),
@@ -1069,6 +1078,10 @@ export default defineSchema({
     evidenceSummary: v.optional(v.string()),
     verifiedRegisteredCount: v.optional(v.number()),
     verifiedMissingCount: v.optional(v.number()),
+    companyFootprintStatus: v.optional(companyFootprintStatus),
+    companyFootprintReason: v.optional(v.string()),
+    companyFootprintCountries: v.optional(v.array(v.string())),
+    companyPortfolioPresenceCount: v.optional(v.number()),
     demandEvidence: v.string(),
     supplyGap: v.string(),
     competitorLandscape: v.string(),
@@ -1134,6 +1147,10 @@ export default defineSchema({
       v.literal("low"),
     )),
     competitiveWhitespace: v.optional(v.string()),
+    companyFootprintStatus: v.optional(companyFootprintStatus),
+    companyFootprintReason: v.optional(v.string()),
+    companyFootprintCountries: v.optional(v.array(v.string())),
+    companyPortfolioPresenceCount: v.optional(v.number()),
     recommendedFirstOutreachAngle: v.optional(v.string()),
     confidence: v.optional(v.union(
       v.literal("high"),
@@ -1230,6 +1247,10 @@ export default defineSchema({
     marketAttractiveness: v.string(),
     marketSizeEstimate: v.optional(v.string()),
     demandProxy: v.string(),
+    companyFootprintStatus: v.optional(companyFootprintStatus),
+    companyFootprintReason: v.optional(v.string()),
+    companyFootprintCountries: v.optional(v.array(v.string())),
+    companyPortfolioPresenceCount: v.optional(v.number()),
     competitivePressure: v.string(),
     regulatoryFeasibility: v.union(
       v.literal("easy"),

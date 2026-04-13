@@ -53,6 +53,7 @@ export const create = mutation({
       v.literal("product_sync_ema"),
       v.literal("product_sync_bfarm"),
       v.literal("canonical_product_linking"),
+      v.literal("canonical_gcc_pipeline"),
     ),
     companyId: v.optional(v.id("companies")),
     companyName: v.optional(v.string()),

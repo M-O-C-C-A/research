@@ -12,7 +12,7 @@ import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/li
 import { normalizeExternalUrl } from "@/lib/urlUtils";
 import { Button } from "@/components/ui/button";
 import { CountryCellEditor } from "@/components/drugs/CountryCellEditor";
-import { ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight } from "lucide-react";
+import { AlertTriangle, ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight } from "lucide-react";
 
 interface OpportunityDetailViewProps {
   opportunityId: string;
@@ -246,6 +246,37 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           )}
         </div>
       </section>
+
+      {opportunity.companyFootprintStatus &&
+        opportunity.companyFootprintStatus !== "clean_whitespace" && (
+          <section className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 sm:p-6">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 text-amber-300" />
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-200">
+                  Commercial caution
+                </p>
+                <p className="mt-2 text-sm leading-relaxed text-amber-100">
+                  {opportunity.companyFootprintReason ??
+                    "The product whitespace is still valid, but the linked company already appears to have some GCC++ representation or portfolio presence."}
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2 text-xs text-amber-100/90">
+                  {opportunity.companyFootprintCountries?.map((country) => (
+                    <span key={country} className="rounded bg-amber-500/15 px-2 py-1">
+                      {country}
+                    </span>
+                  ))}
+                  {(opportunity.companyPortfolioPresenceCount ?? 0) > 0 && (
+                    <span className="rounded bg-amber-500/15 px-2 py-1">
+                      {opportunity.companyPortfolioPresenceCount} other linked product
+                      {(opportunity.companyPortfolioPresenceCount ?? 0) === 1 ? "" : "s"} in GCC++
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </section>
+        )}
 
       {marketOpportunities && marketOpportunities.length > 0 && (
         <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">

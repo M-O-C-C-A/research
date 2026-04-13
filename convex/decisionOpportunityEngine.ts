@@ -40,6 +40,15 @@ export type DecisionOpportunityDraft = {
   marketAttractiveness: string;
   marketSizeEstimate?: string;
   demandProxy: string;
+  companyFootprintStatus?:
+    | "clean_whitespace"
+    | "regional_representation_detected"
+    | "portfolio_presence_detected"
+    | "regional_representation_and_portfolio_presence"
+    | "unclear_company_presence";
+  companyFootprintReason?: string;
+  companyFootprintCountries?: string[];
+  companyPortfolioPresenceCount?: number;
   competitivePressure: string;
   regulatoryFeasibility: "easy" | "moderate" | "complex" | "unknown";
   timelineRange: string;
@@ -198,6 +207,15 @@ function deriveKeyConstraint(
   if (company?.commercialControlLevel === "limited") {
     return "Commercial control may sit outside the identified approach entity.";
   }
+  if (
+    match?.companyFootprintStatus === "regional_representation_detected" ||
+    match?.companyFootprintStatus === "regional_representation_and_portfolio_presence"
+  ) {
+    return match.companyFootprintReason ?? "The company already appears represented in GCC++.";
+  }
+  if (match?.companyFootprintStatus === "portfolio_presence_detected") {
+    return match.companyFootprintReason ?? "The company already has other products present in GCC++.";
+  }
   return summarizeText(
     match?.competitiveWhitespace,
     "Local regulatory path and exclusivity structure still need validation."
@@ -320,7 +338,19 @@ function buildScoreBreakdown(args: {
       : args.company?.menaPartnershipStrength === "entrenched"
         ? 1.5
         : 0;
-  const partnerReachability = clampScore(partnerBase + contactBoost - partnerPenalty);
+  const companyFootprintPenalty =
+    args.match?.companyFootprintStatus === "regional_representation_and_portfolio_presence"
+      ? 2.4
+      : args.match?.companyFootprintStatus === "regional_representation_detected"
+        ? 1.5
+        : args.match?.companyFootprintStatus === "portfolio_presence_detected"
+          ? 1.1
+          : args.match?.companyFootprintStatus === "unclear_company_presence"
+            ? 0.4
+            : 0;
+  const partnerReachability = clampScore(
+    partnerBase + contactBoost - partnerPenalty - companyFootprintPenalty
+  );
 
   const evidenceConfidence = clampScore(
     (args.sourceCount >= 5 ? 8.6 : args.sourceCount >= 3 ? 7.2 : 5.8) +
@@ -525,7 +555,9 @@ export function buildDecisionOpportunityDraft(args: {
     ? "Recent procurement and tender pull make this a live rather than hypothetical market-entry window."
     : "The current gap appears actionable now because KEMEDICA can pursue whitespace before local channels harden.";
   const whyThisPartner = args.company
-    ? `${args.company.name} combines a reachable BD surface with product ownership signals that make a focused MENA entry conversation realistic.`
+    ? args.match?.companyFootprintReason
+      ? `${args.company.name} remains relevant, but GCC++ company-footprint checks show a commercial caution: ${args.match.companyFootprintReason}`
+      : `${args.company.name} combines a reachable BD surface with product ownership signals that make a focused MENA entry conversation realistic.`
     : "The approach entity still needs confirmation before outreach should begin.";
   const outreach = buildOutreachDraft({
     company: args.company,
@@ -580,6 +612,12 @@ export function buildDecisionOpportunityDraft(args: {
         ? `${args.drug.menaRegistrationCount} confirmed MENA registrations in current internal checks`
         : undefined),
     demandProxy: summarizeText(args.gap.demandEvidence, "Directional demand proxy needs validation."),
+    companyFootprintStatus: args.match?.companyFootprintStatus ?? args.gap.companyFootprintStatus,
+    companyFootprintReason: args.match?.companyFootprintReason ?? args.gap.companyFootprintReason,
+    companyFootprintCountries:
+      args.match?.companyFootprintCountries ?? args.gap.companyFootprintCountries,
+    companyPortfolioPresenceCount:
+      args.match?.companyPortfolioPresenceCount ?? args.gap.companyPortfolioPresenceCount,
     competitivePressure: summarizeText(
       args.opportunities.find((item) => item.competitionIntensity)?.competitionIntensity ??
         args.gap.competitorLandscape,

@@ -3,7 +3,7 @@
 import { action, ActionCtx, internalAction } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 import {
   createResearchClient,
   createStructuredWebSearchResponse,
@@ -305,6 +305,35 @@ type ProductGapKind =
   | "reference_biologic_opportunity"
   | "unclear_presence";
 
+type CompanyFootprintStatus =
+  | "clean_whitespace"
+  | "regional_representation_detected"
+  | "portfolio_presence_detected"
+  | "regional_representation_and_portfolio_presence"
+  | "unclear_company_presence";
+
+type CompanyFootprintSummary = {
+  companyId: Id<"companies">;
+  status: CompanyFootprintStatus;
+  reason: string;
+  countries: string[];
+  portfolioPresenceCount: number;
+  representationDetected: boolean;
+  portfolioDetected: boolean;
+  unclear: boolean;
+};
+
+type OpportunitySignal = Pick<
+  Doc<"opportunities">,
+  | "drugId"
+  | "country"
+  | "availabilityStatus"
+  | "matchedBrandName"
+  | "matchedGenericName"
+  | "genericEquivalentDetected"
+  | "evidenceItems"
+>;
+
 type MarketPresenceState =
   | "absent"
   | "present"
@@ -406,6 +435,312 @@ function scoreProductLedGap(args: {
   if (!args.hasStrongEvidence) score -= 1.8;
   if (args.genericCount > 0 && args.absentCount === 0) score -= 1.2;
   return clampGapScore(score);
+}
+
+function isConfirmedAvailabilityStatus(status?: string | null) {
+  return [
+    "formally_registered",
+    "tender_formulary_only",
+    "shortage_listed",
+    "hospital_import_only",
+  ].includes(status ?? "");
+}
+
+function normalizeGeographyCountry(value: string) {
+  const normalized = normalizeGapCountry(value);
+  if (normalized === "ksa") return "saudi arabia";
+  if (normalized === "uae" || normalized === "united arab emirates") return "uae";
+  return normalized;
+}
+
+function geographyTouchesTargetCountries(
+  geographies: string[] | undefined,
+  targetCountries: string[]
+) {
+  if (!geographies || geographies.length === 0) return [];
+
+  const normalizedTargets = new Map(
+    targetCountries.map((country) => [normalizeGeographyCountry(country), country] as const)
+  );
+  const matches = new Set<string>();
+
+  for (const geography of geographies) {
+    const normalized = normalizeGeographyCountry(geography);
+    if (normalizedTargets.has(normalized)) {
+      matches.add(normalizedTargets.get(normalized)!);
+      continue;
+    }
+
+    if (
+      normalized.includes("gcc") ||
+      normalized.includes("gulf") ||
+      normalized.includes("mena") ||
+      normalized.includes("middle east")
+    ) {
+      for (const country of targetCountries) {
+        matches.add(country);
+      }
+      continue;
+    }
+
+    for (const [normalizedTarget, country] of normalizedTargets.entries()) {
+      if (normalized.includes(normalizedTarget) || normalizedTarget.includes(normalized)) {
+        matches.add(country);
+      }
+    }
+  }
+
+  return [...matches];
+}
+
+function deriveCompanyFootprintPenalty(status: CompanyFootprintStatus) {
+  switch (status) {
+    case "regional_representation_and_portfolio_presence":
+      return 1.8;
+    case "regional_representation_detected":
+      return 1.2;
+    case "portfolio_presence_detected":
+      return 0.9;
+    case "unclear_company_presence":
+      return 0.4;
+    case "clean_whitespace":
+    default:
+      return 0;
+  }
+}
+
+function summarizePortfolioPresence(
+  companyName: string,
+  productCount: number,
+  countries: string[]
+) {
+  if (productCount <= 0 || countries.length === 0) return null;
+  return `${companyName} already has ${productCount} other product${productCount === 1 ? "" : "s"} with confirmed or likely GCC++ presence in ${countries.join(", ")}.`;
+}
+
+async function assessCompanyFootprint(args: {
+  ctx: ActionCtx;
+  companyId: Id<"companies">;
+  currentCanonicalProductId: Id<"canonicalProducts">;
+  currentLinkedDrugIds: Set<Id<"drugs">>;
+  targetCountries: string[];
+  allOpportunities: OpportunitySignal[];
+}): Promise<CompanyFootprintSummary> {
+  const { ctx, companyId, currentCanonicalProductId, currentLinkedDrugIds, targetCountries, allOpportunities } = args;
+  const company = await ctx.runQuery(api.companies.get, { id: companyId });
+
+  if (!company) {
+    return {
+      companyId,
+      status: "unclear_company_presence" as const,
+      reason: "The linked company could not be loaded for GCC++ footprint verification.",
+      countries: [],
+      portfolioPresenceCount: 0,
+      representationDetected: false,
+      portfolioDetected: false,
+      unclear: true,
+    };
+  }
+
+  const partnerCountries = geographyTouchesTargetCountries(
+    company.existingMenaPartners?.flatMap((partner) => partner.geographies) ?? [],
+    targetCountries
+  );
+  const channelPresence = company.menaChannelStatus ?? company.menaPresence;
+  const representationDetected =
+    channelPresence === "limited" ||
+    channelPresence === "established" ||
+    partnerCountries.length > 0 ||
+    company.menaPartnershipStrength === "moderate" ||
+    company.menaPartnershipStrength === "entrenched";
+  const companySignalsKnown = Boolean(
+    company.researchedAt ||
+      channelPresence ||
+      company.menaPartnershipStrength ||
+      (company.existingMenaPartners?.length ?? 0) > 0
+  );
+
+  const relatedDrugs = await ctx.runQuery(api.drugs.listByCompany, { companyId });
+  const canonicalProducts = await ctx.runQuery(api.productIntelligence.listCanonicalProductsByCompany, {
+    companyId,
+  });
+
+  const portfolioCountries = new Set<string>();
+  const portfolioProductKeys = new Set<string>();
+
+  for (const drug of relatedDrugs) {
+    if (currentLinkedDrugIds.has(drug._id)) continue;
+    if (drug.canonicalProductId === currentCanonicalProductId) continue;
+
+    const drugKey = drug.canonicalProductId ? `canonical:${drug.canonicalProductId}` : `drug:${drug._id}`;
+    const confirmedCountries = new Set<string>();
+    const likelyCountries = new Set<string>();
+
+    for (const registration of drug.menaRegistrations ?? []) {
+      const normalizedCountry = normalizeGeographyCountry(registration.country);
+      const matchedCountry = targetCountries.find(
+        (country) => normalizeGeographyCountry(country) === normalizedCountry
+      );
+      if (!matchedCountry) continue;
+      if (registration.status === "registered") {
+        confirmedCountries.add(matchedCountry);
+      }
+    }
+
+    for (const opportunity of allOpportunities) {
+      if (opportunity.drugId !== drug._id) continue;
+      const normalizedCountry = normalizeGeographyCountry(opportunity.country);
+      const matchedCountry = targetCountries.find(
+        (country) => normalizeGeographyCountry(country) === normalizedCountry
+      );
+      if (!matchedCountry) continue;
+      if (isConfirmedAvailabilityStatus(opportunity.availabilityStatus)) {
+        confirmedCountries.add(matchedCountry);
+        continue;
+      }
+      if (
+        opportunity.matchedBrandName ||
+        opportunity.matchedGenericName ||
+        opportunity.genericEquivalentDetected ||
+        opportunity.evidenceItems?.some((item) => item.confidence === "confirmed" || item.confidence === "likely")
+      ) {
+        likelyCountries.add(matchedCountry);
+      }
+    }
+
+    const presentCountries = [...new Set([...confirmedCountries, ...likelyCountries])];
+    if (presentCountries.length > 0) {
+      portfolioProductKeys.add(drugKey);
+      for (const country of presentCountries) {
+        portfolioCountries.add(country);
+      }
+    }
+  }
+
+  for (const product of canonicalProducts) {
+    if (product._id === currentCanonicalProductId) continue;
+    const productKey = `canonical:${product._id}`;
+    if (portfolioProductKeys.has(productKey)) continue;
+
+    const marketAnalysis = await ctx.runQuery(api.productMarketAnalysis.getByCanonicalProduct, {
+      canonicalProductId: product._id,
+    });
+    const rows = marketAnalysis?.countries ?? [];
+    const countries = rows
+      .filter((row) => targetCountries.includes(row.country))
+      .filter(
+        (row) =>
+          isConfirmedAvailabilityStatus(row.availabilityStatus) ||
+          Boolean(row.matchedBrandName) ||
+          Boolean(row.matchedGenericName) ||
+          row.evidenceItems.some(
+            (item) => item.confidence === "confirmed" || item.confidence === "likely"
+          )
+      )
+      .map((row) => row.country);
+
+    if (countries.length > 0) {
+      portfolioProductKeys.add(productKey);
+      for (const country of countries) {
+        portfolioCountries.add(country);
+      }
+    }
+  }
+
+  const portfolioPresenceCount = portfolioProductKeys.size;
+  const portfolioDetected = portfolioPresenceCount > 0;
+  const unclear = !representationDetected && !portfolioDetected && !companySignalsKnown;
+
+  const status: CompanyFootprintStatus =
+    representationDetected && portfolioDetected
+      ? "regional_representation_and_portfolio_presence"
+      : representationDetected
+        ? "regional_representation_detected"
+        : portfolioDetected
+          ? "portfolio_presence_detected"
+          : unclear
+            ? "unclear_company_presence"
+            : "clean_whitespace";
+
+  const reasons = [
+    representationDetected
+      ? `${company.name} already appears represented in GCC++ through existing affiliate, distributor, MAH, or partner signals.`
+      : null,
+    summarizePortfolioPresence(company.name, portfolioPresenceCount, [...portfolioCountries]),
+    unclear
+      ? `${company.name} does not yet have enough structured GCC++ footprint evidence to confirm a clean whitespace profile.`
+      : null,
+  ].filter((item): item is string => Boolean(item));
+
+  return {
+    companyId,
+    status,
+    reason:
+      reasons.join(" ") ||
+      `${company.name} currently looks clean from a GCC++ company-footprint perspective.`,
+    countries: dedupeSimpleStrings([...partnerCountries, ...portfolioCountries]),
+    portfolioPresenceCount,
+    representationDetected,
+    portfolioDetected,
+    unclear,
+  };
+}
+
+async function assessLinkedCompaniesFootprint(args: {
+  ctx: ActionCtx;
+  companyIds: Id<"companies">[];
+  currentCanonicalProductId: Id<"canonicalProducts">;
+  currentLinkedDrugIds: Set<Id<"drugs">>;
+  targetCountries: string[];
+  allOpportunities: OpportunitySignal[];
+}) {
+  const perCompany = await Promise.all(
+    args.companyIds.map(async (companyId) =>
+      await assessCompanyFootprint({
+        ctx: args.ctx,
+        companyId,
+        currentCanonicalProductId: args.currentCanonicalProductId,
+        currentLinkedDrugIds: args.currentLinkedDrugIds,
+        targetCountries: args.targetCountries,
+        allOpportunities: args.allOpportunities,
+      })
+    )
+  );
+
+  const countries = dedupeSimpleStrings(perCompany.flatMap((entry) => entry.countries));
+  const portfolioPresenceCount = perCompany.reduce(
+    (sum, entry) => sum + entry.portfolioPresenceCount,
+    0
+  );
+  const representationDetected = perCompany.some((entry) => entry.representationDetected);
+  const portfolioDetected = perCompany.some((entry) => entry.portfolioDetected);
+  const unclear = perCompany.some((entry) => entry.unclear) && !representationDetected && !portfolioDetected;
+
+  const overallStatus: CompanyFootprintStatus =
+    representationDetected && portfolioDetected
+      ? "regional_representation_and_portfolio_presence"
+      : representationDetected
+        ? "regional_representation_detected"
+        : portfolioDetected
+          ? "portfolio_presence_detected"
+          : unclear
+            ? "unclear_company_presence"
+            : "clean_whitespace";
+
+  const strongestReasons = perCompany
+    .filter((entry) => entry.status !== "clean_whitespace")
+    .map((entry) => entry.reason)
+    .slice(0, 3);
+
+  return {
+    overallStatus,
+    reason:
+      strongestReasons.join(" ") ||
+      "No linked company currently shows a meaningful GCC++ footprint or broader GCC++ product portfolio presence.",
+    countries,
+    portfolioPresenceCount,
+    perCompany,
+  };
 }
 
 function chooseProductGapKind(args: {
@@ -1270,7 +1605,9 @@ export const analyzeCanonicalProductGaps = action({
         ])
       );
 
-      const linkedDrugIds = new Set(product.linkedDrugs.map((drug) => drug._id));
+      const linkedDrugIds = new Set<Id<"drugs">>(
+        product.linkedDrugs.map((drug) => drug._id)
+      );
       const linkedOpportunities = allOpportunities.filter((row) =>
         linkedDrugIds.has(row.drugId)
       );
@@ -1526,7 +1863,7 @@ export const analyzeCanonicalProductGaps = action({
         continue;
       }
 
-      const gapScore = scoreProductLedGap({
+      const baseGapScore = scoreProductLedGap({
         hasFda,
         hasEma,
         absentCount: absentCountries.length,
@@ -1537,10 +1874,6 @@ export const analyzeCanonicalProductGaps = action({
         isBiologicOpportunity,
         hasStrongEvidence: evidenceStrongEnough,
       });
-
-      if (gapScore < 5) {
-        continue;
-      }
 
       const approvalCoverage = summarizeApprovalCoverage(hasFda, hasEma);
       const competitorNames = dedupeSimpleStrings([
@@ -1574,6 +1907,33 @@ export const analyzeCanonicalProductGaps = action({
             ? "This is classified as a biologic whitespace opportunity using canonical biosimilar/reference links."
             : "";
 
+      const candidateCompanies = uniqBy(
+        [
+          ...product.entities
+            .filter((entity) => entity.companyId)
+            .map((entity) => entity.companyId),
+          ...product.linkedDrugs
+            .map((drug) => drug.companyId)
+            .filter((companyId): companyId is Id<"companies"> => Boolean(companyId)),
+        ],
+        (companyId) => companyId
+      );
+      const companyFootprint = await assessLinkedCompaniesFootprint({
+        ctx,
+        companyIds: candidateCompanies,
+        currentCanonicalProductId: canonicalProductId,
+        currentLinkedDrugIds: linkedDrugIds,
+        targetCountries,
+        allOpportunities: allOpportunities as OpportunitySignal[],
+      });
+      const gapScore = clampGapScore(
+        baseGapScore - deriveCompanyFootprintPenalty(companyFootprint.overallStatus)
+      );
+
+      if (gapScore < 5) {
+        continue;
+      }
+
       const gapId = await ctx.runMutation(api.gapOpportunities.create, {
         therapeuticArea: product.therapeuticArea ?? product.atcCode ?? "Unclassified",
         indication: `${product.brandName} (${product.inn})`,
@@ -1598,6 +1958,10 @@ export const analyzeCanonicalProductGaps = action({
           competitorNames.length > 0
             ? `Detected local equivalents or alternative naming: ${competitorNames.join("; ")}.`
             : "No clearly named local equivalent was captured in the current target-market evidence.",
+        companyFootprintStatus: companyFootprint.overallStatus,
+        companyFootprintReason: companyFootprint.reason,
+        companyFootprintCountries: companyFootprint.countries,
+        companyPortfolioPresenceCount: companyFootprint.portfolioPresenceCount,
         suggestedDrugClasses: dedupeSimpleStrings([
           product.inn,
           product.therapeuticArea,
@@ -1628,19 +1992,22 @@ export const analyzeCanonicalProductGaps = action({
         });
       }
 
-      const candidateCompanies = uniqBy(
-        [
-          ...product.entities
-            .filter((entity) => entity.companyId)
-            .map((entity) => entity.companyId),
-          ...product.linkedDrugs
-            .map((drug) => drug.companyId)
-            .filter((companyId): companyId is Id<"companies"> => Boolean(companyId)),
-        ],
-        (companyId) => companyId
-      );
-
       for (const companyId of candidateCompanies) {
+        const footprintSummary = companyFootprint.perCompany.find(
+          (entry) => entry.companyId === companyId
+        );
+        const companyPenalty = footprintSummary
+          ? Math.min(1.4, deriveCompanyFootprintPenalty(footprintSummary.status))
+          : 0;
+        const distributorFitScore = clampGapScore(
+          (productGapKind === "fda_ema_absent_mena" || productGapKind === "biosimilar_opportunity"
+            ? 8.2
+            : 7.2) - companyPenalty
+        );
+        const companyRationalePrefix =
+          footprintSummary && footprintSummary.status !== "clean_whitespace"
+            ? `${footprintSummary.reason} `
+            : "";
         await ctx.runMutation(api.gapOpportunities.linkCompany, {
           id: gapId,
           companyId,
@@ -1648,11 +2015,8 @@ export const analyzeCanonicalProductGaps = action({
         await ctx.runMutation(api.gapCompanyMatches.upsert, {
           gapOpportunityId: gapId,
           companyId,
-          distributorFitScore:
-            productGapKind === "fda_ema_absent_mena" || productGapKind === "biosimilar_opportunity"
-              ? 8.2
-              : 7.2,
-          rationale: `${product.brandName} is already linked to this company through the canonical product graph, which makes it a credible first partner to approach for ${targetCountries.join(", ")} whitespace.`,
+          distributorFitScore,
+          rationale: `${companyRationalePrefix}${product.brandName} is already linked to this company through the canonical product graph, which makes it a credible first partner to approach for ${targetCountries.join(", ")} whitespace.`.trim(),
           overlapSummary: `${product.brandName} / ${product.inn} is anchored to this company through manufacturer, MAH, applicant, or linked internal product data.`,
           overlappingDrugClasses: dedupeSimpleStrings([product.inn, product.atcCode]),
           targetCountries,
@@ -1663,6 +2027,10 @@ export const analyzeCanonicalProductGaps = action({
               : marketSummary,
           recommendedFirstOutreachAngle: `Position KEMEDICA as the MENA market-entry partner for ${product.brandName}, starting with ${targetCountries.slice(0, 2).join(" and ")}.`,
           confidence: hasFda && hasEma ? "high" : "medium",
+          companyFootprintStatus: footprintSummary?.status,
+          companyFootprintReason: footprintSummary?.reason,
+          companyFootprintCountries: footprintSummary?.countries,
+          companyPortfolioPresenceCount: footprintSummary?.portfolioPresenceCount,
           evidenceLinks: uniqBy(
             [...approvalEvidence, ...targetMarketEvidence].map((item) => ({
               title: item.title,

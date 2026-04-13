@@ -1,28 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { CardGridSkeleton } from "@/components/shared/LoadingSkeleton";
-import { ArrowRight, MapPinned, Mail, Radar, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, MapPinned, Mail, Radar, ShieldCheck } from "lucide-react";
 import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
 
 interface DecisionOpportunityCardsProps {
   limit?: number;
   title?: string;
   description?: string;
+  opportunities?: Array<{
+    _id: string;
+    rankingPosition: number | null;
+    status: "active" | "archived" | "needs_validation";
+    productName: string;
+    genericName: string;
+    approachEntityName: string;
+    priorityScore: number;
+    confidenceLevel: "high" | "medium" | "low";
+    focusMarkets: string[];
+    whyThisMarket: string;
+    howToEnterExplanation: string;
+    contactName: string | null;
+    contactTitle: string | null;
+    targetRole: string;
+    entryStrategy: string;
+    regulatoryFeasibility: string;
+    outreachReady: boolean;
+    companyFootprintStatus?:
+      | "clean_whitespace"
+      | "regional_representation_detected"
+      | "portfolio_presence_detected"
+      | "regional_representation_and_portfolio_presence"
+      | "unclear_company_presence";
+    companyFootprintReason?: string | null;
+    companyFootprintCountries?: string[] | null;
+    companyPortfolioPresenceCount?: number | null;
+  }>;
 }
 
 export function DecisionOpportunityCards({
-  limit = 6,
   title = "Top Decision Opportunities",
   description = "Prioritized product-to-market plays that are close to real outreach.",
+  opportunities,
 }: DecisionOpportunityCardsProps) {
-  const opportunities = useQuery(api.decisionOpportunities.list, {
-    status: undefined,
-    limit,
-  });
-
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
       <div className="mb-4 flex items-center justify-between gap-4">
@@ -46,7 +67,7 @@ export function DecisionOpportunityCards({
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {opportunities.map((item) => {
-            const readyToSend = item.outreachReadiness?.readyToSend ?? false;
+            const readyToSend = item.outreachReady;
             return (
             <Link
               key={item._id}
@@ -122,6 +143,21 @@ export function DecisionOpportunityCards({
                     <p className="mt-1">{item.howToEnterExplanation}</p>
                   </div>
                 </div>
+                {item.companyFootprintStatus &&
+                  item.companyFootprintStatus !== "clean_whitespace" && (
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-300" />
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200">
+                          Commercial caution
+                        </p>
+                        <p className="mt-1 text-amber-100">
+                          {item.companyFootprintReason ??
+                            "The linked company already shows some GCC++ footprint, so this opportunity is less clean commercially."}
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 <div className="flex items-start gap-2">
                   <Mail className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
                   <div>

@@ -46,23 +46,24 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
   async function handleAnalyzeProductGap() {
     setAnalysisState({
       tone: "info",
-      title: "Running GCC++ opportunity pipeline",
-      body: "Refreshing UAE-first whitespace confirmation, linked company presence, and GCC++ market ranking for this product.",
+      title: "Running fresh external GCC++ refresh",
+      body: "Refreshing approval truth, anchor-market presence, linked company footprint, and GCC++ ranking for this product.",
     });
     try {
       const result = await runCanonicalPipeline({
         canonicalProductId: productId as Id<"canonicalProducts">,
         syncReferenceSources: false,
+        refreshMode: "fresh_external",
       });
       setAnalysisState({
         tone: result.touched > 0 ? "success" : "error",
         title:
           result.touched > 0
-            ? "Canonical opportunity snapshot ready"
+            ? "Fresh external opportunity snapshot ready"
             : "No canonical opportunity snapshot captured",
         body:
           result.touched > 0
-            ? `Pipeline refreshed this product and marked ${result.ranked} ranked, ${result.blocked} blocked/present, and ${result.ambiguous} ambiguous opportunity states.`
+            ? `Fresh research refreshed this product and marked ${result.ranked} ranked, ${result.blocked} blocked/present, and ${result.ambiguous} ambiguous opportunity states.`
             : "The canonical opportunity pipeline did not update this product.",
       });
     } catch (error) {
@@ -134,7 +135,7 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
               type="button"
               onClick={() => void handleAnalyzeProductGap()}
             >
-              Analyze GCC++ availability
+              Run fresh external GCC++ research
             </Button>
             <Link
               href={`/drugs/catalog/${productId}/opportunity`}
@@ -225,6 +226,11 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
                 }
               />
             </div>
+            {canonicalOpportunity.freshResearchRunAt && (
+              <p className="mt-3 text-xs text-zinc-500">
+                Fresh external research run: {new Date(canonicalOpportunity.freshResearchRunAt).toLocaleString()}
+              </p>
+            )}
             <div className="mt-3 space-y-1 text-sm text-zinc-400">
               {canonicalOpportunity.confirmationReason && (
                 <p>{canonicalOpportunity.confirmationReason}</p>
@@ -236,6 +242,33 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
                 <p>{canonicalOpportunity.rankingReason}</p>
               )}
             </div>
+            {canonicalOpportunity.countryResearch && canonicalOpportunity.countryResearch.length > 0 && (
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {canonicalOpportunity.countryResearch.map((finding) => (
+                  <div
+                    key={finding.country}
+                    className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-white">{finding.country}</p>
+                      <span className="text-[11px] uppercase tracking-wider text-zinc-500">
+                        {finding.sourceCategory ?? "unspecified"}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs uppercase tracking-wider text-[var(--brand-300)]">
+                      {finding.result.replaceAll("_", " ")}
+                    </p>
+                    <p className="mt-2 text-sm text-zinc-400">{finding.summary}</p>
+                    {finding.sourceTitle && (
+                      <p className="mt-2 text-xs text-zinc-500">Source: {finding.sourceTitle}</p>
+                    )}
+                    {finding.skippedReason && (
+                      <p className="mt-2 text-xs text-zinc-500">Skipped: {finding.skippedReason}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

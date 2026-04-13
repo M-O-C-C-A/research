@@ -3,6 +3,7 @@
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { DecisionOpportunityCards } from "./DecisionOpportunityCards";
+import { ProductOpportunityCards } from "./ProductOpportunityCards";
 import { RebuildOpportunityEngineButton } from "./RebuildOpportunityEngineButton";
 import { GapsDashboard } from "@/components/gaps/GapsDashboard";
 import { ArrowRight, DatabaseZap, FileSearch, Target } from "lucide-react";
@@ -82,6 +83,13 @@ export function OpportunityWorkbench() {
       </div>
 
       <div id="top-opportunities">
+        <ProductOpportunityCards
+          title="Unavailable products with strong GCC++ need and no partner footprint"
+          description="This shortlist ranks canonical products first. It prioritizes products that still look absent across the anchor GCC++ markets, show stronger commercial need, and do not yet show a meaningful MAH, manufacturer, or distributor footprint in-region."
+        />
+      </div>
+
+      <div className="mt-8" id="promoted-opportunities">
         <DecisionOpportunityCards
           title="Best opportunities right now"
           description="The strongest opportunities with the clearest next action."

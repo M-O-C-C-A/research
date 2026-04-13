@@ -51,7 +51,7 @@ const STATUS_STYLES: Record<string, string> = {
 
 function getReadableSyncError(
   error: unknown,
-  source: "fda" | "ema" | "bfarm" | "rebuild" | "update" | "system"
+  source: "fda" | "ema" | "bfarm" | "rebuild" | "update" | "system" | "external"
 ) {
   const raw =
     error instanceof Error
@@ -113,13 +113,14 @@ export function DrugList() {
 
   const isUpdatingDirectory = syncingSource === "update";
   const isRebuildingSystem = syncingSource === "system";
+  const isRunningExternalRefresh = syncingSource === "external";
 
   function getDefaultSyncTerm() {
     return syncSearch || search || undefined;
   }
 
   async function runSync(
-    source: "fda" | "ema" | "bfarm" | "rebuild" | "update" | "system"
+    source: "fda" | "ema" | "bfarm" | "rebuild" | "update" | "system" | "external"
   ) {
     setSyncingSource(source);
     setSyncMessage({
@@ -127,6 +128,8 @@ export function DrugList() {
       title:
         source === "system"
           ? "Rebuilding GCC++ workspace"
+          : source === "external"
+            ? "Running fresh external GCC++ refresh"
           :
         source === "update"
           ? "Updating product directory"
@@ -136,6 +139,8 @@ export function DrugList() {
       body:
         source === "system"
           ? "Refreshing FDA and EMA products, rebuilding the canonical graph, rerunning the canonical GCC++ opportunity pipeline, and then refreshing the wider gap workspace."
+          : source === "external"
+            ? "Syncing FDA, EMA, and BfArM, rebuilding the canonical graph, and then running a fresh external GCC++ research batch across the official anchor markets."
           :
         source === "update"
           ? "Pulling FDA and EMA records, then rebuilding the canonical product graph and canonical GCC++ pursuit state."
@@ -165,6 +170,20 @@ export function DrugList() {
             imported > 0
               ? `Imported ${imported} FDA/EMA source records, rebuilt ${rebuildResult.canonicalProductsCreated} canonical products, refreshed ${pipelineResult.touched} canonical GCC++ opportunity states, and launched the gap refresh (job ${gapFlowJobId}). If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`
               : `The system rebuild completed, refreshed ${pipelineResult.touched} canonical GCC++ opportunity states, and launched the GCC++ gap refresh (job ${gapFlowJobId}), but no new FDA/EMA source records were imported in this run. If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`,
+        });
+      } else if (source === "external") {
+        const defaultTerm = getDefaultSyncTerm();
+        const pipelineResult = await runCanonicalPipeline({
+          refreshMode: "fresh_external",
+          syncReferenceSources: true,
+          includeBfarm: true,
+          searchTerm: defaultTerm,
+          limit: defaultTerm ? 5 : 10,
+        });
+        setSyncMessage({
+          tone: "success",
+          title: "Fresh external GCC++ batch completed",
+          body: `Refreshed ${pipelineResult.touched} canonical products with live official-source GCC++ research (${pipelineResult.ranked} ranked, ${pipelineResult.blocked} blocked/present, ${pipelineResult.ambiguous} ambiguous). Use a search term for a focused batch.`,
         });
       } else if (source === "update") {
         const defaultTerm = getDefaultSyncTerm();
@@ -355,8 +374,22 @@ export function DrugList() {
                 )}
                 {isUpdatingDirectory ? "Updating directory..." : "Update directory"}
               </Button>
+              <Button
+                type="button"
+                onClick={() => void runSync("external")}
+                disabled={syncingSource !== null}
+                className="w-full sm:w-auto sm:min-w-52"
+                variant="outline"
+              >
+                {isRunningExternalRefresh ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {isRunningExternalRefresh ? "Refreshing externally..." : "Fresh external GCC++"}
+              </Button>
               <div className="text-xs text-zinc-500">
-                Rebuild everything refreshes FDA, EMA, the canonical graph, the canonical GCC++ pursuit layer, and the wider GCC++ gap analysis. Update directory refreshes the product graph plus canonical pursuit state.
+                Rebuild everything refreshes FDA, EMA, the canonical graph, the canonical GCC++ pursuit layer, and the wider GCC++ gap analysis. Update directory refreshes the product graph plus canonical pursuit state. Fresh external GCC++ runs a smaller live official-source batch.
               </div>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-3">

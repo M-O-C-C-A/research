@@ -264,6 +264,9 @@ const priceEvidenceSourceSystem = v.union(
   v.literal("sfda"),
   v.literal("eda_egypt"),
   v.literal("mohap_uae"),
+  v.literal("kuwait_moh"),
+  v.literal("qatar_moph"),
+  v.literal("algeria_moh"),
   v.literal("bfarm_amice"),
   v.literal("who"),
   v.literal("nupco"),
@@ -337,6 +340,31 @@ const productGenericAvailability = v.union(
   v.literal("not_available"),
   v.literal("unclear")
 );
+
+const canonicalOpportunityCountryResearch = v.object({
+  country: v.string(),
+  tier: v.union(v.literal("anchor"), v.literal("secondary")),
+  result: v.union(
+    v.literal("present"),
+    v.literal("absent"),
+    v.literal("present_under_different_brand"),
+    v.literal("inn_or_generic_present"),
+    v.literal("ambiguous"),
+    v.literal("insufficient_official_evidence"),
+    v.literal("skipped")
+  ),
+  availabilityStatus: opportunityAvailabilityStatus,
+  genericAvailability: productGenericAvailability,
+  confidence: evidenceConfidence,
+  sourceCategory: v.optional(priceSourceCategory),
+  sourceSystem: v.optional(priceEvidenceSourceSystem),
+  sourceTitle: v.optional(v.string()),
+  sourceUrl: v.optional(v.string()),
+  summary: v.string(),
+  marketedNames: v.array(v.string()),
+  checkedAt: v.number(),
+  skippedReason: v.optional(v.string()),
+});
 
 const productMarketEvidenceItem = v.object({
   claim: v.string(),
@@ -679,6 +707,10 @@ export default defineSchema({
       v.literal("confirmed_absent"),
       v.literal("present_in_gcc"),
       v.literal("ambiguous_match"),
+      v.literal("present_in_gcc_anchor"),
+      v.literal("absent_in_anchor_markets"),
+      v.literal("ambiguous_requires_review"),
+      v.literal("insufficient_official_evidence"),
       v.literal("presence_blocked"),
       v.literal("ready_for_market_research"),
       v.literal("ranked")
@@ -689,7 +721,13 @@ export default defineSchema({
       v.literal("present_in_gcc"),
       v.literal("likely_present_under_different_brand"),
       v.literal("likely_generic_equivalent_present"),
-      v.literal("ambiguous_match")
+      v.literal("ambiguous_match"),
+      v.literal("present_in_gcc_anchor"),
+      v.literal("absent_in_anchor_markets"),
+      v.literal("present_under_different_brand"),
+      v.literal("inn_or_generic_present"),
+      v.literal("ambiguous_requires_review"),
+      v.literal("insufficient_official_evidence")
     ),
     presenceStatus: v.union(
       v.literal("unknown"),
@@ -701,6 +739,7 @@ export default defineSchema({
     focusCountry: v.optional(v.string()),
     uaeAvailabilityStatus: v.optional(opportunityAvailabilityStatus),
     uaeGenericAvailability: v.optional(productGenericAvailability),
+    countryResearch: v.optional(v.array(canonicalOpportunityCountryResearch)),
     commercialOwnerEntityId: v.optional(v.id("canonicalProductEntities")),
     manufacturerEntityId: v.optional(v.id("canonicalProductEntities")),
     recommendedPursuitEntityId: v.optional(v.id("canonicalProductEntities")),
@@ -718,6 +757,7 @@ export default defineSchema({
     rankingScore: v.optional(v.number()),
     rankingReason: v.optional(v.string()),
     lastPipelineRunAt: v.number(),
+    freshResearchRunAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })

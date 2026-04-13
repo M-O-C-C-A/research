@@ -16,24 +16,29 @@ const steps = [
       "FDA and EMA records are normalized into one canonical product family. That lets the app treat brand variants, INN naming, and ownership roles as one structured product identity instead of separate raw rows.",
   },
   {
-    title: "3. Your UAE workbook is parsed and matched conservatively",
+    title: "3. UAE stays the primary hard market-truth source",
     body:
-      "Each UAE row is matched into the internal product registry using exact brand first, then generic plus manufacturer or supplier context. Ambiguous rows stay in review instead of being force-linked.",
+      "Applied UAE rows are still matched conservatively using exact brand first, then generic plus manufacturer or supplier context. Ambiguous rows stay in review instead of being force-linked.",
   },
   {
-    title: "4. Applied UAE rows become market evidence",
+    title: "4. Fresh external refreshes can widen the GCC++ check",
+    body:
+      "A fresh external refresh can now re-check Saudi Arabia, Egypt, and Kuwait as anchor markets, with Qatar and Algeria used only when source quality is strong enough.",
+  },
+  {
+    title: "5. Applied UAE rows still become the strongest market evidence",
     body:
       "Once a UAE row is applied, it updates the product's UAE market presence, availability status, official-registry evidence, and UAE price evidence when Price (AED) is present.",
   },
   {
-    title: "5. The GCC++ gap engine compares approval truth vs market truth",
+    title: "6. The GCC++ gap engine compares approval truth vs market truth",
     body:
-      "The product-led gap engine checks whether a canonical FDA/EMA-approved product is absent in UAE, present under a different brand, present generically, or already formally registered.",
+      "The product-led gap engine checks whether a canonical FDA/EMA-approved product is absent in anchor GCC++ markets, present under a different brand, present generically, or already formally registered.",
   },
   {
-    title: "6. The app decides whether there is a real opportunity",
+    title: "7. The app decides whether there is a real opportunity",
     body:
-      "A product can become a pure whitespace opportunity, a different-brand opportunity, a generic-pressure opportunity, or no opportunity at all if the UAE evidence shows it is already present.",
+      "A product can become a pure whitespace opportunity, a different-brand opportunity, a generic-pressure opportunity, or no opportunity at all if GCC++ evidence shows it is already present or the company is already entrenched locally.",
   },
 ] as const;
 

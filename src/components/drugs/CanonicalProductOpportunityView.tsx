@@ -30,6 +30,7 @@ export function CanonicalProductOpportunityView({
       await runAnalysis({
         canonicalProductId: productId as Id<"canonicalProducts">,
         syncReferenceSources: false,
+        refreshMode: "fresh_external",
       });
     } finally {
       setRunning(false);
@@ -50,12 +51,12 @@ export function CanonicalProductOpportunityView({
       <div className="rounded-xl border border-dashed border-zinc-800 bg-zinc-950/50 p-8 text-center">
         <h2 className="text-xl font-semibold text-white">No GCC++ product opportunity snapshot yet</h2>
         <p className="mt-3 text-sm leading-relaxed text-zinc-400">
-          Run the GCC++ market scan first so we can summarize country availability, disease burden,
-          market channels, and commercial opportunity for this product.
+          Run the fresh external GCC++ refresh first so we can summarize anchor-market presence,
+          linked company footprint, market channels, and commercial opportunity for this product.
         </p>
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <Button onClick={() => void handleRunAnalysis()} disabled={running}>
-            {running ? "Analyzing..." : "Run GCC++ market scan"}
+            {running ? "Refreshing..." : "Run fresh external GCC++ refresh"}
           </Button>
           <Link
             href="/gaps"
@@ -81,13 +82,13 @@ export function CanonicalProductOpportunityView({
             </h2>
             <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
               This page stays focused on the current canonical product. Use it to compare country
-              size, patient demand, channel shape, and evidence-backed whitespace before opening the
-              broader opportunity workspace.
+              size, patient demand, channel shape, and fresh external whitespace evidence before
+              opening the broader opportunity workspace.
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
             <Button onClick={() => void handleRunAnalysis()} disabled={running}>
-              {running ? "Refreshing..." : "Refresh GCC++ scan"}
+              {running ? "Refreshing..." : "Refresh external GCC++ research"}
             </Button>
             <Link
               href="/gaps"
@@ -134,6 +135,11 @@ export function CanonicalProductOpportunityView({
               }
             />
           </div>
+          {canonicalOpportunity.freshResearchRunAt && (
+            <p className="mt-4 text-xs text-zinc-500">
+              Fresh external research run: {new Date(canonicalOpportunity.freshResearchRunAt).toLocaleString()}
+            </p>
+          )}
           <div className="mt-4 space-y-1 text-sm text-zinc-400">
             {canonicalOpportunity.confirmationReason && (
               <p>{canonicalOpportunity.confirmationReason}</p>
@@ -145,6 +151,34 @@ export function CanonicalProductOpportunityView({
               <p>{canonicalOpportunity.rankingReason}</p>
             )}
           </div>
+          {canonicalOpportunity.countryResearch && canonicalOpportunity.countryResearch.length > 0 && (
+            <div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {canonicalOpportunity.countryResearch.map((finding) => (
+                <div key={finding.country} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-white">{finding.country}</p>
+                    <span className="text-[11px] uppercase tracking-wider text-zinc-500">
+                      {finding.sourceCategory ?? "unspecified"}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs uppercase tracking-wider text-[var(--brand-300)]">
+                    {finding.result.replaceAll("_", " ")}
+                  </p>
+                  <p className="mt-2 text-sm text-zinc-400">{finding.summary}</p>
+                  {finding.sourceTitle && (
+                    <p className="mt-2 text-xs text-zinc-500">
+                      Source: {finding.sourceTitle}
+                    </p>
+                  )}
+                  {finding.skippedReason && (
+                    <p className="mt-2 text-xs text-zinc-500">
+                      Skipped: {finding.skippedReason}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

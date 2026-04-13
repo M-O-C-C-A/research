@@ -11,6 +11,7 @@
 import type * as ai from "../ai.js";
 import type * as bdActivities from "../bdActivities.js";
 import type * as canonicalOpportunities from "../canonicalOpportunities.js";
+import type * as canonicalOpportunityResearch from "../canonicalOpportunityResearch.js";
 import type * as companies from "../companies.js";
 import type * as companyImportActions from "../companyImportActions.js";
 import type * as constants from "../constants.js";
@@ -55,6 +56,7 @@ declare const fullApi: ApiFromModules<{
   ai: typeof ai;
   bdActivities: typeof bdActivities;
   canonicalOpportunities: typeof canonicalOpportunities;
+  canonicalOpportunityResearch: typeof canonicalOpportunityResearch;
   companies: typeof companies;
   companyImportActions: typeof companyImportActions;
   constants: typeof constants;

@@ -1555,6 +1555,74 @@ export const listProductRankings = query({
   },
 });
 
+export const productRankingStats = query({
+  args: {},
+  handler: async (ctx) => {
+    const seedRows = await ctx.db.query("canonicalProductOpportunities").take(250);
+
+    const productRows = seedRows.filter(
+      (row) => row.presenceStatus === "weak_absent" || row.presenceStatus === "unknown"
+    );
+
+    const confirmedWhitespace = productRows.filter(
+      (row) =>
+        row.confirmationStatus === "confirmed_absent" ||
+        row.confirmationStatus === "absent_in_anchor_markets"
+    ).length;
+
+    const reviewBound = productRows.filter(
+      (row) =>
+        row.confirmationStatus === "candidate" ||
+        row.confirmationStatus === "insufficient_official_evidence" ||
+        row.confirmationStatus === "ambiguous_match" ||
+        row.confirmationStatus === "ambiguous_requires_review"
+    ).length;
+
+    const noPartnerFootprint = seedRows.filter((row) => row.presenceStatus === "weak_absent").length;
+    const productList: Array<{
+      canonicalProductId: Id<"canonicalProducts">;
+      rankingScore: number;
+      needScore: number;
+      confirmationStatus: CanonicalOpportunity["confirmationStatus"];
+      presenceStatus: CanonicalOpportunity["presenceStatus"];
+    }> = [];
+
+    for (const row of productRows) {
+      const marketRows = await ctx.db
+        .query("canonicalProductMarketAnalyses")
+        .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", row.canonicalProductId))
+        .collect();
+      const needScore = marketNeedScore(marketRows);
+      productList.push({
+        canonicalProductId: row.canonicalProductId,
+        rankingScore: deriveProductPriorityScore({
+          confirmationStatus: row.confirmationStatus,
+          presenceStatus: row.presenceStatus,
+          needScore,
+          existingRankingScore: row.rankingScore,
+        }),
+        needScore,
+        confirmationStatus: row.confirmationStatus,
+        presenceStatus: row.presenceStatus,
+      });
+    }
+
+    productList.sort((left, right) => right.rankingScore - left.rankingScore);
+    const averageScore =
+      productList.length > 0
+        ? productList.reduce((sum, row) => sum + row.rankingScore, 0) / productList.length
+        : 0;
+
+    return {
+      totalProductOpportunities: productList.length,
+      confirmedWhitespace,
+      reviewBound,
+      noPartnerFootprint,
+      averageScore: Number(averageScore.toFixed(1)),
+    };
+  },
+});
+
 export const runPipeline = action({
   args: {
     canonicalProductId: v.optional(v.id("canonicalProducts")),

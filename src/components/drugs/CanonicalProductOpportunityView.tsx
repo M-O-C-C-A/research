@@ -18,7 +18,10 @@ export function CanonicalProductOpportunityView({
   const analysis = useQuery(api.productMarketAnalysis.getByCanonicalProduct, {
     canonicalProductId: productId as Id<"canonicalProducts">,
   });
-  const runAnalysis = useAction(api.productMarketAnalysis.analyzeCanonicalProductMarkets);
+  const canonicalOpportunity = useQuery(api.canonicalOpportunities.getByCanonicalProduct, {
+    canonicalProductId: productId as Id<"canonicalProducts">,
+  });
+  const runAnalysis = useAction(api.canonicalOpportunities.runPipeline);
 
   async function handleRunAnalysis() {
     if (running) return;
@@ -26,6 +29,7 @@ export function CanonicalProductOpportunityView({
     try {
       await runAnalysis({
         canonicalProductId: productId as Id<"canonicalProducts">,
+        syncReferenceSources: false,
       });
     } finally {
       setRunning(false);
@@ -95,7 +99,65 @@ export function CanonicalProductOpportunityView({
         </div>
       </div>
 
+      {canonicalOpportunity && (
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+          <p className="text-xs uppercase tracking-[0.22em] text-[var(--brand-300)]">
+            Canonical pursuit state
+          </p>
+          <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <SummaryItem
+              label="Pipeline status"
+              value={canonicalOpportunity.pipelineStatus.replaceAll("_", " ")}
+            />
+            <SummaryItem
+              label="Commercial owner"
+              value={
+                canonicalOpportunity.commercialOwnerEntity?.company?.name ??
+                canonicalOpportunity.commercialOwnerEntity?.entityName ??
+                "—"
+              }
+            />
+            <SummaryItem
+              label="Manufacturer"
+              value={
+                canonicalOpportunity.manufacturerEntity?.company?.name ??
+                canonicalOpportunity.manufacturerEntity?.entityName ??
+                "—"
+              }
+            />
+            <SummaryItem
+              label="Recommended pursuit"
+              value={
+                canonicalOpportunity.recommendedPursuitEntity?.company?.name ??
+                canonicalOpportunity.recommendedPursuitEntity?.entityName ??
+                "—"
+              }
+            />
+          </div>
+          <div className="mt-4 space-y-1 text-sm text-zinc-400">
+            {canonicalOpportunity.confirmationReason && (
+              <p>{canonicalOpportunity.confirmationReason}</p>
+            )}
+            {canonicalOpportunity.presenceReason && (
+              <p>{canonicalOpportunity.presenceReason}</p>
+            )}
+            {canonicalOpportunity.rankingReason && (
+              <p>{canonicalOpportunity.rankingReason}</p>
+            )}
+          </div>
+        </div>
+      )}
+
       <ProductMarketAnalysisPanel analysis={analysis} mode="page" />
+    </div>
+  );
+}
+
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+      <p className="text-xs uppercase tracking-wider text-zinc-500">{label}</p>
+      <p className="mt-2 text-sm font-medium text-white">{value}</p>
     </div>
   );
 }

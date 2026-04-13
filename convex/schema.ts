@@ -672,6 +672,83 @@ export default defineSchema({
     .index("by_company", ["companyId"])
     .index("by_canonical_product_and_role", ["canonicalProductId", "role"]),
 
+  canonicalProductOpportunities: defineTable({
+    canonicalProductId: v.id("canonicalProducts"),
+    pipelineStatus: v.union(
+      v.literal("candidate"),
+      v.literal("confirmed_absent"),
+      v.literal("present_in_gcc"),
+      v.literal("ambiguous_match"),
+      v.literal("presence_blocked"),
+      v.literal("ready_for_market_research"),
+      v.literal("ranked")
+    ),
+    confirmationStatus: v.union(
+      v.literal("candidate"),
+      v.literal("confirmed_absent"),
+      v.literal("present_in_gcc"),
+      v.literal("likely_present_under_different_brand"),
+      v.literal("likely_generic_equivalent_present"),
+      v.literal("ambiguous_match")
+    ),
+    presenceStatus: v.union(
+      v.literal("unknown"),
+      v.literal("weak_absent"),
+      v.literal("connected"),
+      v.literal("blocked")
+    ),
+    targetCountries: v.array(v.string()),
+    focusCountry: v.optional(v.string()),
+    uaeAvailabilityStatus: v.optional(opportunityAvailabilityStatus),
+    uaeGenericAvailability: v.optional(productGenericAvailability),
+    commercialOwnerEntityId: v.optional(v.id("canonicalProductEntities")),
+    manufacturerEntityId: v.optional(v.id("canonicalProductEntities")),
+    recommendedPursuitEntityId: v.optional(v.id("canonicalProductEntities")),
+    recommendedPursuitRole: v.optional(v.union(
+      v.literal("mah"),
+      v.literal("applicant"),
+      v.literal("licensor"),
+      v.literal("manufacturer"),
+      v.literal("unknown")
+    )),
+    recommendedPursuitCompanyId: v.optional(v.id("companies")),
+    confirmationReason: v.optional(v.string()),
+    presenceReason: v.optional(v.string()),
+    marketSignalsSummary: v.optional(v.string()),
+    rankingScore: v.optional(v.number()),
+    rankingReason: v.optional(v.string()),
+    lastPipelineRunAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_canonical_product", ["canonicalProductId"])
+    .index("by_pipeline_status", ["pipelineStatus"])
+    .index("by_presence_status", ["presenceStatus"])
+    .index("by_recommended_company", ["recommendedPursuitCompanyId"])
+    .index("by_ranking_score", ["rankingScore"]),
+
+  canonicalProductOpportunityEvidence: defineTable({
+    canonicalProductOpportunityId: v.id("canonicalProductOpportunities"),
+    stage: v.union(
+      v.literal("confirmation"),
+      v.literal("presence"),
+      v.literal("ranking")
+    ),
+    title: v.optional(v.string()),
+    claim: v.string(),
+    url: v.optional(v.string()),
+    sourceType: v.union(
+      v.literal("official_registry"),
+      v.literal("company"),
+      v.literal("internal")
+    ),
+    confidence: evidenceConfidence,
+    country: v.optional(v.string()),
+    sourceSystem: v.optional(priceEvidenceSourceSystem),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_canonical_product_opportunity", ["canonicalProductOpportunityId"]),
+
   drugEntityLinks: defineTable({
     drugId: v.id("drugs"),
     companyId: v.optional(v.id("companies")),
@@ -971,6 +1048,7 @@ export default defineSchema({
       v.literal("product_sync_ema"),
       v.literal("product_sync_bfarm"),
       v.literal("canonical_product_linking"),
+      v.literal("canonical_gcc_pipeline"),
     ),
     status: v.union(
       v.literal("running"),

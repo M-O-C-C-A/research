@@ -253,11 +253,18 @@ export const getCanonicalProduct = query({
       (candidate) => candidate.referenceCanonicalProductId === product._id
     );
 
+    const hydratedEntities = await Promise.all(
+      entities.map(async (entity) => ({
+        ...entity,
+        company: entity.companyId ? await ctx.db.get(entity.companyId) : null,
+      }))
+    );
+
     return {
       ...product,
       sourceBadges: summarizeSourceSystems(product.sourceSystems),
       sources: sourceRows.filter((row): row is NonNullable<typeof row> => !!row),
-      entities: entities.sort((left, right) => {
+      entities: hydratedEntities.sort((left, right) => {
         if (left.role === right.role) return left.entityName.localeCompare(right.entityName);
         return left.role.localeCompare(right.role);
       }),

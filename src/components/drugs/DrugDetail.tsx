@@ -138,17 +138,17 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
                 {drug.approvalStatus}
               </Badge>
             </div>
-          <p className="text-sm text-zinc-500">
+            <p className="text-sm text-zinc-500">
               <Link
                 href={`/drugs/inn/${encodeURIComponent(drug.genericName)}`}
                 className="text-zinc-400 hover:text-[var(--brand-300)]"
               >
                 {drug.genericName}
               </Link>
-            {primaryEntityLabel ? (
-              <span>
-                {" · "}
-                  <span className="text-zinc-400">{primaryEntityLabel}</span>
+              {primaryEntityLabel ? (
+                <span>
+                  {" · "}
+                  <span className="text-zinc-400">Linked company: {primaryEntityLabel}</span>
                   {primaryEntityCountry ? (
                     <>
                       {" · "}

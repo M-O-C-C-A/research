@@ -35,31 +35,35 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
   const existingGaps = useQuery(api.gapOpportunities.listByCanonicalProduct, {
     canonicalProductId: productId as Id<"canonicalProducts">,
   });
+  const canonicalOpportunity = useQuery(api.canonicalOpportunities.getByCanonicalProduct, {
+    canonicalProductId: productId as Id<"canonicalProducts">,
+  });
   const marketAnalysis = useQuery(api.productMarketAnalysis.getByCanonicalProduct, {
     canonicalProductId: productId as Id<"canonicalProducts">,
   });
-  const analyzeProductMarkets = useAction(api.productMarketAnalysis.analyzeCanonicalProductMarkets);
+  const runCanonicalPipeline = useAction(api.canonicalOpportunities.runPipeline);
 
   async function handleAnalyzeProductGap() {
     setAnalysisState({
       tone: "info",
-      title: "Analyzing GCC++ availability",
-      body: "Checking UAE and the other GCC++ markets for local availability, naming, channels, and market signals.",
+      title: "Running GCC++ opportunity pipeline",
+      body: "Refreshing UAE-first whitespace confirmation, linked company presence, and GCC++ market ranking for this product.",
     });
     try {
-      const result = await analyzeProductMarkets({
+      const result = await runCanonicalPipeline({
         canonicalProductId: productId as Id<"canonicalProducts">,
+        syncReferenceSources: false,
       });
       setAnalysisState({
-        tone: result.countriesAnalyzed > 0 ? "success" : "error",
+        tone: result.touched > 0 ? "success" : "error",
         title:
-          result.countriesAnalyzed > 0
-            ? "GCC++ availability scan ready"
-            : "No GCC++ availability result captured",
+          result.touched > 0
+            ? "Canonical opportunity snapshot ready"
+            : "No canonical opportunity snapshot captured",
         body:
-          result.countriesAnalyzed > 0
-            ? `Refreshed the GCC++ product scan across ${result.countriesAnalyzed} markets.`
-            : result.summary,
+          result.touched > 0
+            ? `Pipeline refreshed this product and marked ${result.ranked} ranked, ${result.blocked} blocked/present, and ${result.ambiguous} ambiguous opportunity states.`
+            : "The canonical opportunity pipeline did not update this product.",
       });
     } catch (error) {
       setAnalysisState({
@@ -186,6 +190,55 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
           <Metric label="ATC / therapy" value={product.atcCode ?? product.therapeuticArea ?? "—"} />
         </div>
 
+        {canonicalOpportunity && (
+          <div className="mt-4 rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+            <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">
+              GCC++ pursuit snapshot
+            </p>
+            <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <Metric
+                label="Pipeline status"
+                value={canonicalOpportunity.pipelineStatus.replaceAll("_", " ")}
+              />
+              <Metric
+                label="Commercial owner"
+                value={
+                  canonicalOpportunity.commercialOwnerEntity?.company?.name ??
+                  canonicalOpportunity.commercialOwnerEntity?.entityName ??
+                  "—"
+                }
+              />
+              <Metric
+                label="Recommended pursuit"
+                value={
+                  canonicalOpportunity.recommendedPursuitEntity?.company?.name ??
+                  canonicalOpportunity.recommendedPursuitEntity?.entityName ??
+                  "—"
+                }
+              />
+              <Metric
+                label="Ranking score"
+                value={
+                  canonicalOpportunity.rankingScore != null
+                    ? canonicalOpportunity.rankingScore.toFixed(1)
+                    : "—"
+                }
+              />
+            </div>
+            <div className="mt-3 space-y-1 text-sm text-zinc-400">
+              {canonicalOpportunity.confirmationReason && (
+                <p>{canonicalOpportunity.confirmationReason}</p>
+              )}
+              {canonicalOpportunity.presenceReason && (
+                <p>{canonicalOpportunity.presenceReason}</p>
+              )}
+              {canonicalOpportunity.rankingReason && (
+                <p>{canonicalOpportunity.rankingReason}</p>
+              )}
+            </div>
+          </div>
+        )}
+
         {marketAnalysis && marketAnalysis.countries.length > 0 && (
           <ProductMarketAnalysisPanel analysis={marketAnalysis} />
         )}
@@ -265,7 +318,15 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
                       </Badge>
                     )}
                   </div>
-                  <p className="mt-2 text-sm text-white">{entity.entityName}</p>
+                  <p className="mt-2 text-sm text-white">
+                    {entity.company?.name ?? entity.entityName}
+                  </p>
+                  {entity.company && entity.company.name !== entity.entityName && (
+                    <p className="mt-1 text-xs text-zinc-500">Registry entity: {entity.entityName}</p>
+                  )}
+                  {entity.company && (
+                    <p className="mt-1 text-xs text-zinc-500">Linked company record</p>
+                  )}
                   {entity.geography && <p className="mt-1 text-xs text-zinc-500">{entity.geography}</p>}
                 </div>
               ))}

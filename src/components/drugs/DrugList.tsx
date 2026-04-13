@@ -99,6 +99,7 @@ export function DrugList() {
   const rebuildCanonicalProducts = useAction(
     api.productIntelligenceActions.rebuildCanonicalProductLinks
   );
+  const runCanonicalPipeline = useAction(api.canonicalOpportunities.runPipeline);
   const analyzeProductGap = useAction(api.gapAnalysis.analyzeSingleCanonicalProductGap);
   const runGapFlow = useAction(api.gapAnalysis.runGapAnalysisFlow);
 
@@ -134,10 +135,10 @@ export function DrugList() {
             : `Running ${source.toUpperCase()} sync`,
       body:
         source === "system"
-          ? "Refreshing FDA and EMA products, rebuilding the canonical graph, and rerunning GCC++ gap analysis."
+          ? "Refreshing FDA and EMA products, rebuilding the canonical graph, rerunning the canonical GCC++ opportunity pipeline, and then refreshing the wider gap workspace."
           :
         source === "update"
-          ? "Pulling FDA and EMA records, then rebuilding the canonical product graph."
+          ? "Pulling FDA and EMA records, then rebuilding the canonical product graph and canonical GCC++ pursuit state."
           : "Your product intelligence refresh is in progress.",
     });
     try {
@@ -152,6 +153,7 @@ export function DrugList() {
           limit: defaultTerm ? 50 : 100,
         });
         const rebuildResult = await rebuildCanonicalProducts({});
+        const pipelineResult = await runCanonicalPipeline({});
         const gapFlowJobId = await runGapFlow({
           mode: "all_areas",
         });
@@ -161,8 +163,8 @@ export function DrugList() {
           title: "GCC++ workspace rebuilt",
           body:
             imported > 0
-              ? `Imported ${imported} FDA/EMA source records, rebuilt ${rebuildResult.canonicalProductsCreated} canonical products, and launched the GCC++ gap refresh (job ${gapFlowJobId}). If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`
-              : `The system rebuild completed and the GCC++ gap refresh was launched (job ${gapFlowJobId}), but no new FDA/EMA source records were imported in this run. If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`,
+              ? `Imported ${imported} FDA/EMA source records, rebuilt ${rebuildResult.canonicalProductsCreated} canonical products, refreshed ${pipelineResult.touched} canonical GCC++ opportunity states, and launched the gap refresh (job ${gapFlowJobId}). If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`
+              : `The system rebuild completed, refreshed ${pipelineResult.touched} canonical GCC++ opportunity states, and launched the GCC++ gap refresh (job ${gapFlowJobId}), but no new FDA/EMA source records were imported in this run. If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`,
         });
       } else if (source === "update") {
         const defaultTerm = getDefaultSyncTerm();
@@ -175,6 +177,7 @@ export function DrugList() {
           limit: defaultTerm ? 50 : 100,
         });
         const rebuildResult = await rebuildCanonicalProducts({});
+        const pipelineResult = await runCanonicalPipeline({});
         const imported = (fdaResult.upserted ?? 0) + (emaResult.upserted ?? 0);
         if (imported === 0) {
           setSyncMessage({
@@ -187,7 +190,7 @@ export function DrugList() {
           setSyncMessage({
             tone: "success",
             title: "Product directory updated",
-            body: `Imported ${imported} source records and rebuilt ${rebuildResult.canonicalProductsCreated} canonical products.`,
+            body: `Imported ${imported} source records, rebuilt ${rebuildResult.canonicalProductsCreated} canonical products, and refreshed ${pipelineResult.touched} canonical GCC++ opportunity states.`,
           });
         }
       } else if (source === "fda") {
@@ -353,7 +356,7 @@ export function DrugList() {
                 {isUpdatingDirectory ? "Updating directory..." : "Update directory"}
               </Button>
               <div className="text-xs text-zinc-500">
-                Rebuild everything refreshes FDA, EMA, the canonical graph, and GCC++ gap analysis. Update directory refreshes the product graph only.
+                Rebuild everything refreshes FDA, EMA, the canonical graph, the canonical GCC++ pursuit layer, and the wider GCC++ gap analysis. Update directory refreshes the product graph plus canonical pursuit state.
               </div>
             </div>
             <div className="rounded-lg border border-zinc-800 bg-zinc-950/70 p-3">

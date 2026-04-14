@@ -1271,6 +1271,8 @@ export default defineSchema({
     whyNow: v.string(),
     whyThisPartner: v.string(),
     targetRole: v.string(),
+    companyWebsite: v.optional(v.string()),
+    companyLinkedinUrl: v.optional(v.string()),
     contactName: v.optional(v.string()),
     contactTitle: v.optional(v.string()),
     contactEmail: v.optional(v.string()),

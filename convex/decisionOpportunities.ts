@@ -59,6 +59,7 @@ const opportunityArgs = {
   ),
   focusMarkets: v.array(v.string()),
   secondaryMarkets: v.array(v.string()),
+  blockedFocusMarkets: v.optional(v.array(v.string())),
   gapType: v.union(
     v.literal("formulary_gap"),
     v.literal("regulatory_gap"),
@@ -195,6 +196,29 @@ function uniqBy<T>(items: T[], keyFn: (item: T) => string) {
   return [...new Map(items.map((item) => [keyFn(item), item])).values()];
 }
 
+function mergeCompanyContactDetails<T extends Doc<"decisionOpportunities">>(
+  opportunity: T,
+  company: Doc<"companies"> | null
+) {
+  return {
+    ...opportunity,
+    companyWebsite: opportunity.companyWebsite ?? company?.website ?? undefined,
+    companyLinkedinUrl:
+      opportunity.companyLinkedinUrl ?? company?.linkedinCompanyUrl ?? undefined,
+    contactName: opportunity.contactName ?? company?.contactName ?? undefined,
+    contactTitle: opportunity.contactTitle ?? company?.contactTitle ?? undefined,
+    contactEmail: opportunity.contactEmail ?? company?.contactEmail ?? undefined,
+    contactLinkedinUrl: opportunity.contactLinkedinUrl ?? company?.linkedinUrl ?? undefined,
+    contactConfidence:
+      opportunity.contactConfidence === "none" && company?.contactName
+        ? ((company.keyContacts?.[0]?.confidence ?? "likely") as
+            | "confirmed"
+            | "likely"
+            | "inferred")
+        : opportunity.contactConfidence,
+  };
+}
+
 function chooseBestDrug(args: {
   company: Doc<"companies">;
   gap: Doc<"gapOpportunities">;
@@ -298,7 +322,14 @@ export const list = query({
           .collect()
       : await ctx.db.query("decisionOpportunities").collect();
 
+    const companyIds = [...new Set(rows.map((row) => row.companyId).filter(Boolean))] as Id<"companies">[];
+    const companies = await Promise.all(companyIds.map((id) => ctx.db.get(id)));
+    const companiesById = new Map<Id<"companies">, Doc<"companies">>(
+      companies.filter((item): item is Doc<"companies"> => item !== null).map((item) => [item._id, item])
+    );
+
     return rows
+      .map((row) => mergeCompanyContactDetails(row, row.companyId ? companiesById.get(row.companyId) ?? null : null))
       .filter((row) => !market || row.focusMarkets.includes(market))
       .sort((left, right) => {
         const leftRank = left.rankingPosition ?? 9999;
@@ -317,7 +348,15 @@ export const listByDrug = query({
       .query("decisionOpportunities")
       .withIndex("by_drug", (q) => q.eq("drugId", drugId))
       .collect();
-    return rows.sort((left, right) => (left.rankingPosition ?? 9999) - (right.rankingPosition ?? 9999));
+    const companyIds = [...new Set(rows.map((row) => row.companyId).filter(Boolean))] as Id<"companies">[];
+    const companies = await Promise.all(companyIds.map((id) => ctx.db.get(id)));
+    const companiesById = new Map<Id<"companies">, Doc<"companies">>(
+      companies.filter((item): item is Doc<"companies"> => item !== null).map((item) => [item._id, item])
+    );
+
+    return rows
+      .map((row) => mergeCompanyContactDetails(row, row.companyId ? companiesById.get(row.companyId) ?? null : null))
+      .sort((left, right) => (left.rankingPosition ?? 9999) - (right.rankingPosition ?? 9999));
   },
 });
 
@@ -353,7 +392,7 @@ export const get = query({
     ]);
 
     return {
-      ...opportunity,
+      ...mergeCompanyContactDetails(opportunity, company),
       drug,
       company,
       gap,

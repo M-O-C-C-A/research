@@ -140,6 +140,14 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
               <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${confidenceBadgeClass(opportunity.confidenceLevel)}`}>
                 {opportunity.confidenceLevel} confidence
               </span>
+              {opportunity.blockedFocusMarkets?.map((market) => (
+                <span
+                  key={`${opportunity._id}-${market}-registered`}
+                  className="inline-flex rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-200"
+                >
+                  Already registered in {market}
+                </span>
+              ))}
             </div>
             <h2 className="text-2xl font-semibold text-white">{opportunity.productName}</h2>
             <p className="mt-1 text-sm text-zinc-400">
@@ -574,9 +582,39 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         <div className="min-w-0 space-y-6">
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
-              Contact Direction
+              Company And Contact
             </h3>
             <div className="mt-4 space-y-3">
+              {(opportunity.companyWebsite || opportunity.companyLinkedinUrl) && (
+                <div className="rounded-lg bg-zinc-950 px-4 py-3">
+                  <p className="text-xs uppercase tracking-wider text-zinc-500">Company</p>
+                  <p className="mt-1 text-sm font-medium text-white">{opportunity.approachEntityName}</p>
+                  <div className="mt-3 flex flex-wrap gap-3 text-xs">
+                    {opportunity.companyWebsite && (
+                      <a
+                        href={normalizeExternalUrl(opportunity.companyWebsite) ?? undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        Website
+                      </a>
+                    )}
+                    {opportunity.companyLinkedinUrl && (
+                      <a
+                        href={normalizeExternalUrl(opportunity.companyLinkedinUrl) ?? undefined}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]"
+                      >
+                        <Linkedin className="h-3 w-3" />
+                        Company LinkedIn
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="rounded-lg bg-zinc-950 px-4 py-3">
                 <p className="text-sm font-medium text-white">
                   {opportunity.contactName ?? opportunity.targetRole}

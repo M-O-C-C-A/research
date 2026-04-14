@@ -33,6 +33,7 @@ export type DecisionOpportunityDraft = {
     | "unknown";
   focusMarkets: string[];
   secondaryMarkets: string[];
+  blockedFocusMarkets?: string[];
   gapType:
     | "formulary_gap"
     | "regulatory_gap"
@@ -646,6 +647,7 @@ export function buildDecisionOpportunityDraft(args: {
     approachEntityRole,
     focusMarkets: selectedFocusMarkets,
     secondaryMarkets,
+    blockedFocusMarkets: blockedFocusMarkets.length > 0 ? blockedFocusMarkets : undefined,
     gapType,
     productIdentityStatus: identityStatus,
     gapSummary: summarizeText(

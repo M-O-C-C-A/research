@@ -74,6 +74,7 @@ test("confirmed UAE registration removes UAE from focus markets and updates rati
 
   assert.ok(draft);
   assert.deepEqual(draft.focusMarkets, ["Saudi Arabia"]);
+  assert.deepEqual(draft.blockedFocusMarkets, ["UAE"]);
   assert.match(draft.whyThisMarket, /UAE is already formally registered/i);
   assert.match(draft.confidenceSummary, /scoped to Saudi Arabia/i);
   assert.match(draft.scoreExplanation, /UAE was removed from whitespace scoring/i);

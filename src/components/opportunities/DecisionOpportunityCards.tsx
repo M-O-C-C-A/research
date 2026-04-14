@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CardGridSkeleton } from "@/components/shared/LoadingSkeleton";
-import { AlertTriangle, ArrowRight, MapPinned, Mail, Radar, ShieldCheck } from "lucide-react";
+import { normalizeExternalUrl } from "@/lib/urlUtils";
+import { AlertTriangle, ArrowRight, ExternalLink, Globe2, Linkedin, Mail, MapPinned, Radar, ShieldCheck } from "lucide-react";
 import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
 
 interface DecisionOpportunityCardsProps {
@@ -21,10 +22,15 @@ interface DecisionOpportunityCardsProps {
     priorityScore: number;
     confidenceLevel: "high" | "medium" | "low";
     focusMarkets: string[];
+    blockedFocusMarkets?: string[] | null;
     whyThisMarket: string;
     howToEnterExplanation: string;
+    companyWebsite?: string | null;
+    companyLinkedinUrl?: string | null;
     contactName: string | null;
     contactTitle: string | null;
+    contactEmail?: string | null;
+    contactLinkedinUrl?: string | null;
     targetRole: string;
     entryStrategy: string;
     regulatoryFeasibility: string;
@@ -76,6 +82,9 @@ export function DecisionOpportunityCards({
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visibleOpportunities.map((item) => {
             const readyToSend = item.outreachReady;
+            const websiteUrl = normalizeExternalUrl(item.companyWebsite);
+            const companyLinkedinUrl = normalizeExternalUrl(item.companyLinkedinUrl);
+            const contactLinkedinUrl = normalizeExternalUrl(item.contactLinkedinUrl);
             return (
             <Link
               key={item._id}
@@ -122,6 +131,14 @@ export function DecisionOpportunityCards({
                 <span className="inline-flex rounded-md bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300">
                   {item.regulatoryFeasibility}
                 </span>
+                {item.blockedFocusMarkets?.map((market) => (
+                  <span
+                    key={`${item._id}-${market}-registered`}
+                    className="inline-flex rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200"
+                  >
+                    already registered in {market}
+                  </span>
+                ))}
               </div>
 
               <div className="mt-4 space-y-3 text-xs text-zinc-400">
@@ -167,16 +184,44 @@ export function DecisionOpportunityCards({
                     </div>
                   )}
                 <div className="flex items-start gap-2">
+                  <Globe2 className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                      Company details
+                    </p>
+                    <div className="mt-1 flex flex-wrap gap-3 text-zinc-300">
+                      {websiteUrl && (
+                        <span className="inline-flex items-center gap-1">
+                          <ExternalLink className="h-3 w-3" />
+                          Website
+                        </span>
+                      )}
+                      {companyLinkedinUrl && (
+                        <span className="inline-flex items-center gap-1">
+                          <Linkedin className="h-3 w-3" />
+                          Company LinkedIn
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
                   <Mail className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
                       Who to contact
                     </p>
-                    <p className="mt-1">
-                    {item.contactName
-                      ? `${item.contactName} · ${item.contactTitle ?? item.targetRole}`
-                      : item.targetRole}
+                    <p className="mt-1 text-zinc-300">
+                      {item.contactName
+                        ? `${item.contactName} · ${item.contactTitle ?? item.targetRole}`
+                        : item.targetRole}
                     </p>
+                    {(item.contactEmail || contactLinkedinUrl) && (
+                      <div className="mt-1 flex flex-wrap gap-3 text-zinc-300">
+                        {item.contactEmail && <span>{item.contactEmail}</span>}
+                        {contactLinkedinUrl && <span>LinkedIn</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

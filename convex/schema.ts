@@ -1229,6 +1229,7 @@ export default defineSchema({
     ),
     focusMarkets: v.array(v.string()),
     secondaryMarkets: v.optional(v.array(v.string())),
+    blockedFocusMarkets: v.optional(v.array(v.string())),
     gapType: v.union(
       v.literal("formulary_gap"),
       v.literal("regulatory_gap"),

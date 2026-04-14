@@ -620,6 +620,7 @@ export const rebuildFromResearch = action({
         sourceCount: evidence.length,
         opportunities: opportunitiesByDrugId.get(drug._id) ?? [],
       });
+      if (!draft) continue;
 
       const opportunityId = await ctx.runMutation(api.decisionOpportunities.upsert, {
         ...draft,

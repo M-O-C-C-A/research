@@ -463,7 +463,7 @@ export function RegistrationImportWorkspace() {
                     </p>
                     <p className="mt-2 text-sm text-zinc-300">
                       Next step: review touched products or rerun gap and opportunity workflows so
-                      UAE registrations reduce false whitespace.
+                      UAE registrations remove false UAE whitespace recommendations.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button

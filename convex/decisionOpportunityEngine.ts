@@ -1,4 +1,4 @@
-import { Doc } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
 import { getCountryCapabilityProfile } from "./countryCapabilityProfiles";
 
 export const FOCUS_MARKETS = ["Saudi Arabia", "UAE"] as const;
@@ -8,6 +8,12 @@ type CompanyDoc = Doc<"companies"> | null;
 type DrugDoc = Doc<"drugs">;
 type MatchDoc = Doc<"gapCompanyMatches"> | null;
 type MarketOpportunityDoc = Doc<"opportunities">;
+
+type FocusMarketSelection = {
+  selectedFocusMarkets: string[];
+  secondaryMarkets: string[];
+  blockedFocusMarkets: string[];
+};
 
 export type DecisionOpportunityDraft = {
   title: string;
@@ -260,6 +266,41 @@ function deriveEntryStrategy(company: CompanyDoc): {
   };
 }
 
+function hasConfirmedRegistrationInCountry(drug: DrugDoc, country: string) {
+  return (drug.menaRegistrations ?? []).some(
+    (registration) =>
+      normalizeText(registration.country) === normalizeText(country) &&
+      registration.status === "registered"
+  );
+}
+
+export function resolveFocusMarketSelection(args: {
+  gap: GapDoc;
+  drug: DrugDoc;
+}): FocusMarketSelection {
+  const candidateFocusMarkets = FOCUS_MARKETS.filter((country) =>
+    args.gap.targetCountries.includes(country)
+  );
+  const blockedFocusMarkets = candidateFocusMarkets.filter((country) =>
+    hasConfirmedRegistrationInCountry(args.drug, country)
+  );
+  const selectedFocusMarkets =
+    candidateFocusMarkets.length > 0
+      ? candidateFocusMarkets.filter((country) => !blockedFocusMarkets.includes(country))
+      : args.gap.targetCountries.slice(0, Math.min(2, args.gap.targetCountries.length));
+  const secondaryMarkets = args.gap.targetCountries.filter(
+    (country) =>
+      !selectedFocusMarkets.some((market) => market === country) &&
+      !blockedFocusMarkets.some((market) => market === country)
+  );
+
+  return {
+    selectedFocusMarkets,
+    secondaryMarkets,
+    blockedFocusMarkets,
+  };
+}
+
 function buildScoreBreakdown(args: {
   gap: GapDoc;
   company: CompanyDoc;
@@ -268,6 +309,7 @@ function buildScoreBreakdown(args: {
   identityStatus: DecisionOpportunityDraft["productIdentityStatus"];
   regulatoryFeasibility: DecisionOpportunityDraft["regulatoryFeasibility"];
   focusMarkets: string[];
+  blockedFocusMarkets: string[];
   sourceCount: number;
   opportunities: MarketOpportunityDoc[];
 }) {
@@ -278,10 +320,20 @@ function buildScoreBreakdown(args: {
         ? args.identityStatus === "confirmed"
           ? 8.2
           : args.identityStatus === "likely"
-            ? 6.9
-            : 4.8
-        : 3.2;
-  const registrationsPenalty = Math.min(args.drug.menaRegistrationCount ?? 0, 3) * 1.2;
+        ? 6.9
+        : 4.8
+      : 3.2;
+  const nonFocusRegistrationsCount = new Set(
+    (args.drug.menaRegistrations ?? [])
+      .filter(
+        (registration) =>
+          registration.status === "registered" &&
+          !args.focusMarkets.includes(registration.country) &&
+          !args.blockedFocusMarkets.includes(registration.country)
+      )
+      .map((registration) => registration.country)
+  ).size;
+  const registrationsPenalty = Math.min(nonFocusRegistrationsCount, 3) * 0.8;
   const gapValidity = clampScore(gapValidityBase - registrationsPenalty);
 
   const tenderBoost =
@@ -507,17 +559,15 @@ export function buildDecisionOpportunityDraft(args: {
   match: MatchDoc;
   sourceCount: number;
   opportunities: MarketOpportunityDoc[];
-}) : DecisionOpportunityDraft {
-  const focusMarkets = FOCUS_MARKETS.filter((country) =>
-    args.gap.targetCountries.includes(country)
-  );
-  const selectedFocusMarkets =
-    focusMarkets.length > 0
-      ? [...focusMarkets]
-      : args.gap.targetCountries.slice(0, Math.min(2, args.gap.targetCountries.length));
-  const secondaryMarkets = args.gap.targetCountries.filter(
-    (country) => !selectedFocusMarkets.includes(country)
-  );
+}): DecisionOpportunityDraft | null {
+  const { selectedFocusMarkets, secondaryMarkets, blockedFocusMarkets } =
+    resolveFocusMarketSelection({
+      gap: args.gap,
+      drug: args.drug,
+    });
+  if (selectedFocusMarkets.length === 0) {
+    return null;
+  }
   const identityStatus = deriveIdentityStatus(args.drug, args.company);
   const regulatoryFeasibility = deriveRegulatoryFeasibility(args.gap);
   const entryStrategy = deriveEntryStrategy(args.company);
@@ -541,6 +591,7 @@ export function buildDecisionOpportunityDraft(args: {
     identityStatus,
     regulatoryFeasibility,
     focusMarkets: selectedFocusMarkets,
+    blockedFocusMarkets,
     sourceCount: args.sourceCount,
     opportunities: args.opportunities,
   });
@@ -550,7 +601,11 @@ export function buildDecisionOpportunityDraft(args: {
     identityStatus,
     args.gap.validationStatus
   );
-  const whyThisMarket = `${selectedFocusMarkets.join(" and ")} concentrate the clearest near-term whitespace, while ${secondaryMarkets.length > 0 ? secondaryMarkets.slice(0, 2).join(" and ") : "the rest of MENA"} remain secondary follow-on markets.`;
+  const blockedMarketNote =
+    blockedFocusMarkets.length > 0
+      ? ` ${blockedFocusMarkets.join(" and ")} ${blockedFocusMarkets.length === 1 ? "is" : "are"} already formally registered and therefore excluded from whitespace targeting.`
+      : "";
+  const whyThisMarket = `${selectedFocusMarkets.join(" and ")} concentrate the clearest near-term whitespace, while ${secondaryMarkets.length > 0 ? secondaryMarkets.slice(0, 2).join(" and ") : "the rest of MENA"} remain secondary follow-on markets.${blockedMarketNote}`;
   const whyNow = args.gap.tenderSignals
     ? "Recent procurement and tender pull make this a live rather than hypothetical market-entry window."
     : "The current gap appears actionable now because KEMEDICA can pursue whitespace before local channels harden.";
@@ -628,7 +683,10 @@ export function buildDecisionOpportunityDraft(args: {
       args.opportunities.find((item) => item.regulatoryTimeline)?.regulatoryTimeline ??
       primaryCountryProfile.expectedTimeline ??
       deriveTimelineRange(regulatoryFeasibility),
-    keyConstraint: deriveKeyConstraint(args.company, args.match, identityStatus),
+    keyConstraint:
+      blockedFocusMarkets.length > 0
+        ? `${blockedFocusMarkets.join(" and ")} ${blockedFocusMarkets.length === 1 ? "is" : "are"} already formally registered, so the whitespace case now depends on ${selectedFocusMarkets.join(" and ")}.`
+        : deriveKeyConstraint(args.company, args.match, identityStatus),
     entryStrategy: entryStrategy.entryStrategy,
     entryStrategyRationale: entryStrategy.rationale,
     whyThisMarket,
@@ -659,10 +717,15 @@ export function buildDecisionOpportunityDraft(args: {
         ? "Gap evidence is still insufficient, so this opportunity should not be treated as outreach-ready."
         : identityStatus === "uncertain"
         ? "Product ownership and local white-space need validation before treating this as outreach-ready."
-        : `Confidence is ${confidenceLevel} because the opportunity has ${args.sourceCount} supporting evidence item(s), a persisted partner thesis, and ${preferredAccessRoute ? `a ${preferredAccessRoute.replaceAll("_", " ")} route` : "an initial route-to-market view"}.`,
+        : `Confidence is ${confidenceLevel} because the opportunity has ${args.sourceCount} supporting evidence item(s), a persisted partner thesis, and ${preferredAccessRoute ? `a ${preferredAccessRoute.replaceAll("_", " ")} route` : "an initial route-to-market view"}.${blockedFocusMarkets.length > 0 ? ` ${blockedFocusMarkets.join(" and ")} ${blockedFocusMarkets.length === 1 ? "is" : "are"} already formally registered, so this recommendation is scoped to ${selectedFocusMarkets.join(" and ")}.` : ""}`,
     assumptions: [
       "Phase 1 ranking prioritizes Saudi Arabia and UAE over wider MENA coverage.",
       "Directional regulatory and commercial signals are not a substitute for final human validation.",
+      ...(blockedFocusMarkets.length > 0
+        ? [
+            `${blockedFocusMarkets.join(" and ")} ${blockedFocusMarkets.length === 1 ? "is" : "are"} already formally registered and excluded from whitespace ranking.`,
+          ]
+        : []),
       identityStatus === "uncertain"
         ? "Product identity and MAH relationship remain partially unresolved."
         : "Current entity mapping is sufficient for first-pass outreach qualification.",
@@ -670,7 +733,7 @@ export function buildDecisionOpportunityDraft(args: {
     sourceCount: args.sourceCount,
     priorityScore,
     scoreBreakdown,
-    scoreExplanation: `Score ${priorityScore}/10 from gap validity ${scoreBreakdown.gapValidity}, commercial value ${scoreBreakdown.commercialValue}, urgency ${scoreBreakdown.urgency}, feasibility ${scoreBreakdown.feasibility}, partner reachability ${scoreBreakdown.partnerReachability}, and evidence confidence ${scoreBreakdown.evidenceConfidence}.`,
+    scoreExplanation: `Score ${priorityScore}/10 from gap validity ${scoreBreakdown.gapValidity}, commercial value ${scoreBreakdown.commercialValue}, urgency ${scoreBreakdown.urgency}, feasibility ${scoreBreakdown.feasibility}, partner reachability ${scoreBreakdown.partnerReachability}, and evidence confidence ${scoreBreakdown.evidenceConfidence}.${blockedFocusMarkets.length > 0 ? ` ${blockedFocusMarkets.join(" and ")} ${blockedFocusMarkets.length === 1 ? "was" : "were"} removed from whitespace scoring because ${blockedFocusMarkets.length === 1 ? "it is" : "they are"} already formally registered.` : ""}`,
     whyThisMarketExplanation: whyThisMarket,
     whyNowExplanation: whyNow,
     howToEnterExplanation: entryStrategy.rationale,

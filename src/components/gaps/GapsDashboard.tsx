@@ -1003,12 +1003,14 @@ export function GapsDashboard() {
   const [selectedTA, setSelectedTA] = useState<string>("");
   const [selectedCountry, setSelectedCountry] = useState<string>("");
   const [minScore, setMinScore] = useState<number>(0);
+  const [analysisLens, setAnalysisLens] = useState<"product_led" | "all">("product_led");
   const [isRunningFlow, setIsRunningFlow] = useState(false);
   const [analysisScope, setAnalysisScope] = useState<"all_areas" | "use_filters">("all_areas");
   const [lastFlowJobId, setLastFlowJobId] = useState<Id<"discoveryJobs"> | null>(null);
 
   const gaps = useQuery(api.gapOpportunities.list, {
     therapeuticArea: selectedTA || undefined,
+    analysisLens: analysisLens === "all" ? undefined : "product_led",
     status: "active",
   });
   const flowJob = useQuery(
@@ -1019,11 +1021,18 @@ export function GapsDashboard() {
   const archiveGap = useMutation(api.gapOpportunities.update);
   const runGapFlow = useAction(api.gapAnalysis.runGapAnalysisFlow);
 
-  const filteredGaps = (gaps ?? []).filter((g) => {
-    if (g.gapScore < minScore) return false;
-    if (selectedCountry && !g.targetCountries.includes(selectedCountry)) return false;
-    return true;
-  });
+  const filteredGaps = (gaps ?? [])
+    .filter((g) => {
+      if (g.gapScore < minScore) return false;
+      if (selectedCountry && !g.targetCountries.includes(selectedCountry)) return false;
+      return true;
+    })
+    .sort((left, right) => {
+      if (right.gapScore !== left.gapScore) {
+        return right.gapScore - left.gapScore;
+      }
+      return left.indication.localeCompare(right.indication);
+    });
   const isUsingSlice = analysisScope === "use_filters";
   const hasVisibleFilters = Boolean(selectedTA || selectedCountry || minScore > 0);
   const analysisModeLabel = isUsingSlice ? "Current visible slice" : "All therapeutic areas";
@@ -1112,8 +1121,27 @@ export function GapsDashboard() {
                 </div>
               </div>
 
+              <div className="min-w-[180px] max-w-xs">
+                <label className="block text-xs text-zinc-500 mb-1.5">Research lens</label>
+                <Select
+                  value={analysisLens}
+                  onValueChange={(value) => setAnalysisLens((value as "product_led" | "all") ?? "product_led")}
+                >
+                  <SelectTrigger className="bg-zinc-800 border-zinc-700 text-white h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-zinc-800 border-zinc-700">
+                    <SelectItem value="product_led">Product-led only</SelectItem>
+                    <SelectItem value="all">All research gaps</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs text-zinc-500">Visible list:</span>
+                <span className="rounded-full bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
+                  {analysisLens === "product_led" ? "Product-led only" : "All research gaps"}
+                </span>
                 <span className="rounded-full bg-zinc-950 px-3 py-1 text-xs text-zinc-300">
                   {selectedTA || "All therapeutic areas"}
                 </span>

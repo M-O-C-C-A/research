@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useQuery } from "convex/react";
+import { api } from "../../../convex/_generated/api";
 import { CardGridSkeleton } from "@/components/shared/LoadingSkeleton";
 import { AlertTriangle, ArrowRight, MapPinned, Mail, Radar, ShieldCheck } from "lucide-react";
 import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
@@ -44,6 +46,12 @@ export function DecisionOpportunityCards({
   description = "Prioritized product-to-market plays that are close to real outreach.",
   opportunities,
 }: DecisionOpportunityCardsProps) {
+  const queriedOpportunities = useQuery(
+    api.decisionOpportunities.list,
+    opportunities ? "skip" : { status: "active", limit: 12 }
+  );
+  const visibleOpportunities = opportunities ?? queriedOpportunities;
+
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
       <div className="mb-4 flex items-center justify-between gap-4">
@@ -55,9 +63,9 @@ export function DecisionOpportunityCards({
         </div>
       </div>
 
-      {opportunities === undefined ? (
+      {visibleOpportunities === undefined ? (
         <CardGridSkeleton count={4} />
-      ) : opportunities.length === 0 ? (
+      ) : visibleOpportunities.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-800 px-4 py-10 text-center">
           <Radar className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
           <p className="text-sm text-zinc-500">
@@ -66,7 +74,7 @@ export function DecisionOpportunityCards({
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {opportunities.map((item) => {
+          {visibleOpportunities.map((item) => {
             const readyToSend = item.outreachReady;
             return (
             <Link

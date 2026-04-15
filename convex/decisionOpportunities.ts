@@ -239,9 +239,22 @@ function chooseBestDrug(args: {
       const leftLinked = args.gap.linkedDrugIds?.includes(left._id) ? 1 : 0;
       const rightLinked = args.gap.linkedDrugIds?.includes(right._id) ? 1 : 0;
       if (leftLinked !== rightLinked) return rightLinked - leftLinked;
-      const leftScore = (left.patentUrgencyScore ?? 0) - (left.menaRegistrationCount ?? 0);
+      const leftHasOfficialMenaSignal = (left.menaRegistrations ?? []).some(
+        (registration) => registration.status === "registered"
+      )
+        ? 1
+        : 0;
+      const rightHasOfficialMenaSignal = (right.menaRegistrations ?? []).some(
+        (registration) => registration.status === "registered"
+      )
+        ? 1
+        : 0;
+      if (leftHasOfficialMenaSignal !== rightHasOfficialMenaSignal) {
+        return rightHasOfficialMenaSignal - leftHasOfficialMenaSignal;
+      }
+      const leftScore = (left.patentUrgencyScore ?? 0) + (left.menaRegistrationCount ?? 0) * 0.5;
       const rightScore =
-        (right.patentUrgencyScore ?? 0) - (right.menaRegistrationCount ?? 0);
+        (right.patentUrgencyScore ?? 0) + (right.menaRegistrationCount ?? 0) * 0.5;
       return rightScore - leftScore;
     });
 

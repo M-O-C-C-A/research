@@ -317,6 +317,7 @@ type CompanyFootprintSummary = {
   status: CompanyFootprintStatus;
   reason: string;
   countries: string[];
+  confirmedPortfolioCountries: string[];
   portfolioPresenceCount: number;
   representationDetected: boolean;
   portfolioDetected: boolean;
@@ -493,28 +494,49 @@ function geographyTouchesTargetCountries(
   return [...matches];
 }
 
-function deriveCompanyFootprintPenalty(status: CompanyFootprintStatus) {
-  switch (status) {
-    case "regional_representation_and_portfolio_presence":
-      return 1.8;
-    case "regional_representation_detected":
-      return 1.2;
-    case "portfolio_presence_detected":
-      return 0.9;
-    case "unclear_company_presence":
-      return 0.4;
-    case "clean_whitespace":
-    default:
-      return 0;
+function deriveCompanyFootprintPenalty(
+  status: CompanyFootprintStatus,
+  confirmedPortfolioCountries: string[] = []
+) {
+  const basePenalty = (() => {
+    switch (status) {
+      case "regional_representation_and_portfolio_presence":
+        return 1.8;
+      case "regional_representation_detected":
+        return 1.2;
+      case "portfolio_presence_detected":
+        return 0.9;
+      case "unclear_company_presence":
+        return 0.4;
+      case "clean_whitespace":
+      default:
+        return 0;
+    }
+  })();
+
+  const hasConfirmedUaePortfolioRegistration = confirmedPortfolioCountries.some(
+    (country) => normalizeGeographyCountry(country) === "uae"
+  );
+  if (!hasConfirmedUaePortfolioRegistration) {
+    return basePenalty;
   }
+
+  return basePenalty + 0.7;
 }
 
 function summarizePortfolioPresence(
   companyName: string,
   productCount: number,
-  countries: string[]
+  countries: string[],
+  confirmedPortfolioCountries: string[] = []
 ) {
   if (productCount <= 0 || countries.length === 0) return null;
+  const hasConfirmedUaePortfolioRegistration = confirmedPortfolioCountries.some(
+    (country) => normalizeGeographyCountry(country) === "uae"
+  );
+  if (hasConfirmedUaePortfolioRegistration) {
+    return `${companyName} already has ${productCount} other product${productCount === 1 ? "" : "s"} with confirmed or likely GCC++ presence in ${countries.join(", ")}, including at least one other product already formally registered in the UAE.`;
+  }
   return `${companyName} already has ${productCount} other product${productCount === 1 ? "" : "s"} with confirmed or likely GCC++ presence in ${countries.join(", ")}.`;
 }
 
@@ -535,6 +557,7 @@ async function assessCompanyFootprint(args: {
       status: "unclear_company_presence" as const,
       reason: "The linked company could not be loaded for GCC++ footprint verification.",
       countries: [],
+      confirmedPortfolioCountries: [],
       portfolioPresenceCount: 0,
       representationDetected: false,
       portfolioDetected: false,
@@ -566,6 +589,7 @@ async function assessCompanyFootprint(args: {
   });
 
   const portfolioCountries = new Set<string>();
+  const confirmedPortfolioCountries = new Set<string>();
   const portfolioProductKeys = new Set<string>();
 
   for (const drug of relatedDrugs) {
@@ -584,6 +608,7 @@ async function assessCompanyFootprint(args: {
       if (!matchedCountry) continue;
       if (registration.status === "registered") {
         confirmedCountries.add(matchedCountry);
+        confirmedPortfolioCountries.add(matchedCountry);
       }
     }
 
@@ -596,6 +621,7 @@ async function assessCompanyFootprint(args: {
       if (!matchedCountry) continue;
       if (isConfirmedAvailabilityStatus(opportunity.availabilityStatus)) {
         confirmedCountries.add(matchedCountry);
+        confirmedPortfolioCountries.add(matchedCountry);
         continue;
       }
       if (
@@ -638,11 +664,18 @@ async function assessCompanyFootprint(args: {
           )
       )
       .map((row) => row.country);
+    const confirmedCountries = rows
+      .filter((row) => targetCountries.includes(row.country))
+      .filter((row) => isConfirmedAvailabilityStatus(row.availabilityStatus))
+      .map((row) => row.country);
 
     if (countries.length > 0) {
       portfolioProductKeys.add(productKey);
       for (const country of countries) {
         portfolioCountries.add(country);
+      }
+      for (const country of confirmedCountries) {
+        confirmedPortfolioCountries.add(country);
       }
     }
   }
@@ -666,7 +699,12 @@ async function assessCompanyFootprint(args: {
     representationDetected
       ? `${company.name} already appears represented in GCC++ through existing affiliate, distributor, MAH, or partner signals.`
       : null,
-    summarizePortfolioPresence(company.name, portfolioPresenceCount, [...portfolioCountries]),
+    summarizePortfolioPresence(
+      company.name,
+      portfolioPresenceCount,
+      [...portfolioCountries],
+      [...confirmedPortfolioCountries]
+    ),
     unclear
       ? `${company.name} does not yet have enough structured GCC++ footprint evidence to confirm a clean whitespace profile.`
       : null,
@@ -679,6 +717,7 @@ async function assessCompanyFootprint(args: {
       reasons.join(" ") ||
       `${company.name} currently looks clean from a GCC++ company-footprint perspective.`,
     countries: dedupeSimpleStrings([...partnerCountries, ...portfolioCountries]),
+    confirmedPortfolioCountries: dedupeSimpleStrings([...confirmedPortfolioCountries]),
     portfolioPresenceCount,
     representationDetected,
     portfolioDetected,
@@ -708,6 +747,9 @@ async function assessLinkedCompaniesFootprint(args: {
   );
 
   const countries = dedupeSimpleStrings(perCompany.flatMap((entry) => entry.countries));
+  const confirmedPortfolioCountries = dedupeSimpleStrings(
+    perCompany.flatMap((entry) => entry.confirmedPortfolioCountries)
+  );
   const portfolioPresenceCount = perCompany.reduce(
     (sum, entry) => sum + entry.portfolioPresenceCount,
     0
@@ -738,6 +780,7 @@ async function assessLinkedCompaniesFootprint(args: {
       strongestReasons.join(" ") ||
       "No linked company currently shows a meaningful GCC++ footprint or broader GCC++ product portfolio presence.",
     countries,
+    confirmedPortfolioCountries,
     portfolioPresenceCount,
     perCompany,
   };
@@ -1927,7 +1970,11 @@ export const analyzeCanonicalProductGaps = action({
         allOpportunities: allOpportunities as OpportunitySignal[],
       });
       const gapScore = clampGapScore(
-        baseGapScore - deriveCompanyFootprintPenalty(companyFootprint.overallStatus)
+        baseGapScore -
+          deriveCompanyFootprintPenalty(
+            companyFootprint.overallStatus,
+            companyFootprint.confirmedPortfolioCountries
+          )
       );
 
       if (gapScore < 5) {
@@ -1961,6 +2008,7 @@ export const analyzeCanonicalProductGaps = action({
         companyFootprintStatus: companyFootprint.overallStatus,
         companyFootprintReason: companyFootprint.reason,
         companyFootprintCountries: companyFootprint.countries,
+        companyConfirmedPortfolioCountries: companyFootprint.confirmedPortfolioCountries,
         companyPortfolioPresenceCount: companyFootprint.portfolioPresenceCount,
         suggestedDrugClasses: dedupeSimpleStrings([
           product.inn,
@@ -1997,7 +2045,13 @@ export const analyzeCanonicalProductGaps = action({
           (entry) => entry.companyId === companyId
         );
         const companyPenalty = footprintSummary
-          ? Math.min(1.4, deriveCompanyFootprintPenalty(footprintSummary.status))
+          ? Math.min(
+              1.4,
+              deriveCompanyFootprintPenalty(
+                footprintSummary.status,
+                footprintSummary.confirmedPortfolioCountries
+              )
+            )
           : 0;
         const distributorFitScore = clampGapScore(
           (productGapKind === "fda_ema_absent_mena" || productGapKind === "biosimilar_opportunity"
@@ -2030,6 +2084,8 @@ export const analyzeCanonicalProductGaps = action({
           companyFootprintStatus: footprintSummary?.status,
           companyFootprintReason: footprintSummary?.reason,
           companyFootprintCountries: footprintSummary?.countries,
+          companyConfirmedPortfolioCountries:
+            footprintSummary?.confirmedPortfolioCountries,
           companyPortfolioPresenceCount: footprintSummary?.portfolioPresenceCount,
           evidenceLinks: uniqBy(
             [...approvalEvidence, ...targetMarketEvidence].map((item) => ({

@@ -55,6 +55,7 @@ export type DecisionOpportunityDraft = {
     | "unclear_company_presence";
   companyFootprintReason?: string;
   companyFootprintCountries?: string[];
+  companyConfirmedPortfolioCountries?: string[];
   companyPortfolioPresenceCount?: number;
   competitivePressure: string;
   regulatoryFeasibility: "easy" | "moderate" | "complex" | "unknown";
@@ -275,6 +276,28 @@ function hasConfirmedRegistrationInCountry(drug: DrugDoc, country: string) {
   );
 }
 
+function hasConfirmedPortfolioRegistrationInCountry(
+  match: MatchDoc,
+  gap: GapDoc,
+  country: string
+) {
+  const status = match?.companyFootprintStatus ?? gap.companyFootprintStatus;
+  if (
+    status !== "portfolio_presence_detected" &&
+    status !== "regional_representation_and_portfolio_presence"
+  ) {
+    return false;
+  }
+
+  const countries =
+    match?.companyConfirmedPortfolioCountries ??
+    gap.companyConfirmedPortfolioCountries ??
+    [];
+  return countries.some(
+    (entry) => normalizeText(entry) === normalizeText(country)
+  );
+}
+
 export function resolveFocusMarketSelection(args: {
   gap: GapDoc;
   drug: DrugDoc;
@@ -314,6 +337,11 @@ function buildScoreBreakdown(args: {
   sourceCount: number;
   opportunities: MarketOpportunityDoc[];
 }) {
+  const hasConfirmedUaePortfolioRegistration = hasConfirmedPortfolioRegistrationInCountry(
+    args.match,
+    args.gap,
+    "UAE"
+  );
   const gapValidityBase =
     args.gap.validationStatus === "confirmed"
       ? 9.1
@@ -358,7 +386,12 @@ function buildScoreBreakdown(args: {
         ? 0.5
         : 0;
   const commercialValue = clampScore(
-    args.gap.gapScore * 0.65 + tenderBoost + focusMarketBoost + pricingBoost - competitionDrag
+    args.gap.gapScore * 0.65 +
+      tenderBoost +
+      focusMarketBoost +
+      pricingBoost -
+      competitionDrag -
+      (hasConfirmedUaePortfolioRegistration ? 0.7 : 0)
   );
 
   const patentBoost =
@@ -393,11 +426,11 @@ function buildScoreBreakdown(args: {
         : 0;
   const companyFootprintPenalty =
     args.match?.companyFootprintStatus === "regional_representation_and_portfolio_presence"
-      ? 2.4
+      ? 2.4 + (hasConfirmedUaePortfolioRegistration ? 0.8 : 0)
       : args.match?.companyFootprintStatus === "regional_representation_detected"
         ? 1.5
         : args.match?.companyFootprintStatus === "portfolio_presence_detected"
-          ? 1.1
+          ? 1.1 + (hasConfirmedUaePortfolioRegistration ? 0.8 : 0)
           : args.match?.companyFootprintStatus === "unclear_company_presence"
             ? 0.4
             : 0;
@@ -673,6 +706,9 @@ export function buildDecisionOpportunityDraft(args: {
     companyFootprintReason: args.match?.companyFootprintReason ?? args.gap.companyFootprintReason,
     companyFootprintCountries:
       args.match?.companyFootprintCountries ?? args.gap.companyFootprintCountries,
+    companyConfirmedPortfolioCountries:
+      args.match?.companyConfirmedPortfolioCountries ??
+      args.gap.companyConfirmedPortfolioCountries,
     companyPortfolioPresenceCount:
       args.match?.companyPortfolioPresenceCount ?? args.gap.companyPortfolioPresenceCount,
     competitivePressure: summarizeText(
@@ -735,7 +771,7 @@ export function buildDecisionOpportunityDraft(args: {
     sourceCount: args.sourceCount,
     priorityScore,
     scoreBreakdown,
-    scoreExplanation: `Score ${priorityScore}/10 from gap validity ${scoreBreakdown.gapValidity}, commercial value ${scoreBreakdown.commercialValue}, urgency ${scoreBreakdown.urgency}, feasibility ${scoreBreakdown.feasibility}, partner reachability ${scoreBreakdown.partnerReachability}, and evidence confidence ${scoreBreakdown.evidenceConfidence}.${blockedFocusMarkets.length > 0 ? ` ${blockedFocusMarkets.join(" and ")} ${blockedFocusMarkets.length === 1 ? "was" : "were"} removed from whitespace scoring because ${blockedFocusMarkets.length === 1 ? "it is" : "they are"} already formally registered.` : ""}`,
+    scoreExplanation: `Score ${priorityScore}/10 from gap validity ${scoreBreakdown.gapValidity}, commercial value ${scoreBreakdown.commercialValue}, urgency ${scoreBreakdown.urgency}, feasibility ${scoreBreakdown.feasibility}, partner reachability ${scoreBreakdown.partnerReachability}, and evidence confidence ${scoreBreakdown.evidenceConfidence}.${blockedFocusMarkets.length > 0 ? ` ${blockedFocusMarkets.join(" and ")} ${blockedFocusMarkets.length === 1 ? "was" : "were"} removed from whitespace scoring because ${blockedFocusMarkets.length === 1 ? "it is" : "they are"} already formally registered.` : ""}${hasConfirmedPortfolioRegistrationInCountry(args.match, args.gap, "UAE") ? " The opportunity was further downgraded because the same company already has other products formally registered in the UAE." : ""}`,
     whyThisMarketExplanation: whyThisMarket,
     whyNowExplanation: whyNow,
     howToEnterExplanation: entryStrategy.rationale,

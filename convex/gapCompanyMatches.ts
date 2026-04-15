@@ -69,6 +69,7 @@ export const upsert = mutation({
     )),
     companyFootprintReason: v.optional(v.string()),
     companyFootprintCountries: v.optional(v.array(v.string())),
+    companyConfirmedPortfolioCountries: v.optional(v.array(v.string())),
     companyPortfolioPresenceCount: v.optional(v.number()),
     recommendedFirstOutreachAngle: v.optional(v.string()),
     confidence: v.optional(

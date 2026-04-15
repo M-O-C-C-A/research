@@ -87,6 +87,7 @@ const opportunityArgs = {
   )),
   companyFootprintReason: v.optional(v.string()),
   companyFootprintCountries: v.optional(v.array(v.string())),
+  companyConfirmedPortfolioCountries: v.optional(v.array(v.string())),
   companyPortfolioPresenceCount: v.optional(v.number()),
   competitivePressure: v.string(),
   regulatoryFeasibility: v.union(

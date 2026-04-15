@@ -56,9 +56,10 @@ function makeCompany() {
   } as unknown as CompanyInput;
 }
 
-function makeMatch() {
+function makeMatch(overrides: Record<string, unknown> = {}) {
   return {
     distributorFitScore: 7.2,
+    ...overrides,
   } as unknown as MatchInput;
 }
 
@@ -116,4 +117,44 @@ test("unverified UAE status does not trigger the hard UAE block", () => {
 
   assert.deepEqual(selection.selectedFocusMarkets, ["Saudi Arabia", "UAE"]);
   assert.deepEqual(selection.blockedFocusMarkets, []);
+});
+
+test("confirmed UAE portfolio registrations downgrade the opportunity", () => {
+  const baseline = buildDecisionOpportunityDraft({
+    gap: makeGap(["Saudi Arabia", "UAE"]),
+    company: makeCompany(),
+    drug: makeDrug([]),
+    match: makeMatch(),
+    sourceCount: 4,
+    opportunities: [],
+  });
+
+  const downgraded = buildDecisionOpportunityDraft({
+    gap: makeGap(["Saudi Arabia", "UAE"]),
+    company: makeCompany(),
+    drug: makeDrug([]),
+    match: makeMatch({
+      companyFootprintStatus: "portfolio_presence_detected",
+      companyFootprintReason:
+        "Celltrion Healthcare already has other portfolio products formally registered in the UAE.",
+      companyFootprintCountries: ["UAE"],
+      companyConfirmedPortfolioCountries: ["UAE"],
+      companyPortfolioPresenceCount: 2,
+    }),
+    sourceCount: 4,
+    opportunities: [],
+  });
+
+  assert.ok(baseline);
+  assert.ok(downgraded);
+  assert.ok(downgraded.priorityScore < baseline.priorityScore);
+  assert.ok(
+    downgraded.scoreBreakdown.commercialValue < baseline.scoreBreakdown.commercialValue
+  );
+  assert.ok(
+    downgraded.scoreBreakdown.partnerReachability <
+      baseline.scoreBreakdown.partnerReachability
+  );
+  assert.deepEqual(downgraded.companyConfirmedPortfolioCountries, ["UAE"]);
+  assert.match(downgraded.scoreExplanation, /downgraded.*UAE/i);
 });

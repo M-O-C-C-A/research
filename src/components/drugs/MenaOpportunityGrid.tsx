@@ -5,7 +5,8 @@ import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import Link from "next/link";
 import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
-import { ArrowRight, Globe2, Mail, Target } from "lucide-react";
+import { normalizeExternalUrl } from "@/lib/urlUtils";
+import { ArrowRight, ExternalLink, Globe2, Linkedin, Mail, Target } from "lucide-react";
 
 interface MenaOpportunityGridProps {
   drugId: string;
@@ -41,6 +42,9 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
     <div className="grid gap-4">
       {opportunities.map((item) => {
         const readyToSend = item.outreachReadiness?.readyToSend ?? false;
+        const websiteUrl = normalizeExternalUrl(item.companyWebsite);
+        const companyLinkedinUrl = normalizeExternalUrl(item.companyLinkedinUrl);
+        const contactLinkedinUrl = normalizeExternalUrl(item.contactLinkedinUrl);
         return (
         <Link
           key={item._id}
@@ -100,16 +104,38 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
               </p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider text-zinc-500">Contact Direction</p>
+              <p className="text-xs uppercase tracking-wider text-zinc-500">Company And Contact</p>
+              <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-300">
+                {websiteUrl && (
+                  <span className="inline-flex items-center gap-1">
+                    <ExternalLink className="h-3 w-3" />
+                    Website
+                  </span>
+                )}
+                {companyLinkedinUrl && (
+                  <span className="inline-flex items-center gap-1">
+                    <Linkedin className="h-3 w-3" />
+                    Company LinkedIn
+                  </span>
+                )}
+              </div>
               <p className="mt-2 text-sm text-zinc-300">
                 {item.contactName ?? item.targetRole}
               </p>
-              {item.contactEmail && (
-                <p className="mt-1 inline-flex items-center gap-1 text-xs text-[var(--brand-300)]">
-                  <Mail className="h-3 w-3" />
-                  {item.contactEmail}
-                </p>
-              )}
+              <div className="mt-1 flex flex-wrap gap-3 text-xs text-[var(--brand-300)]">
+                {item.contactEmail && (
+                  <p className="inline-flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {item.contactEmail}
+                  </p>
+                )}
+                {contactLinkedinUrl && (
+                  <p className="inline-flex items-center gap-1">
+                    <Linkedin className="h-3 w-3" />
+                    LinkedIn
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 

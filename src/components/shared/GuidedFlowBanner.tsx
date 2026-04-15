@@ -1,15 +1,18 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
 import { ArrowRight, MapPinned } from "lucide-react";
-import { api } from "../../../convex/_generated/api";
 
 interface GuidedFlowBannerProps {
   hereLabel: string;
   helperText: string;
   nextHref?: string;
   nextLabel?: string;
+  guidedFlow?: {
+    currentStep?: string;
+    primaryAction: { label: string };
+    resumeHref?: string;
+  };
 }
 
 const STEP_LABELS: Record<string, string> = {
@@ -26,9 +29,8 @@ export function GuidedFlowBanner({
   helperText,
   nextHref: nextHrefOverride,
   nextLabel: nextLabelOverride,
+  guidedFlow,
 }: GuidedFlowBannerProps) {
-  const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
-
   const nextLabel = nextLabelOverride ?? guidedFlow?.primaryAction.label ?? "Start with a company";
   const nextHref = nextHrefOverride ?? guidedFlow?.resumeHref ?? "/workflow";
   const currentStep = guidedFlow?.currentStep

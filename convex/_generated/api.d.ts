@@ -43,6 +43,7 @@ import type * as reports from "../reports.js";
 import type * as research from "../research.js";
 import type * as researchInputs from "../researchInputs.js";
 import type * as researchLifecycle from "../researchLifecycle.js";
+import type * as tavilyResearch from "../tavilyResearch.js";
 
 import type {
   ApiFromModules,
@@ -86,6 +87,7 @@ declare const fullApi: ApiFromModules<{
   research: typeof research;
   researchInputs: typeof researchInputs;
   researchLifecycle: typeof researchLifecycle;
+  tavilyResearch: typeof tavilyResearch;
 }>;
 
 /**

@@ -1,36 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
-import { DecisionOpportunityCards } from "@/components/opportunities/DecisionOpportunityCards";
-import { ActionQueueWidget } from "@/components/dashboard/ActionQueueWidget";
-import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompaniesButton";
 import { NextActionCard } from "@/components/shared/NextActionCard";
 import { WorkflowCallout } from "@/components/shared/WorkflowCallout";
-import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
-import { StatsBar } from "@/components/dashboard/StatsBar";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 import { ArrowRight, Building2, Pill } from "lucide-react";
 
 export function HomeDashboard() {
-  const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
-
-  const primaryAction = guidedFlow?.primaryAction ?? {
-    label: "Start Process",
-    title: "Start with a company",
-    description: "Add one manufacturer so the app can guide you toward a real opportunity.",
-    href: "/companies",
-    actionLabel: "Start with a company",
-  };
-
   return (
     <div className="space-y-8">
-      <GuidedFlowBanner
-        hereLabel="Home command center"
-        helperText="Use this page when you want one clear recommendation, quick access to your directories, and a short list of the best commercial opportunities."
-      />
-
       <section className="space-y-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--brand-300)]">
@@ -40,21 +18,19 @@ export function HomeDashboard() {
             The easiest way to find the next good opportunity
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
-            {BRAND_TAGLINE}. Start the guided process below and the app will tell you what to
-            do next, what is blocked, and where the strongest opportunities are right now.
+            {BRAND_TAGLINE}. Start the guided process below and move through company,
+            product, and market research one step at a time.
           </p>
         </div>
 
         <NextActionCard
-          label={guidedFlow?.currentStep === "follow_up" ? "Continue Process" : "Start Process"}
-          title={primaryAction.label}
-          description={primaryAction.description}
-          href={primaryAction.href}
-          actionLabel={primaryAction.label}
+          label="Start Process"
+          title="Start with a company"
+          description="Add one manufacturer so the app can guide you toward a real opportunity."
+          href="/companies"
+          actionLabel="Start Process"
         />
       </section>
-
-      <StatsBar />
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
@@ -106,59 +82,17 @@ export function HomeDashboard() {
         </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-400">
-            Continue Where You Left Off
+      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+        <div className="max-w-2xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
+            Research More
           </p>
           <h2 className="mt-2 text-xl font-semibold text-white">
-            Your next step is already picked for you
+            Start a scan without hunting for the right tool
           </h2>
           <p className="mt-1 text-sm text-zinc-500">
-            Use this if you want the simplest path without deciding which page to open.
+            Use these shortcuts when you want to enrich your target list, scan for more companies, or jump directly into whitespace review.
           </p>
-
-          <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
-            <p className="text-sm font-semibold text-white">{primaryAction.label}</p>
-            <p className="mt-2 text-sm text-zinc-400">{primaryAction.description}</p>
-            <Link
-              href={primaryAction.href}
-              className="mt-4 inline-flex items-center gap-1 text-sm font-medium text-[var(--brand-300)] hover:text-[var(--brand-400)]"
-            >
-              Open next step
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
-
-          {(guidedFlow?.blockers?.length ?? 0) > 0 && (
-            <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-amber-300">
-                What is blocking progress
-              </p>
-              <div className="mt-2 space-y-1 text-sm text-zinc-300">
-                {guidedFlow?.blockers.map((blocker) => <p key={blocker}>{blocker}</p>)}
-              </div>
-            </div>
-          )}
-        </div>
-
-        <ActionQueueWidget />
-      </section>
-
-      <section className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
-              Research More
-            </p>
-            <h2 className="mt-2 text-xl font-semibold text-white">
-              Start a scan without hunting for the right tool
-            </h2>
-            <p className="mt-1 text-sm text-zinc-500">
-              Use these shortcuts when you want to enrich your target list, scan for more companies, or jump directly into whitespace review.
-            </p>
-          </div>
-          <DiscoverCompaniesButton label="Research companies" />
         </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -194,24 +128,10 @@ export function HomeDashboard() {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <WorkflowCallout
-          eyebrow="Best Opportunities"
-          title="If you only review one thing, review this shortlist"
-          description="These are the strongest opportunities in the app right now based on market need, route to market, and readiness for outreach."
-          href="/gaps"
-          actionLabel="See all best opportunities"
-        />
-        <DecisionOpportunityCards
-          title="Best opportunities right now"
-          description="The strongest opportunities, explained in plain language."
-        />
-      </section>
-
       <WorkflowCallout
         eyebrow="Advanced"
         title="Need deeper research tools?"
-        description="Raw discovery jobs, detailed research runs, and supporting analysis are still available when you need them, but most users can stay in the guided process and directories."
+        description="Raw discovery jobs, detailed research runs, and supporting analysis are still available when you need them."
         href="/discovery"
         actionLabel="Open advanced tools"
       />

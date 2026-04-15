@@ -10,12 +10,30 @@ export interface ResearchSource {
   url: string;
 }
 
+export interface ResearchEvidence {
+  title: string;
+  url: string;
+  domain: string;
+  snippet: string;
+  sourceKind:
+    | "official_registry"
+    | "ema"
+    | "government_publication"
+    | "tender_portal"
+    | "who_or_gbd"
+    | "market_report";
+  confidence: "confirmed" | "likely" | "inferred";
+}
+
 export interface ResearchResponse<T> {
   data: T;
   requestId: string | null | undefined;
   retryCount: number;
   sources: ResearchSource[];
   text: string;
+  provider: "openai" | "tavily_hybrid";
+  requestIds: string[];
+  evidence: ResearchEvidence[];
 }
 
 interface BaseResponseOptions {
@@ -40,6 +58,16 @@ interface TextResponseOptions extends BaseResponseOptions {
   maxToolCalls?: number;
 }
 
+interface StructuredEvidenceResponseOptions
+  extends Omit<
+    StructuredResponseOptions,
+    "searchContextSize" | "allowedDomains" | "maxToolCalls"
+  > {
+  evidence: ResearchEvidence[];
+  requestIds?: string[];
+  provider?: "openai" | "tavily_hybrid";
+}
+
 export function createResearchClient(apiKey: string): OpenAI {
   return new OpenAI({ apiKey });
 }
@@ -62,6 +90,9 @@ export async function createStructuredWebSearchResponse<T>(
     retryCount,
     sources: extractSources(response),
     text,
+    provider: "openai",
+    requestIds: compactRequestIds([response._request_id]),
+    evidence: [],
   };
 }
 
@@ -83,6 +114,9 @@ export async function createWebSearchTextResponse(
     retryCount,
     sources: extractSources(response),
     text,
+    provider: "openai",
+    requestIds: compactRequestIds([response._request_id]),
+    evidence: [],
   };
 }
 
@@ -104,6 +138,9 @@ export async function createTextResponse(
     retryCount,
     sources: [],
     text,
+    provider: "openai",
+    requestIds: compactRequestIds([response._request_id]),
+    evidence: [],
   };
 }
 
@@ -125,7 +162,51 @@ export async function createStructuredResponse<T>(
     retryCount,
     sources: [],
     text,
+    provider: "openai",
+    requestIds: compactRequestIds([response._request_id]),
+    evidence: [],
   };
+}
+
+export async function createStructuredResponseFromEvidence<T>(
+  client: OpenAI,
+  options: StructuredEvidenceResponseOptions
+): Promise<ResearchResponse<T>> {
+  const response = await createStructuredResponse<T>(client, {
+    instructions: options.instructions,
+    input: `${coerceInputToString(options.input)}\n\nSupplied evidence\n${buildEvidenceContext(
+      options.evidence
+    )}`,
+    formatName: options.formatName,
+    schema: options.schema,
+    maxOutputTokens: options.maxOutputTokens,
+    maxRetries: options.maxRetries,
+    onRetry: options.onRetry,
+  });
+
+  return {
+    ...response,
+    provider: options.provider ?? "tavily_hybrid",
+    requestIds: compactRequestIds([...(options.requestIds ?? []), response.requestId]),
+    sources: dedupeSources([
+      ...response.sources,
+      ...options.evidence.map((item) => ({ title: item.title, url: item.url })),
+    ]),
+    evidence: options.evidence,
+  };
+}
+
+export function buildEvidenceContext(evidence: ResearchEvidence[]): string {
+  if (evidence.length === 0) {
+    return "No evidence supplied.";
+  }
+
+  return evidence
+    .map(
+      (item, index) =>
+        `[${index + 1}] ${item.title}\nURL: ${item.url}\nDomain: ${item.domain}\nSource kind: ${item.sourceKind}\nConfidence: ${item.confidence}\nSnippet: ${item.snippet}`
+    )
+    .join("\n\n");
 }
 
 function buildWebSearchTool(
@@ -143,8 +224,8 @@ function buildWebSearchTool(
       : {}),
     user_location: {
       type: "approximate" as const,
-      country: "DE",
-      timezone: "Europe/Berlin",
+      country: process.env.RESEARCH_WEB_COUNTRY ?? "AE",
+      timezone: process.env.RESEARCH_WEB_TIMEZONE ?? "Asia/Dubai",
     },
   };
 }
@@ -274,6 +355,28 @@ function extractSources(response: { output?: unknown[] }): ResearchSource[] {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function compactRequestIds(values: Array<string | null | undefined>): string[] {
+  return values.filter((value): value is string => Boolean(value));
+}
+
+function dedupeSources(values: ResearchSource[]): ResearchSource[] {
+  const byUrl = new Map<string, ResearchSource>();
+  for (const value of values) {
+    const normalizedUrl = normalizeExternalUrl(value.url);
+    if (!normalizedUrl || byUrl.has(normalizedUrl)) continue;
+    byUrl.set(normalizedUrl, {
+      title: value.title || normalizedUrl,
+      url: normalizedUrl,
+    });
+  }
+  return [...byUrl.values()];
+}
+
+function coerceInputToString(input: unknown): string {
+  if (typeof input === "string") return input;
+  return JSON.stringify(input, null, 2);
 }
 
 function normalizeExternalUrl(value?: string | null): string | null {

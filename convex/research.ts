@@ -6,6 +6,7 @@ import { v } from "convex/values";
 import { Id } from "./_generated/dataModel";
 import {
   createResearchClient,
+  createStructuredResponseFromEvidence,
   createStructuredWebSearchResponse,
 } from "./openaiResearch";
 import { KEMEDICA_CONTEXT } from "../src/lib/brand";
@@ -14,6 +15,7 @@ import {
   buildDistributorFitRationale,
   normalizePipelineStage,
 } from "./distributorFit";
+import { searchAndExtractEvidence } from "./tavilyResearch";
 
 // ── APIFY LinkedIn helper ─────────────────────────────────────────────────────
 // Finds BD-relevant employees from a LinkedIn company page if APIFY_TOKEN is set.
@@ -429,10 +431,7 @@ Deduct points for: large multinational, established MENA distribution, no visibl
           .map((d) => `"${d.name}" / INN: "${d.genericName}"`)
           .join(", ");
 
-        const menaCheck =
-          await createStructuredWebSearchResponse<DrugMenaResult>(client, {
-            instructions: `You are a pharmaceutical regulatory researcher specialising in MENA drug approvals. Check actual government databases — do not infer or assume. Only report what you find in official sources.`,
-            input: `Check MENA registration status for drugs from ${company.name}: ${drugCheckList}
+        const menaPrompt = `Check MENA registration status for drugs from ${company.name}: ${drugCheckList}
 
 Search these OFFICIAL government databases and report only what you actually find:
 - Saudi Arabia SFDA: sfda.gov.sa/en/drug/drugdatabases (search brand name and INN)
@@ -447,13 +446,36 @@ For each drug × country combination where you find definitive evidence:
 - status = "not_found" if you searched and found no listing
 - status = "unverified" if search was inconclusive
 Include the exact database URL and registration number when available.
-Check Saudi Arabia, UAE, Egypt, Jordan, Qatar at minimum for each drug.`,
-            formatName: "drug_mena_status",
-            schema: DRUG_MENA_SCHEMA,
-            maxOutputTokens: 2500,
-            searchContextSize: "high",
-            maxToolCalls: 10,
-          });
+Check Saudi Arabia, UAE, Egypt, Jordan, Qatar at minimum for each drug.`;
+
+        const tavilyEvidence = await searchAndExtractEvidence({
+          queries: drugsToCheck.flatMap((drug) => [
+            `"${drug.name}" "${drug.genericName}" UAE MOHAP approved medicines`,
+            `"${drug.name}" "${drug.genericName}" Saudi SFDA GCCdrug`,
+          ]),
+          maxResults: 8,
+        });
+
+        const menaCheck = tavilyEvidence
+          ? await createStructuredResponseFromEvidence<DrugMenaResult>(client, {
+              instructions: `You are a pharmaceutical regulatory researcher specialising in MENA drug approvals. Check actual government databases. Use only the supplied evidence, do not infer or assume beyond it, and only report what the evidence supports.`,
+              input: menaPrompt,
+              evidence: tavilyEvidence.evidence,
+              requestIds: tavilyEvidence.requestIds,
+              provider: tavilyEvidence.provider,
+              formatName: "drug_mena_status",
+              schema: DRUG_MENA_SCHEMA,
+              maxOutputTokens: 2500,
+            })
+          : await createStructuredWebSearchResponse<DrugMenaResult>(client, {
+              instructions: `You are a pharmaceutical regulatory researcher specialising in MENA drug approvals. Check actual government databases — do not infer or assume. Only report what you find in official sources.`,
+              input: menaPrompt,
+              formatName: "drug_mena_status",
+              schema: DRUG_MENA_SCHEMA,
+              maxOutputTokens: 2500,
+              searchContextSize: "high",
+              maxToolCalls: 10,
+            });
 
         const now = Date.now();
         for (const reg of menaCheck.data.registrations) {

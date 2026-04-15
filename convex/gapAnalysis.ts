@@ -6,6 +6,7 @@ import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import {
   createResearchClient,
+  createStructuredResponseFromEvidence,
   createStructuredWebSearchResponse,
   ResearchSource,
 } from "./openaiResearch";
@@ -13,6 +14,7 @@ import { KEMEDICA_CONTEXT } from "../src/lib/brand";
 import { GCC_PLUS_COUNTRIES, THERAPEUTIC_AREAS } from "./constants";
 import { appendFlowLog } from "./gapFlow";
 import { runFindCompaniesForGapJob } from "./discovery";
+import { searchAndExtractEvidence } from "./tavilyResearch";
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
 
@@ -1056,11 +1058,7 @@ Identify up to 6 specific indications with the highest patient burden in these c
         );
 
         try {
-          const supplyResponse = await createStructuredWebSearchResponse<SupplyGapResult>(
-            client,
-            {
-              instructions: `You are a pharmaceutical market access analyst. Identify verifiable gaps between European drug supply and MENA market needs. ${KEMEDICA_CONTEXT} Use official registries and authoritative public sources first. If a claim cannot be verified, mark it as insufficient evidence rather than inferring absence.`,
-              input: `For the indication "${indication.name}" (${args.therapeuticArea}) in ${countries.join(", ")}:
+          const supplyPrompt = `For the indication "${indication.name}" (${args.therapeuticArea}) in ${countries.join(", ")}:
 
 1. Verify which drugs are currently registered and marketed for this indication using official MENA registries whenever possible.
 2. Compare against EMA-approved therapies for the same indication and list only products/classes that appear missing after checking named registries or authoritative sources.
@@ -1080,14 +1078,37 @@ Rules:
 - For every evidence item include a concrete title and URL.
 
 Return gapScore 0-10 where 10 = verifiable unmet need with specific missing products/classes or active shortage/tender evidence.
-suggestedDrugClasses should list drug classes that are actually implicated by the verified evidence.`,
-              formatName: "gap_supply",
-              schema: GAP_SUPPLY_SCHEMA,
-              maxOutputTokens: 2500,
-              searchContextSize: "medium",
-              maxToolCalls: 6,
-            }
-          );
+suggestedDrugClasses should list drug classes that are actually implicated by the verified evidence.`;
+
+          const tavilyEvidence = await searchAndExtractEvidence({
+            queries: [
+              `"${indication.name}" ${countries.join(" ")} official registry formulary shortage tender`,
+              `"${indication.name}" UAE MOHAP SFDA GCCdrug tender`,
+              `${args.therapeuticArea} ${indication.name} WHO EMRO ${countries.join(" ")}`,
+            ],
+            maxResults: 6,
+          });
+
+          const supplyResponse = tavilyEvidence
+            ? await createStructuredResponseFromEvidence<SupplyGapResult>(client, {
+                instructions: `You are a pharmaceutical market access analyst. Identify verifiable gaps between European drug supply and MENA market needs. ${KEMEDICA_CONTEXT} Use only the supplied evidence. If a claim cannot be verified from the supplied evidence, mark it as insufficient evidence rather than inferring absence.`,
+                input: supplyPrompt,
+                evidence: tavilyEvidence.evidence,
+                requestIds: tavilyEvidence.requestIds,
+                provider: tavilyEvidence.provider,
+                formatName: "gap_supply",
+                schema: GAP_SUPPLY_SCHEMA,
+                maxOutputTokens: 2500,
+              })
+            : await createStructuredWebSearchResponse<SupplyGapResult>(client, {
+                instructions: `You are a pharmaceutical market access analyst. Identify verifiable gaps between European drug supply and MENA market needs. ${KEMEDICA_CONTEXT} Use official registries and authoritative public sources first. If a claim cannot be verified, mark it as insufficient evidence rather than inferring absence.`,
+                input: supplyPrompt,
+                formatName: "gap_supply",
+                schema: GAP_SUPPLY_SCHEMA,
+                maxOutputTokens: 2500,
+                searchContextSize: "medium",
+                maxToolCalls: 6,
+              });
 
           const gap = supplyResponse.data;
           const decision = deriveGapCreationDecision(gap);

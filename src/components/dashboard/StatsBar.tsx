@@ -1,24 +1,26 @@
 "use client";
 
-import { useQuery } from "convex/react";
-import { api } from "../../../convex/_generated/api";
 import { StatsSkeleton } from "@/components/shared/LoadingSkeleton";
 import Link from "next/link";
-import { Building2, Pill, TrendingUp, Target, GitBranch } from "lucide-react";
+import { Building2, Pill, TrendingUp, GitBranch } from "lucide-react";
 
-export function StatsBar() {
-  const companyStats = useQuery(api.companies.stats, {});
-  const drugStats = useQuery(api.drugs.stats, {});
-  const oppStats = useQuery(api.decisionOpportunities.stats, {});
-  const pipelineStats = useQuery(api.companies.pipelineStats, {});
-  const gapStats = useQuery(api.gapOpportunities.stats, {});
+interface StatsBarProps {
+  snapshot?: {
+    companyCount: number;
+    productCount: number;
+    opportunityCount: number;
+    activeOutreachCount: number;
+  };
+  needsValidationCount?: number;
+}
 
-  if (!companyStats || !drugStats || !oppStats) return <StatsSkeleton />;
+export function StatsBar({ snapshot, needsValidationCount = 0 }: StatsBarProps) {
+  if (!snapshot) return <StatsSkeleton />;
 
   const stats = [
     {
       label: "Companies Tracked",
-      value: companyStats.total,
+      value: snapshot.companyCount,
       icon: Building2,
       href: "/companies",
       color: "text-[var(--brand-300)]",
@@ -26,7 +28,7 @@ export function StatsBar() {
     },
     {
       label: "Drugs in Registry",
-      value: drugStats.total,
+      value: snapshot.productCount,
       icon: Pill,
       href: "/drugs",
       color: "text-[var(--brand-300)]",
@@ -34,35 +36,26 @@ export function StatsBar() {
     },
     {
       label: "Decision Opportunities",
-      value: oppStats.active,
+      value: snapshot.opportunityCount,
       icon: TrendingUp,
       href: "/gaps",
       color: "text-emerald-400",
       bg: "bg-emerald-500/10",
-      sublabel: `${oppStats.needsValidation} need validation`,
+      sublabel: `${needsValidationCount} need validation`,
     },
     {
       label: "Distributor Pipeline",
-      value: pipelineStats?.activeCount ?? 0,
+      value: snapshot.activeOutreachCount,
       icon: GitBranch,
       href: "/pipeline",
       color: "text-orange-400",
       bg: "bg-orange-500/10",
       sublabel: "qualified through negotiating",
     },
-    {
-      label: "Gap Opportunities",
-      value: gapStats?.total ?? 0,
-      icon: Target,
-      href: "/gaps",
-      color: "text-[var(--brand-300)]",
-      bg: "bg-[color:var(--brand-surface)]",
-      sublabel: gapStats?.total ? `avg score ${gapStats.avgScore.toFixed(1)}/10` : "run gap analysis",
-    },
   ];
 
   return (
-    <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 mb-8">
+    <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
       {stats.map((stat) => (
         <Link
           key={stat.label}

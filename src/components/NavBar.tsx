@@ -3,11 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useQuery } from "convex/react";
 import { Menu, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
-import { api } from "../../convex/_generated/api";
 
 const NAV_LINKS = [
   { label: "Home", href: "/" },
@@ -21,34 +19,8 @@ const NAV_LINKS = [
 export function NavBar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const companyStats = useQuery(api.companies.stats, {});
-  const drugStats = useQuery(api.drugs.stats, {});
-  const oppStats = useQuery(api.decisionOpportunities.stats, {});
-  const pipelineStats = useQuery(api.companies.pipelineStats, {});
-  const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
-
-  const companies = companyStats?.total ?? 0;
-  const drugs = drugStats?.total ?? 0;
-  const opportunities = oppStats?.active ?? 0;
-  const pipeline = pipelineStats?.activeCount ?? 0;
-
-  const startProcessHref = guidedFlow?.resumeHref
-    ?? (companies === 0
-      ? "/companies"
-      : drugs === 0
-        ? "/drugs"
-        : opportunities === 0
-          ? "/gaps"
-          : pipeline === 0
-            ? "/workflow"
-            : "/pipeline");
-
-  const startProcessLabel =
-    companies === 0
-      ? "Start Process"
-      : pipeline > 0
-        ? "Continue Process"
-        : "Next Step";
+  const startProcessHref = "/workflow";
+  const startProcessLabel = "Start Process";
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";

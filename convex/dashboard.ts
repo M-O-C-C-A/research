@@ -47,9 +47,18 @@ export const getCockpit = query({
         whyThisMarket: item.whyThisMarket,
         whyNow: item.whyNow,
         howToEnter: item.entryStrategyRationale,
+        howToEnterExplanation: item.howToEnterExplanation,
+        entryStrategy: item.entryStrategy,
+        regulatoryFeasibility: item.regulatoryFeasibility,
         targetRole: item.targetRole,
+        companyWebsite: item.companyWebsite ?? company?.website ?? null,
+        companyLinkedinUrl: item.companyLinkedinUrl ?? company?.linkedinCompanyUrl ?? null,
         contactName: item.contactName ?? null,
+        contactTitle: item.contactTitle ?? null,
+        contactEmail: item.contactEmail ?? company?.contactEmail ?? null,
+        contactLinkedinUrl: item.contactLinkedinUrl ?? company?.linkedinUrl ?? null,
         status: item.status,
+        outreachReady: item.outreachReadiness?.readyToSend ?? false,
         href: `/opportunities/${item._id}`,
       };
     });

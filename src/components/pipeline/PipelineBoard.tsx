@@ -13,6 +13,9 @@ import {
   X,
   Search,
   ExternalLink,
+  Linkedin,
+  Mail,
+  Globe2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +29,7 @@ import {
   PIPELINE_STAGES,
   normalizePipelineStage,
 } from "@/lib/distributorFit";
+import { normalizeExternalUrl } from "@/lib/urlUtils";
 
 type BdStatus = (typeof PIPELINE_STAGES)[number]["key"];
 
@@ -111,7 +115,11 @@ function CompanyRow({
     menaPresence?: string;
     menaChannelStatus?: string;
     priorityTier?: string;
+    website?: string;
+    linkedinCompanyUrl?: string;
     contactName?: string;
+    contactEmail?: string;
+    linkedinUrl?: string;
     therapeuticAreas: string[];
     researchedAt?: number;
   };
@@ -123,6 +131,9 @@ function CompanyRow({
   const [showNote, setShowNote] = useState(false);
   const drugs = useQuery(api.drugs.listByCompany, { companyId: company._id });
   const topDrug = drugs?.[0];
+  const companyWebsite = normalizeExternalUrl(company.website);
+  const companyLinkedinUrl = normalizeExternalUrl(company.linkedinCompanyUrl);
+  const contactLinkedinUrl = normalizeExternalUrl(company.linkedinUrl);
 
   return (
     <div className="border-b border-zinc-800 last:border-0">
@@ -167,6 +178,20 @@ function CompanyRow({
               </span>
             )}
           </div>
+          <div className="mt-1 flex flex-wrap gap-3 text-xs text-zinc-400">
+            {companyWebsite && (
+              <span className="inline-flex items-center gap-1">
+                <Globe2 className="h-3 w-3 text-[var(--brand-300)]" />
+                Website
+              </span>
+            )}
+            {companyLinkedinUrl && (
+              <span className="inline-flex items-center gap-1">
+                <Linkedin className="h-3 w-3 text-[var(--brand-300)]" />
+                Company LinkedIn
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Top drug */}
@@ -185,9 +210,25 @@ function CompanyRow({
         {/* Contact */}
         <div className="flex items-center justify-between gap-3 md:block md:w-32 md:shrink-0">
           <span className="text-[11px] uppercase tracking-wider text-zinc-600 md:hidden">Contact</span>
-          <p className="text-xs text-zinc-500 truncate">
-            {company.contactName ?? "—"}
-          </p>
+          <div className="space-y-1">
+            <p className="text-xs text-zinc-500 truncate">
+              {company.contactName ?? "—"}
+            </p>
+            <div className="flex flex-wrap gap-2 text-[11px] text-zinc-400">
+              {company.contactEmail && (
+                <span className="inline-flex items-center gap-1">
+                  <Mail className="h-3 w-3 text-[var(--brand-300)]" />
+                  {company.contactEmail}
+                </span>
+              )}
+              {contactLinkedinUrl && (
+                <span className="inline-flex items-center gap-1">
+                  <Linkedin className="h-3 w-3 text-[var(--brand-300)]" />
+                  LinkedIn
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Stage select */}

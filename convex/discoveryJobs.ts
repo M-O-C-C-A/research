@@ -38,6 +38,28 @@ export const recentStats = query({
   },
 });
 
+export const latestProductSync = query({
+  args: {},
+  handler: async (ctx) => {
+    const recent = await ctx.db
+      .query("discoveryJobs")
+      .withIndex("by_started")
+      .order("desc")
+      .take(25);
+
+    return (
+      recent.find((job) =>
+        [
+          "product_sync_fda",
+          "product_sync_ema",
+          "product_sync_bfarm",
+          "canonical_product_linking",
+        ].includes(job.type)
+      ) ?? null
+    );
+  },
+});
+
 export const create = mutation({
   args: {
     type: v.union(

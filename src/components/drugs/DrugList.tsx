@@ -92,7 +92,7 @@ export function DrugList() {
     therapeuticArea: area || undefined,
   });
   const syncStats = useQuery(api.productIntelligence.syncStats, {});
-  const recentJobs = useQuery(api.discoveryJobs.recentStats, {});
+  const latestProductJob = useQuery(api.discoveryJobs.latestProductSync, {});
   const syncFdaProducts = useAction(api.productIntelligenceActions.syncFdaProducts);
   const syncEmaProducts = useAction(api.productIntelligenceActions.syncEmaCentralProducts);
   const syncBfarmProducts = useAction(api.productIntelligenceActions.syncBfarmProducts);
@@ -101,14 +101,6 @@ export function DrugList() {
   );
   const analyzeProductGap = useAction(api.gapAnalysis.analyzeSingleCanonicalProductGap);
   const runGapFlow = useAction(api.gapAnalysis.runGapAnalysisFlow);
-
-  const latestImportJob =
-    recentJobs?.find((job) =>
-      ["product_sync_fda", "product_sync_ema", "product_sync_bfarm"].includes(job.type)
-    ) ?? null;
-  const latestRebuildJob =
-    recentJobs?.find((job) => job.type === "canonical_product_linking") ?? null;
-  const latestProductJob = latestImportJob ?? latestRebuildJob;
 
   const isUpdatingDirectory = syncingSource === "update";
   const isRebuildingSystem = syncingSource === "system";

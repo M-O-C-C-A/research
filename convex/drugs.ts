@@ -1,4 +1,5 @@
-import { query, mutation, QueryCtx } from "./_generated/server";
+import { internalQuery, mutation, query, QueryCtx } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
@@ -212,6 +213,22 @@ export const list = query({
         d.genericName.toLowerCase().includes(term) ||
         d.indication.toLowerCase().includes(term)
     );
+  },
+});
+
+export const listProductIntelligencePage = internalQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const result = await ctx.db.query("drugs").paginate(paginationOpts);
+    return {
+      ...result,
+      page: result.page.map((drug) => ({
+        _id: drug._id,
+        name: drug.name,
+        genericName: drug.genericName,
+        canonicalProductId: drug.canonicalProductId,
+      })),
+    };
   },
 });
 

@@ -1,4 +1,11 @@
-import { query, mutation, internalMutation, internalQuery, MutationCtx } from "./_generated/server";
+import {
+  query,
+  mutation,
+  internalMutation,
+  internalQuery,
+  MutationCtx,
+} from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
 import {
@@ -84,6 +91,20 @@ export const getImportSnapshot = internalQuery({
       name: company.name,
       country: company.country,
     }));
+  },
+});
+
+export const listProductIntelligencePage = internalQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const result = await ctx.db.query("companies").paginate(paginationOpts);
+    return {
+      ...result,
+      page: result.page.map((company) => ({
+        _id: company._id,
+        name: company.name,
+      })),
+    };
   },
 });
 

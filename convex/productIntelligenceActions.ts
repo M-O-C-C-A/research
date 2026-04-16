@@ -4,7 +4,7 @@ import JSZip from "jszip";
 import * as XLSX from "xlsx";
 import { action, ActionCtx } from "./_generated/server";
 import { v } from "convex/values";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import {
   buildCanonicalKey,
   CanonicalEntityDraft,
@@ -20,7 +20,7 @@ import {
   parseDateString,
   toCanonicalEntities,
 } from "./productIntelligenceHelpers";
-import { Id } from "./_generated/dataModel";
+import { Doc, Id } from "./_generated/dataModel";
 
 type JobType =
   | "product_sync_fda"
@@ -29,9 +29,70 @@ type JobType =
   | "canonical_product_linking";
 
 type ProductActionCtx = ActionCtx;
+type ProductSourceRow = Doc<"productSources">;
+type ProductSnapshot = {
+  canonicalKey: string;
+  normalizedBrandName?: string;
+  normalizedInn?: string;
+  brandName: string;
+  inn: string;
+  activeIngredient?: string;
+  strength?: string;
+  dosageForm?: string;
+  route?: string;
+  atcCode?: string;
+  therapeuticArea?: string;
+  applicationTypes?: Array<"NDA" | "ANDA" | "BLA" | "CAP" | "national">;
+  applicationTypeSummary?: string;
+  status: "active" | "withdrawn" | "discontinued" | "under_review" | "unavailable";
+  productType: "small_molecule" | "biologic" | "biosimilar" | "generic" | "unknown";
+  geographies: string[];
+  primaryManufacturerName?: string;
+  primaryMahName?: string;
+  primaryApplicantName?: string;
+  approvalDate?: string;
+  sourceSystems: Array<
+    | "drugs_fda"
+    | "openfda_label"
+    | "orange_book"
+    | "purple_book"
+    | "ndc"
+    | "ema_central"
+    | "eu_national_bfarm"
+  >;
+  matchConfidence: "confirmed" | "likely" | "inferred";
+  reviewNeeded?: boolean;
+  referenceCanonicalKey?: string;
+};
+type SourceLinkSnapshot = {
+  canonicalKey: string;
+  productSourceId: Id<"productSources">;
+  relationshipType: "same_product" | "presentation_variant" | "biosimilar_of" | "reference_product" | "regional_variant";
+  confidence: "confirmed" | "likely" | "inferred";
+  reviewNeeded?: boolean;
+};
+type DrugLinkSnapshot = {
+  drugId: Id<"drugs">;
+  canonicalKey?: string;
+};
+
+const SOURCE_PAGE_SIZE = 250;
+const COMPANY_PAGE_SIZE = 250;
+const DRUG_PAGE_SIZE = 250;
+const DELETE_BATCH_SIZE = 100;
+const INSERT_BATCH_SIZE = 100;
+const PATCH_BATCH_SIZE = 100;
 
 function escapeOpenFdaTerm(value: string) {
   return value.replace(/"/g, '\\"');
+}
+
+function chunk<T>(items: T[], size: number) {
+  const batches: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    batches.push(items.slice(index, index + size));
+  }
+  return batches;
 }
 
 function buildOpenFdaSearch(searchTerm?: string) {
@@ -301,11 +362,69 @@ async function rebuildCanonicalGraph(
   jobId: Id<"discoveryJobs">
 ) {
   await appendJobLog(ctx, jobId, "Loading source products and existing companies...");
-  const [sourceRows, companies, drugs] = await Promise.all([
-    ctx.runQuery(api.productIntelligence.listAllProductSources, {}),
-    ctx.runQuery(api.companies.list, {}),
-    ctx.runQuery(api.drugs.list, {}),
-  ]);
+  const sourceRows: ProductSourceRow[] = [];
+  let sourceCursor: string | null = null;
+  while (true) {
+    const result: {
+      page: ProductSourceRow[];
+      isDone: boolean;
+      continueCursor: string;
+    } = await ctx.runQuery(internal.productIntelligence.listProductSourcesPage, {
+      paginationOpts: {
+        cursor: sourceCursor,
+        numItems: SOURCE_PAGE_SIZE,
+      },
+    });
+    sourceRows.push(...result.page);
+    if (result.isDone) break;
+    sourceCursor = result.continueCursor;
+  }
+
+  const companies: Array<{ _id: Id<"companies">; name: string }> = [];
+  let companyCursor: string | null = null;
+  while (true) {
+    const result: {
+      page: Array<{ _id: Id<"companies">; name: string }>;
+      isDone: boolean;
+      continueCursor: string;
+    } = await ctx.runQuery(internal.companies.listProductIntelligencePage, {
+      paginationOpts: {
+        cursor: companyCursor,
+        numItems: COMPANY_PAGE_SIZE,
+      },
+    });
+    companies.push(...result.page);
+    if (result.isDone) break;
+    companyCursor = result.continueCursor;
+  }
+
+  const drugs: Array<{
+    _id: Id<"drugs">;
+    name: string;
+    genericName: string;
+    canonicalProductId?: Id<"canonicalProducts">;
+  }> = [];
+  let drugCursor: string | null = null;
+  while (true) {
+    const result: {
+      page: Array<{
+        _id: Id<"drugs">;
+        name: string;
+        genericName: string;
+        canonicalProductId?: Id<"canonicalProducts">;
+      }>;
+      isDone: boolean;
+      continueCursor: string;
+    } = await ctx.runQuery(internal.drugs.listProductIntelligencePage, {
+      paginationOpts: {
+        cursor: drugCursor,
+        numItems: DRUG_PAGE_SIZE,
+      },
+    });
+    drugs.push(...result.page);
+    if (result.isDone) break;
+    drugCursor = result.continueCursor;
+  }
 
   const companyIdByName = new Map<string, Id<"companies">>();
   for (const company of companies) {
@@ -356,8 +475,11 @@ async function rebuildCanonicalGraph(
   }
 
   const sourceIdBySystemAndRecord = new Map<string, Id<"productSources">>();
+  const sourceRowBySystemAndRecord = new Map<string, ProductSourceRow>();
   for (const source of sourceRows) {
-    sourceIdBySystemAndRecord.set(`${source.sourceSystem}:${source.sourceRecordId}`, source._id);
+    const key = `${source.sourceSystem}:${source.sourceRecordId}`;
+    sourceIdBySystemAndRecord.set(key, source._id);
+    sourceRowBySystemAndRecord.set(key, source);
   }
 
   const sourceKeyBySystemAndRecord = new Map<string, string>();
@@ -367,57 +489,25 @@ async function rebuildCanonicalGraph(
     }
   }
 
-  const products: Array<{
-    canonicalKey: string;
-    normalizedBrandName?: string;
-    normalizedInn?: string;
-    brandName: string;
-    inn: string;
-    activeIngredient?: string;
-    strength?: string;
-    dosageForm?: string;
-    route?: string;
-    atcCode?: string;
-    therapeuticArea?: string;
-    applicationTypes?: Array<"NDA" | "ANDA" | "BLA" | "CAP" | "national">;
-    applicationTypeSummary?: string;
-    status: "active" | "withdrawn" | "discontinued" | "under_review" | "unavailable";
-    productType: "small_molecule" | "biologic" | "biosimilar" | "generic" | "unknown";
-    geographies: string[];
-    primaryManufacturerName?: string;
-    primaryMahName?: string;
-    primaryApplicantName?: string;
-    approvalDate?: string;
-    sourceSystems: Array<
-      | "drugs_fda"
-      | "openfda_label"
-      | "orange_book"
-      | "purple_book"
-      | "ndc"
-      | "ema_central"
-      | "eu_national_bfarm"
-    >;
-    matchConfidence: "confirmed" | "likely" | "inferred";
-    reviewNeeded?: boolean;
-    referenceCanonicalKey?: string;
-  }> = [];
-  const sourceLinks: Array<{
-    canonicalKey: string;
-    productSourceId: Id<"productSources">;
-    relationshipType: "same_product" | "presentation_variant" | "biosimilar_of" | "reference_product" | "regional_variant";
-    confidence: "confirmed" | "likely" | "inferred";
-    reviewNeeded?: boolean;
-  }> = [];
+  const sourceKeyByNormalizedName = new Map<string, string>();
+  for (const source of sourceRows) {
+    const candidateName = source.brandName ?? source.inn ?? source.activeIngredient ?? "";
+    const normalizedName = normalizeText(candidateName);
+    const canonicalKey = sourceKeyBySystemAndRecord.get(
+      `${source.sourceSystem}:${source.sourceRecordId}`
+    );
+    if (!normalizedName || !canonicalKey || sourceKeyByNormalizedName.has(normalizedName)) continue;
+    sourceKeyByNormalizedName.set(normalizedName, canonicalKey);
+  }
+
+  const products: ProductSnapshot[] = [];
+  const sourceLinks: SourceLinkSnapshot[] = [];
   const entities: Array<CanonicalEntityDraft & { canonicalKey: string }> = [];
 
   for (const [canonicalKey, items] of grouped.entries()) {
-    const sourceDocs = sourceRows.filter((source) =>
-      items.some(
-        (item) =>
-          item.sourceSystem === source.sourceSystem &&
-          item.sourceRecordId === source.sourceRecordId
-      )
-    );
+    const sourceDocs = items
+      .map((item) => sourceRowBySystemAndRecord.get(`${item.sourceSystem}:${item.sourceRecordId}`))
+      .filter((source): source is ProductSourceRow => !!source);
     const entityDrafts = dedupeEntityDrafts(
       items.flatMap((item) => toCanonicalEntities(item, companyIdByName))
     );
@@ -431,15 +521,8 @@ async function rebuildCanonicalGraph(
             )
           : undefined;
         if (direct) return direct;
-        const nameMatch = sourceRows.find((source) => {
-          const candidateName =
-            source.brandName ?? source.inn ?? source.activeIngredient ?? "";
-          return normalizeText(candidateName) === normalizeText(item.referenceProductSourceRecordId);
-        });
-        return nameMatch
-          ? sourceKeyBySystemAndRecord.get(
-              `${nameMatch.sourceSystem}:${nameMatch.sourceRecordId}`
-            )
+        return item.referenceProductSourceRecordId
+          ? sourceKeyByNormalizedName.get(normalizeText(item.referenceProductSourceRecordId))
           : undefined;
       })
       .find(Boolean);
@@ -470,7 +553,7 @@ async function rebuildCanonicalGraph(
     }
   }
 
-  const drugLinks = drugs.map((drug) => {
+  const drugLinks: DrugLinkSnapshot[] = drugs.map((drug) => {
     const exactByBrand = [...grouped.keys()].find((key) =>
       key.startsWith(`${normalizeText(drug.genericName) || normalizeText(drug.name)}|`)
     );
@@ -494,13 +577,149 @@ async function rebuildCanonicalGraph(
     jobId,
     `Rebuilding ${products.length} canonical products from ${sourceRows.length} source rows...`
   );
+  await appendJobLog(ctx, jobId, "Clearing previous canonical graph in batches...");
+  for (const table of [
+    "canonicalProductLinks",
+    "canonicalProductEntities",
+    "canonicalProducts",
+  ] as const) {
+    let deleted = 0;
+    while (true) {
+      const result: { deleted: number; done: boolean } = await ctx.runMutation(
+        internal.productIntelligence.clearCanonicalGraphBatch,
+        {
+          table,
+          limit: DELETE_BATCH_SIZE,
+        }
+      );
+      deleted += result.deleted;
+      if (result.done) break;
+    }
+    if (deleted > 0) {
+      await appendJobLog(ctx, jobId, `Cleared ${deleted} rows from ${table}.`);
+    }
+  }
 
-  return await ctx.runMutation(api.productIntelligence.replaceCanonicalGraph, {
-    products,
-    sourceLinks,
-    entities,
-    drugLinks,
+  const canonicalIdByKey = new Map<string, Id<"canonicalProducts">>();
+  const productInsertRows = products.map((product) => ({
+    canonicalKey: product.canonicalKey,
+    normalizedBrandName: product.normalizedBrandName,
+    normalizedInn: product.normalizedInn,
+    brandName: product.brandName,
+    inn: product.inn,
+    activeIngredient: product.activeIngredient,
+    strength: product.strength,
+    dosageForm: product.dosageForm,
+    route: product.route,
+    atcCode: product.atcCode,
+    therapeuticArea: product.therapeuticArea,
+    applicationTypes: product.applicationTypes,
+    applicationTypeSummary: product.applicationTypeSummary,
+    status: product.status,
+    productType: product.productType,
+    geographies: product.geographies,
+    primaryManufacturerName: product.primaryManufacturerName,
+    primaryMahName: product.primaryMahName,
+    primaryApplicantName: product.primaryApplicantName,
+    approvalDate: product.approvalDate,
+    sourceSystems: product.sourceSystems,
+    matchConfidence: product.matchConfidence,
+    reviewNeeded: product.reviewNeeded,
+  }));
+  for (const [index, batch] of chunk(productInsertRows, INSERT_BATCH_SIZE).entries()) {
+    const inserted: Array<{
+      canonicalKey: string;
+      canonicalProductId: Id<"canonicalProducts">;
+    }> = await ctx.runMutation(internal.productIntelligence.insertCanonicalProductsBatch, {
+      products: batch,
+    });
+    for (const row of inserted) {
+      canonicalIdByKey.set(row.canonicalKey, row.canonicalProductId);
+    }
+    await appendJobLog(
+      ctx,
+      jobId,
+      `Inserted canonical product batch ${index + 1}/${Math.max(1, Math.ceil(products.length / INSERT_BATCH_SIZE))}.`
+    );
+  }
+
+  const referencePatches = products
+    .filter((product) => !!product.referenceCanonicalKey)
+    .flatMap((product) => {
+      const canonicalProductId = canonicalIdByKey.get(product.canonicalKey);
+      const referenceCanonicalProductId = product.referenceCanonicalKey
+        ? canonicalIdByKey.get(product.referenceCanonicalKey)
+        : undefined;
+      if (!canonicalProductId || !referenceCanonicalProductId) return [];
+      return [{ canonicalProductId, referenceCanonicalProductId }];
+    });
+  for (const batch of chunk(referencePatches, PATCH_BATCH_SIZE)) {
+    await ctx.runMutation(internal.productIntelligence.patchCanonicalProductReferencesBatch, {
+      references: batch,
+    });
+  }
+
+  const resolvedSourceLinks = sourceLinks.flatMap((link) => {
+    const canonicalProductId = canonicalIdByKey.get(link.canonicalKey);
+    if (!canonicalProductId) return [];
+    return [{ ...link, canonicalProductId }];
   });
+  const sourceLinkInsertRows = resolvedSourceLinks.map((link) => ({
+    canonicalProductId: link.canonicalProductId,
+    productSourceId: link.productSourceId,
+    relationshipType: link.relationshipType,
+    confidence: link.confidence,
+    reviewNeeded: link.reviewNeeded,
+  }));
+  for (const batch of chunk(sourceLinkInsertRows, INSERT_BATCH_SIZE)) {
+    await ctx.runMutation(internal.productIntelligence.insertCanonicalSourceLinksBatch, {
+      sourceLinks: batch,
+    });
+  }
+
+  const resolvedEntities = entities.flatMap((entity) => {
+    const canonicalProductId = canonicalIdByKey.get(entity.canonicalKey);
+    if (!canonicalProductId) return [];
+    return [{ ...entity, canonicalProductId }];
+  });
+  const entityInsertRows = resolvedEntities.map((entity) => ({
+    canonicalProductId: entity.canonicalProductId,
+    companyId: entity.companyId,
+    entityName: entity.entityName,
+    normalizedEntityName: entity.normalizedEntityName,
+    role: entity.role,
+    isPrimary: entity.isPrimary,
+    geography: entity.geography,
+    sourceSystem: entity.sourceSystem,
+    confidence: entity.confidence,
+  }));
+  for (const batch of chunk(entityInsertRows, INSERT_BATCH_SIZE)) {
+    await ctx.runMutation(internal.productIntelligence.insertCanonicalEntitiesBatch, {
+      entities: batch,
+    });
+  }
+
+  let drugsLinked = 0;
+  const resolvedDrugLinks = drugLinks.map((link) => ({
+    drugId: link.drugId,
+    canonicalProductId: link.canonicalKey
+      ? canonicalIdByKey.get(link.canonicalKey)
+      : undefined,
+  }));
+  for (const batch of chunk(resolvedDrugLinks, PATCH_BATCH_SIZE)) {
+    const result: { linked: number; unlinked: number } = await ctx.runMutation(
+      internal.productIntelligence.relinkDrugsBatch,
+      { drugLinks: batch }
+    );
+    drugsLinked += result.linked;
+  }
+
+  return {
+    canonicalProductsCreated: products.length,
+    sourceLinksCreated: resolvedSourceLinks.length,
+    entitiesCreated: resolvedEntities.length,
+    drugsLinked,
+  };
 }
 
 function dedupeEntityDrafts(drafts: CanonicalEntityDraft[]) {
@@ -775,8 +994,15 @@ export const syncFdaProducts = action({
       }
 
       await appendJobLog(ctx, jobId, `Upserted ${upserted} FDA source records. Rebuilding canonical products...`);
-      const rebuildJobId = await ctx.runAction(api.productIntelligenceActions.rebuildCanonicalProductLinks, {});
-      await appendJobLog(ctx, jobId, `Canonical rebuild triggered via job ${rebuildJobId}.`, "success");
+      const rebuildResult: {
+        jobId: Id<"discoveryJobs">;
+      } = await ctx.runAction(api.productIntelligenceActions.rebuildCanonicalProductLinks, {});
+      await appendJobLog(
+        ctx,
+        jobId,
+        `Canonical rebuild triggered via job ${rebuildResult.jobId}.`,
+        "success"
+      );
       await completeJob(
         ctx,
         jobId,
@@ -879,8 +1105,15 @@ export const syncEmaCentralProducts = action({
       }
 
       await appendJobLog(ctx, jobId, `Upserted ${upserted} EMA source records. Rebuilding canonical products...`);
-      const rebuildJobId = await ctx.runAction(api.productIntelligenceActions.rebuildCanonicalProductLinks, {});
-      await appendJobLog(ctx, jobId, `Canonical rebuild triggered via job ${rebuildJobId}.`, "success");
+      const rebuildResult: {
+        jobId: Id<"discoveryJobs">;
+      } = await ctx.runAction(api.productIntelligenceActions.rebuildCanonicalProductLinks, {});
+      await appendJobLog(
+        ctx,
+        jobId,
+        `Canonical rebuild triggered via job ${rebuildResult.jobId}.`,
+        "success"
+      );
       await completeJob(
         ctx,
         jobId,
@@ -937,8 +1170,15 @@ export const syncBfarmProducts = action({
         }),
       };
       await ctx.runMutation(api.productIntelligence.upsertProductSource, source);
-      const rebuildJobId = await ctx.runAction(api.productIntelligenceActions.rebuildCanonicalProductLinks, {});
-      await appendJobLog(ctx, jobId, `Canonical rebuild triggered via job ${rebuildJobId}.`, "success");
+      const rebuildResult: {
+        jobId: Id<"discoveryJobs">;
+      } = await ctx.runAction(api.productIntelligenceActions.rebuildCanonicalProductLinks, {});
+      await appendJobLog(
+        ctx,
+        jobId,
+        `Canonical rebuild triggered via job ${rebuildResult.jobId}.`,
+        "success"
+      );
       await completeJob(
         ctx,
         jobId,

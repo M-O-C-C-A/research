@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent } from "react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAction, useMutation, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -74,12 +74,54 @@ export function RegistrationImportWorkspace() {
   const resolveRowMatch = useMutation(api.registrationImports.resolveRowMatch);
   const parseImport = useAction(api.registrationImportActions.parseImport);
   const applyImport = useAction(api.registrationImportActions.applyImport);
+  const loadImportDetail = useAction(api.registrationImports.getImportDetailSnapshot);
 
   const importsQuery = useQuery(api.registrationImports.listImports, { limit: 10 });
-  const detail = useQuery(
-    api.registrationImports.getImportDetail,
-    selectedImportId ? { importId: selectedImportId, rowLimit: STAGED_ROW_LIMIT } : "skip"
-  );
+  const [detail, setDetail] = useState<
+    | {
+        importDoc: {
+          _id: Id<"registrationImports">;
+          fileName: string;
+          sourceMarket?: string;
+          sourceType?: string;
+          status: string;
+          totalRows: number;
+          matchedRows: number;
+          unresolvedRows: number;
+          ambiguousRows: number;
+          skippedRows: number;
+          appliedRows: number;
+          parseErrorCount: number;
+          sheetNames: string[];
+          lastError?: string;
+        };
+        rows: Array<{
+          _id: Id<"registrationImportRows">;
+          source?: string;
+          sourceRecordId?: string;
+          productName: string;
+          genericName?: string;
+          manufacturerName?: string;
+          supplierName?: string;
+          country: string;
+          registrationStatus: string;
+          sourceStatus?: string;
+          approvalDate?: string;
+          strength?: string;
+          packSize?: string;
+          priceAed?: string;
+          productKind?: string;
+          matchExplanation?: string;
+          sourceSheet: string;
+          sourceRowNumber: number;
+          matchStatus: string;
+          matchedDrugId?: Id<"drugs">;
+          validationIssues: string[];
+        }>;
+        totalRowCount: number;
+      }
+    | undefined
+  >();
   const drugs =
     useQuery(
       api.drugs.listMatchingOptions,
@@ -90,6 +132,27 @@ export function RegistrationImportWorkspace() {
         : "skip"
     ) ?? [];
   const imports = importsQuery ?? EMPTY_IMPORTS;
+
+  useEffect(() => {
+    if (!selectedImportId) {
+      setDetail(undefined);
+      return;
+    }
+
+    let cancelled = false;
+    void loadImportDetail({
+      importId: selectedImportId,
+      rowLimit: STAGED_ROW_LIMIT,
+    }).then((result) => {
+      if (!cancelled) {
+        setDetail(result ?? undefined);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [STAGED_ROW_LIMIT, loadImportDetail, selectedImportId]);
 
   async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -125,6 +188,11 @@ export function RegistrationImportWorkspace() {
       });
       setSelectedImportId(importId);
       const result = await parseImport({ importId });
+      const refreshedDetail = await loadImportDetail({
+        importId,
+        rowLimit: STAGED_ROW_LIMIT,
+      });
+      setDetail(refreshedDetail ?? undefined);
       if (!sourceMarket.trim() && inferredSourceMarket) {
         setSourceMarket(inferredSourceMarket);
       }
@@ -144,19 +212,34 @@ export function RegistrationImportWorkspace() {
     }
   }
 
-  async function handleResolveRow(rowId: Id<"registrationImportRows">, value: string) {
+  async function handleResolveRow(rowId: Id<"registrationImportRows">, value: string | null) {
+    if (!value || value === "__none") return;
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
       if (value === "__skip") {
         await resolveRowMatch({ rowId, skip: true });
+        if (selectedImportId) {
+          const refreshedDetail = await loadImportDetail({
+            importId: selectedImportId,
+            rowLimit: STAGED_ROW_LIMIT,
+          });
+          setDetail(refreshedDetail ?? undefined);
+        }
         setMessage("Row skipped from apply.");
       } else {
         await resolveRowMatch({
           rowId,
           matchedDrugId: value as Id<"drugs">,
         });
+        if (selectedImportId) {
+          const refreshedDetail = await loadImportDetail({
+            importId: selectedImportId,
+            rowLimit: STAGED_ROW_LIMIT,
+          });
+          setDetail(refreshedDetail ?? undefined);
+        }
         setMessage("Row linked to drug.");
       }
     } catch (resolveError) {
@@ -180,6 +263,11 @@ export function RegistrationImportWorkspace() {
     try {
       await requestApply({ importId: selectedImportId });
       const result = await applyImport({ importId: selectedImportId, batchSize: 25 });
+      const refreshedDetail = await loadImportDetail({
+        importId: selectedImportId,
+        rowLimit: STAGED_ROW_LIMIT,
+      });
+      setDetail(refreshedDetail ?? undefined);
       setLastAppliedSummary({
         appliedCount: result.appliedCount,
         touchedDrugCount: result.touchedDrugCount,
@@ -599,7 +687,6 @@ export function RegistrationImportWorkspace() {
                                   <Select
                                     value={row.matchedDrugId ?? "__none"}
                                     onValueChange={(value) => {
-                                      if (value === "__none") return;
                                       void handleResolveRow(row._id, value);
                                     }}
                                   >

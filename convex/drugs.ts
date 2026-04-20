@@ -274,6 +274,22 @@ export const listEnriched = query({
   },
 });
 
+export const listRecentDigest = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const rows = await ctx.db.query("drugs").order("desc").take(limit ?? 8);
+    return rows.map((drug) => ({
+      _id: drug._id,
+      name: drug.name,
+      genericName: drug.genericName,
+      therapeuticArea: drug.therapeuticArea,
+      approvalStatus: drug.approvalStatus,
+      primaryManufacturerName:
+        drug.primaryManufacturerName ?? drug.manufacturerName ?? "—",
+    }));
+  },
+});
+
 export const listMedicalDevicesEnriched = query({
   args: {
     search: v.optional(v.string()),

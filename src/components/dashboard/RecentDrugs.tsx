@@ -14,13 +14,11 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 export function RecentDrugs() {
-  const drugs = useQuery(api.drugs.listEnriched, {});
+  const drugs = useQuery(api.drugs.listRecentDigest, { limit: 8 });
 
   if (drugs === undefined) return <TableSkeleton rows={4} />;
 
-  const recent = drugs.slice(0, 8);
-
-  if (recent.length === 0) {
+  if (drugs.length === 0) {
     return (
       <p className="text-sm text-zinc-600 py-4">
         No drugs added yet.{" "}
@@ -33,16 +31,7 @@ export function RecentDrugs() {
 
   return (
     <div className="divide-y divide-zinc-800">
-      {recent.map((drug) => {
-        const additionalManufacturers = Math.max(
-          (drug.manufacturerNames?.length ?? 0) - 1,
-          0
-        );
-        const manufacturerSummary =
-          additionalManufacturers > 0
-            ? `${drug.primaryManufacturerName} +${additionalManufacturers} more`
-            : drug.primaryManufacturerName;
-
+      {drugs.map((drug) => {
         return (
           <Link
             key={drug._id}
@@ -52,7 +41,7 @@ export function RecentDrugs() {
             <div className="min-w-0">
               <p className="text-sm font-medium text-white truncate">{drug.name}</p>
               <p className="text-xs text-zinc-500 truncate">
-                {drug.genericName} · {manufacturerSummary}
+                {drug.genericName} · {drug.primaryManufacturerName}
               </p>
             </div>
             <div className="flex items-center gap-3 ml-4 shrink-0">

@@ -438,6 +438,26 @@ export const stats = query({
   },
 });
 
+export const listSnapshot = action({
+  args: {
+    status: v.optional(
+      v.union(v.literal("active"), v.literal("archived"), v.literal("needs_validation"))
+    ),
+    market: v.optional(v.string()),
+    limit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.runQuery(api.decisionOpportunities.list, args);
+  },
+});
+
+export const statsSnapshot = action({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.runQuery(api.decisionOpportunities.stats, {});
+  },
+});
+
 export const upsert = mutation({
   args: opportunityArgs,
   handler: async (ctx, args) => {

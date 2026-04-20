@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAction, useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -91,7 +91,15 @@ export function DrugList() {
     search: search || undefined,
     therapeuticArea: area || undefined,
   });
-  const syncStats = useQuery(api.productIntelligence.syncStats, {});
+  const loadSyncStats = useAction(api.productIntelligence.syncStatsSnapshot);
+  const [syncStats, setSyncStats] = useState<
+    {
+      sourceCount: number;
+      canonicalCount: number;
+      bySystem: Array<{ sourceSystem: string; count: number }>;
+      lastUpdatedAt?: number;
+    } | undefined
+  >();
   const latestProductJob = useQuery(api.discoveryJobs.latestProductSync, {});
   const syncFdaProducts = useAction(api.productIntelligenceActions.syncFdaProducts);
   const syncEmaProducts = useAction(api.productIntelligenceActions.syncEmaCentralProducts);
@@ -105,6 +113,20 @@ export function DrugList() {
   const isUpdatingDirectory = syncingSource === "update";
   const isRebuildingSystem = syncingSource === "system";
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadSyncStats({}).then((result) => {
+      if (!cancelled) {
+        setSyncStats(result);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadSyncStats]);
+
   function getDefaultSyncTerm() {
     return syncSearch || search || undefined;
   }
@@ -112,6 +134,7 @@ export function DrugList() {
   async function runSync(
     source: "fda" | "ema" | "bfarm" | "rebuild" | "update" | "system"
   ) {
+    let shouldRefreshSyncStats = false;
     setSyncingSource(source);
     setSyncMessage({
       tone: "info",
@@ -143,7 +166,6 @@ export function DrugList() {
           searchTerm: defaultTerm,
           limit: defaultTerm ? 50 : 100,
         });
-        const rebuildResult = await rebuildCanonicalProducts({});
         const gapFlowJobId = await runGapFlow({
           mode: "all_areas",
         });
@@ -153,9 +175,10 @@ export function DrugList() {
           title: "GCC++ workspace rebuilt",
           body:
             imported > 0
-              ? `Imported ${imported} FDA/EMA source records, rebuilt ${rebuildResult.canonicalProductsCreated} canonical products, and launched the GCC++ gap refresh (job ${gapFlowJobId}). If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`
-              : `The system rebuild completed and the GCC++ gap refresh was launched (job ${gapFlowJobId}), but no new FDA/EMA source records were imported in this run. If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`,
+              ? `Imported ${imported} FDA/EMA source records and launched the GCC++ gap refresh (job ${gapFlowJobId}). The sync steps already rebuilt the canonical product graph. If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`
+              : `The system rebuild completed and the GCC++ gap refresh was launched (job ${gapFlowJobId}), but no new FDA/EMA source records were imported in this run. The sync steps still rebuilt the canonical product graph. If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`,
         });
+        shouldRefreshSyncStats = true;
       } else if (source === "update") {
         const defaultTerm = getDefaultSyncTerm();
         const fdaResult = await syncFdaProducts({
@@ -166,7 +189,6 @@ export function DrugList() {
           searchTerm: defaultTerm,
           limit: defaultTerm ? 50 : 100,
         });
-        const rebuildResult = await rebuildCanonicalProducts({});
         const imported = (fdaResult.upserted ?? 0) + (emaResult.upserted ?? 0);
         if (imported === 0) {
           setSyncMessage({
@@ -179,9 +201,10 @@ export function DrugList() {
           setSyncMessage({
             tone: "success",
             title: "Product directory updated",
-            body: `Imported ${imported} source records and rebuilt ${rebuildResult.canonicalProductsCreated} canonical products.`,
+            body: `Imported ${imported} source records. The FDA and EMA sync steps rebuilt the canonical product graph automatically.`,
           });
         }
+        shouldRefreshSyncStats = true;
       } else if (source === "fda") {
         const result = await syncFdaProducts({
           searchTerm: syncSearch || undefined,
@@ -195,6 +218,7 @@ export function DrugList() {
               ? `FDA-backed product records were refreshed successfully (${result.upserted} source rows).`
               : "The FDA sync returned zero products for this run.",
         });
+        shouldRefreshSyncStats = result.upserted > 0;
       } else if (source === "ema") {
         const result = await syncEmaProducts({
           searchTerm: syncSearch || undefined,
@@ -208,6 +232,7 @@ export function DrugList() {
               ? `EMA centrally authorised medicine records were refreshed successfully (${result.upserted} source rows).`
               : "The EMA sync returned zero products for this run.",
         });
+        shouldRefreshSyncStats = result.upserted > 0;
       } else if (source === "bfarm") {
         await syncBfarmProducts({
           searchTerm: syncSearch || search || "insulin",
@@ -217,6 +242,7 @@ export function DrugList() {
           title: "BfArM sync completed",
           body: "The Germany national-register pattern ran successfully.",
         });
+        shouldRefreshSyncStats = true;
       } else {
         const result = await rebuildCanonicalProducts({});
         setSyncMessage({
@@ -224,6 +250,7 @@ export function DrugList() {
           title: "Canonical graph rebuilt",
           body: `Equivalent products and source links were rebuilt successfully (${result.canonicalProductsCreated} canonical products).`,
         });
+        shouldRefreshSyncStats = true;
       }
     } catch (error) {
       const isBfarmNotice = source === "bfarm";
@@ -233,6 +260,11 @@ export function DrugList() {
         body: getReadableSyncError(error, source),
       });
     } finally {
+      if (shouldRefreshSyncStats) {
+        void loadSyncStats({}).then((result) => {
+          setSyncStats(result);
+        });
+      }
       setSyncingSource(null);
     }
   }

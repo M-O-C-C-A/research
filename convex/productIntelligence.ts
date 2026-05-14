@@ -1,5 +1,5 @@
-import { action, internalMutation, internalQuery, mutation, query } from "./_generated/server";
-import { api, internal } from "./_generated/api";
+import { action, ActionCtx, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import { internal } from "./_generated/api";
 import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
@@ -60,17 +60,9 @@ const EVIDENCE_CONFIDENCE_VALIDATOR = v.union(
   v.literal("inferred")
 );
 
-const DELETE_BATCH_SIZE = 100;
-const INSERT_BATCH_SIZE = 100;
-const PATCH_BATCH_SIZE = 100;
-
-function chunk<T>(items: T[], size: number) {
-  const batches: T[][] = [];
-  for (let index = 0; index < items.length; index += size) {
-    batches.push(items.slice(index, index + size));
-  }
-  return batches;
-}
+const DEFAULT_LIST_LIMIT = 500;
+const MAX_LIST_SCAN = 1000;
+const STATS_PAGE_SIZE = 500;
 
 function matchesSearch(product: Doc<"canonicalProducts">, search?: string) {
   if (!search) return true;
@@ -84,8 +76,8 @@ function matchesSearch(product: Doc<"canonicalProducts">, search?: string) {
 }
 
 export const listAllProductSources = query({
-  args: {},
-  handler: async (ctx) => ctx.db.query("productSources").collect(),
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => ctx.db.query("productSources").take(limit ?? DEFAULT_LIST_LIMIT),
 });
 
 export const listProductSourcesPage = internalQuery({
@@ -94,40 +86,100 @@ export const listProductSourcesPage = internalQuery({
     await ctx.db.query("productSources").paginate(paginationOpts),
 });
 
-export const syncStats = query({
-  args: {},
-  handler: async (ctx) => {
-    const [sourceRows, canonicalProducts] = await Promise.all([
-      ctx.db.query("productSources").collect(),
-      ctx.db.query("canonicalProducts").collect(),
-    ]);
-
-    const bySystem = new Map<string, number>();
-    for (const row of sourceRows) {
-      bySystem.set(row.sourceSystem, (bySystem.get(row.sourceSystem) ?? 0) + 1);
-    }
-
+export const listProductSourceStatsPage = internalQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const result = await ctx.db.query("productSources").paginate(paginationOpts);
     return {
-      sourceCount: sourceRows.length,
-      canonicalCount: canonicalProducts.length,
-      bySystem: [...bySystem.entries()].map(([sourceSystem, count]) => ({
-        sourceSystem,
-        count,
+      ...result,
+      page: result.page.map((row) => ({
+        sourceSystem: row.sourceSystem,
+        updatedAt: row.updatedAt,
       })),
-      lastUpdatedAt: sourceRows.reduce<number | undefined>((current, row) => {
-        if (!row.updatedAt) return current;
-        if (current === undefined || row.updatedAt > current) return row.updatedAt;
-        return current;
-      }, undefined),
     };
   },
 });
 
+export const listCanonicalProductStatsPage = internalQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const result = await ctx.db.query("canonicalProducts").paginate(paginationOpts);
+    return {
+      ...result,
+      page: result.page.map((row) => ({
+        _id: row._id,
+      })),
+    };
+  },
+});
+
+async function loadSyncStats(ctx: ActionCtx) {
+  const bySystem = new Map<string, number>();
+  let sourceCount = 0;
+  let canonicalCount = 0;
+  let lastUpdatedAt: number | undefined;
+
+  let sourceCursor: string | null = null;
+  while (true) {
+    const result: {
+      page: Array<{ sourceSystem: string; updatedAt: number }>;
+      isDone: boolean;
+      continueCursor: string;
+    } = await ctx.runQuery(internal.productIntelligence.listProductSourceStatsPage, {
+      paginationOpts: {
+        cursor: sourceCursor,
+        numItems: STATS_PAGE_SIZE,
+      },
+    });
+
+    sourceCount += result.page.length;
+    for (const row of result.page) {
+      bySystem.set(row.sourceSystem, (bySystem.get(row.sourceSystem) ?? 0) + 1);
+      if (lastUpdatedAt === undefined || row.updatedAt > lastUpdatedAt) {
+        lastUpdatedAt = row.updatedAt;
+      }
+    }
+    if (result.isDone) break;
+    sourceCursor = result.continueCursor;
+  }
+
+  let canonicalCursor: string | null = null;
+  while (true) {
+    const result: {
+      page: Array<{ _id: Id<"canonicalProducts"> }>;
+      isDone: boolean;
+      continueCursor: string;
+    } = await ctx.runQuery(internal.productIntelligence.listCanonicalProductStatsPage, {
+      paginationOpts: {
+        cursor: canonicalCursor,
+        numItems: STATS_PAGE_SIZE,
+      },
+    });
+
+    canonicalCount += result.page.length;
+    if (result.isDone) break;
+    canonicalCursor = result.continueCursor;
+  }
+
+  return {
+    sourceCount,
+    canonicalCount,
+    bySystem: [...bySystem.entries()].map(([sourceSystem, count]) => ({
+      sourceSystem,
+      count,
+    })),
+    lastUpdatedAt,
+  };
+}
+
+export const syncStats = action({
+  args: {},
+  handler: async (ctx) => await loadSyncStats(ctx),
+});
+
 export const syncStatsSnapshot = action({
   args: {},
-  handler: async (ctx) => {
-    return await ctx.runQuery(api.productIntelligence.syncStats, {});
-  },
+  handler: async (ctx) => await loadSyncStats(ctx),
 });
 
 export const listCanonicalProducts = query({
@@ -141,8 +193,8 @@ export const listCanonicalProducts = query({
     const normalizedSearch = search?.trim().toLowerCase();
     const rows =
       normalizedSearch || therapeuticArea || geography
-        ? await ctx.db.query("canonicalProducts").collect()
-        : await ctx.db.query("canonicalProducts").withIndex("by_brand_name").take(limit ?? 500);
+        ? await ctx.db.query("canonicalProducts").withIndex("by_brand_name").take(MAX_LIST_SCAN)
+        : await ctx.db.query("canonicalProducts").withIndex("by_brand_name").take(limit ?? DEFAULT_LIST_LIMIT);
     return rows
       .filter((row) => matchesSearch(row, normalizedSearch))
       .filter((row) => !therapeuticArea || row.therapeuticArea === therapeuticArea)
@@ -165,8 +217,8 @@ export const listCanonicalInnDirectory = query({
     const normalizedSearch = search?.trim().toLowerCase();
     const rows =
       normalizedSearch || therapeuticArea
-        ? await ctx.db.query("canonicalProducts").collect()
-        : await ctx.db.query("canonicalProducts").withIndex("by_inn").take(limit ?? 500);
+        ? await ctx.db.query("canonicalProducts").withIndex("by_inn").take(MAX_LIST_SCAN)
+        : await ctx.db.query("canonicalProducts").withIndex("by_inn").take(limit ?? DEFAULT_LIST_LIMIT);
     const filtered = rows
       .filter((row) => matchesSearch(row, normalizedSearch))
       .filter((row) => !therapeuticArea || row.therapeuticArea === therapeuticArea);
@@ -253,7 +305,7 @@ export const getCanonicalProduct = query({
     const product = await ctx.db.get(id);
     if (!product) return null;
 
-    const [links, entities, linkedDrugs, allProducts] = await Promise.all([
+    const [links, entities, linkedDrugs, relatedByInn, candidateBiosimilars] = await Promise.all([
       ctx.db
         .query("canonicalProductLinks")
         .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", id))
@@ -266,7 +318,11 @@ export const getCanonicalProduct = query({
         .query("drugs")
         .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", id))
         .collect(),
-      ctx.db.query("canonicalProducts").collect(),
+      ctx.db
+        .query("canonicalProducts")
+        .withIndex("by_inn", (q) => q.eq("inn", product.inn))
+        .take(50),
+      ctx.db.query("canonicalProducts").withIndex("by_brand_name").take(MAX_LIST_SCAN),
     ]);
 
     const sourceRows = await Promise.all(
@@ -276,17 +332,16 @@ export const getCanonicalProduct = query({
       })
     );
 
-    const relatedByInn = allProducts.filter(
+    const filteredRelatedByInn = relatedByInn.filter(
       (candidate) =>
         candidate._id !== product._id &&
-        candidate.normalizedInn &&
-        candidate.normalizedInn === product.normalizedInn
+        candidate.inn.trim().toLowerCase() === product.inn.trim().toLowerCase()
     );
 
     const referenceProduct = product.referenceCanonicalProductId
       ? await ctx.db.get(product.referenceCanonicalProductId)
       : null;
-    const biosimilars = allProducts.filter(
+    const biosimilars = candidateBiosimilars.filter(
       (candidate) => candidate.referenceCanonicalProductId === product._id
     );
 
@@ -299,7 +354,7 @@ export const getCanonicalProduct = query({
         return left.role.localeCompare(right.role);
       }),
       linkedDrugs: linkedDrugs.sort((left, right) => left.name.localeCompare(right.name)),
-      relatedByInn: relatedByInn.sort((left, right) => left.brandName.localeCompare(right.brandName)),
+      relatedByInn: filteredRelatedByInn.sort((left, right) => left.brandName.localeCompare(right.brandName)),
       referenceProduct,
       biosimilars: biosimilars.sort((left, right) => left.brandName.localeCompare(right.brandName)),
     };
@@ -334,7 +389,14 @@ export const listCanonicalProductsByCompany = query({
 export const getCanonicalInnManufacturers = query({
   args: { genericName: v.string() },
   handler: async (ctx, { genericName }) => {
-    const rows = await ctx.db.query("canonicalProducts").collect();
+    const indexedRows = await ctx.db
+      .query("canonicalProducts")
+      .withIndex("by_inn", (q) => q.eq("inn", genericName))
+      .take(DEFAULT_LIST_LIMIT);
+    const rows =
+      indexedRows.length > 0
+        ? indexedRows
+        : await ctx.db.query("canonicalProducts").withIndex("by_inn").take(MAX_LIST_SCAN);
     const matches = rows
       .filter((row) => row.inn.trim().toLowerCase() === genericName.trim().toLowerCase())
       .sort((left, right) => left.brandName.localeCompare(right.brandName));
@@ -430,168 +492,6 @@ export const upsertProductSource = mutation({
       createdAt: now,
       updatedAt: now,
     });
-  },
-});
-
-export const replaceCanonicalGraph = mutation({
-  args: {
-    products: v.array(
-      v.object({
-        canonicalKey: v.string(),
-        normalizedBrandName: v.optional(v.string()),
-        normalizedInn: v.optional(v.string()),
-        brandName: v.string(),
-        inn: v.string(),
-        activeIngredient: v.optional(v.string()),
-        strength: v.optional(v.string()),
-        dosageForm: v.optional(v.string()),
-        route: v.optional(v.string()),
-        atcCode: v.optional(v.string()),
-        therapeuticArea: v.optional(v.string()),
-        applicationTypes: v.optional(v.array(PRODUCT_APPLICATION_TYPE_VALIDATOR)),
-        applicationTypeSummary: v.optional(v.string()),
-        status: CANONICAL_PRODUCT_STATUS_VALIDATOR,
-        productType: CANONICAL_PRODUCT_TYPE_VALIDATOR,
-        geographies: v.array(v.string()),
-        primaryManufacturerName: v.optional(v.string()),
-        primaryMahName: v.optional(v.string()),
-        primaryApplicantName: v.optional(v.string()),
-        approvalDate: v.optional(v.string()),
-        sourceSystems: v.array(PRODUCT_SOURCE_SYSTEM_VALIDATOR),
-        matchConfidence: EVIDENCE_CONFIDENCE_VALIDATOR,
-        reviewNeeded: v.optional(v.boolean()),
-        referenceCanonicalKey: v.optional(v.string()),
-      })
-    ),
-    sourceLinks: v.array(
-      v.object({
-        canonicalKey: v.string(),
-        productSourceId: v.id("productSources"),
-        relationshipType: CANONICAL_PRODUCT_LINK_RELATIONSHIP_VALIDATOR,
-        confidence: EVIDENCE_CONFIDENCE_VALIDATOR,
-        reviewNeeded: v.optional(v.boolean()),
-      })
-    ),
-    entities: v.array(
-      v.object({
-        canonicalKey: v.string(),
-        companyId: v.optional(v.id("companies")),
-        entityName: v.string(),
-        normalizedEntityName: v.string(),
-        role: CANONICAL_ENTITY_ROLE_VALIDATOR,
-        isPrimary: v.boolean(),
-        geography: v.optional(v.string()),
-        sourceSystem: PRODUCT_SOURCE_SYSTEM_VALIDATOR,
-        confidence: EVIDENCE_CONFIDENCE_VALIDATOR,
-      })
-    ),
-    drugLinks: v.array(
-      v.object({
-        drugId: v.id("drugs"),
-        canonicalKey: v.optional(v.string()),
-      })
-    ),
-  },
-  handler: async (ctx, { products, sourceLinks, entities, drugLinks }) => {
-    const canonicalIdByKey = new Map<string, Id<"canonicalProducts">>();
-    for (const table of [
-      "canonicalProductLinks",
-      "canonicalProductEntities",
-      "canonicalProducts",
-    ] as const) {
-      while (true) {
-        const result: { deleted: number; done: boolean } = await ctx.runMutation(
-          internal.productIntelligence.clearCanonicalGraphBatch,
-          {
-            table,
-            limit: DELETE_BATCH_SIZE,
-          }
-        );
-        if (result.done) break;
-      }
-    }
-
-    for (const batch of chunk(products, INSERT_BATCH_SIZE)) {
-      const inserted: Array<{
-        canonicalKey: string;
-        canonicalProductId: Id<"canonicalProducts">;
-      }> = await ctx.runMutation(internal.productIntelligence.insertCanonicalProductsBatch, {
-        products: batch,
-      });
-      for (const row of inserted) {
-        canonicalIdByKey.set(row.canonicalKey, row.canonicalProductId);
-      }
-    }
-
-    const referencePatches = products.flatMap((product) => {
-      if (!product.referenceCanonicalKey) return [];
-      const canonicalProductId = canonicalIdByKey.get(product.canonicalKey);
-      const referenceCanonicalProductId = canonicalIdByKey.get(product.referenceCanonicalKey);
-      if (!canonicalProductId || !referenceCanonicalProductId) return [];
-      return [{ canonicalProductId, referenceCanonicalProductId }];
-    });
-    for (const batch of chunk(referencePatches, PATCH_BATCH_SIZE)) {
-      await ctx.runMutation(internal.productIntelligence.patchCanonicalProductReferencesBatch, {
-        references: batch,
-      });
-    }
-
-    const resolvedSourceLinks = sourceLinks.flatMap((link) => {
-      const canonicalProductId = canonicalIdByKey.get(link.canonicalKey);
-      if (!canonicalProductId) return [];
-      return [{ ...link, canonicalProductId }];
-    });
-    for (const batch of chunk(resolvedSourceLinks, INSERT_BATCH_SIZE)) {
-      await ctx.runMutation(internal.productIntelligence.insertCanonicalSourceLinksBatch, {
-        sourceLinks: batch.map((link) => ({
-          canonicalProductId: link.canonicalProductId,
-          productSourceId: link.productSourceId,
-          relationshipType: link.relationshipType,
-          confidence: link.confidence,
-          reviewNeeded: link.reviewNeeded,
-        })),
-      });
-    }
-
-    const resolvedEntities = entities.flatMap((entity) => {
-      const canonicalProductId = canonicalIdByKey.get(entity.canonicalKey);
-      if (!canonicalProductId) return [];
-      return [{ ...entity, canonicalProductId }];
-    });
-    for (const batch of chunk(resolvedEntities, INSERT_BATCH_SIZE)) {
-      await ctx.runMutation(internal.productIntelligence.insertCanonicalEntitiesBatch, {
-        entities: batch.map((entity) => ({
-          canonicalProductId: entity.canonicalProductId,
-          companyId: entity.companyId,
-          entityName: entity.entityName,
-          normalizedEntityName: entity.normalizedEntityName,
-          role: entity.role,
-          isPrimary: entity.isPrimary,
-          geography: entity.geography,
-          sourceSystem: entity.sourceSystem,
-          confidence: entity.confidence,
-        })),
-      });
-    }
-
-    const resolvedDrugLinks = drugLinks.map((link) => ({
-      drugId: link.drugId,
-      canonicalProductId: link.canonicalKey
-        ? canonicalIdByKey.get(link.canonicalKey)
-        : undefined,
-    }));
-    for (const batch of chunk(resolvedDrugLinks, PATCH_BATCH_SIZE)) {
-      await ctx.runMutation(internal.productIntelligence.relinkDrugsBatch, {
-        drugLinks: batch,
-      });
-    }
-
-    return {
-      canonicalProductsCreated: products.length,
-      sourceLinksCreated: resolvedSourceLinks.length,
-      entitiesCreated: resolvedEntities.length,
-      drugsLinked: drugLinks.filter((link) => !!link.canonicalKey).length,
-    };
   },
 });
 

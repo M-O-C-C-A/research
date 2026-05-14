@@ -62,12 +62,22 @@ function getReadableSyncError(
     return "BfArM is not reliably available right now. Please use FDA or EMA sync for now, or try BfArM again later.";
   }
 
-  return raw
+  const cleaned = raw
     .replace(/\[CONVEX [^\]]+\]\s*/g, "")
     .replace(/\[Request ID:[^\]]+\]\s*/g, "")
     .replace(/^Server Error\s*/i, "")
     .replace(/Called by client$/i, "")
     .trim();
+
+  if (
+    /too many reads/i.test(cleaned) ||
+    /single function execution/i.test(cleaned) ||
+    /limit:\s*4096/i.test(cleaned)
+  ) {
+    return "The product directory has grown too large for a one-transaction rebuild. Use the Update directory or Rebuild graph controls again; the backend now rebuilds the graph in smaller batches.";
+  }
+
+  return cleaned;
 }
 
 export function DrugList() {

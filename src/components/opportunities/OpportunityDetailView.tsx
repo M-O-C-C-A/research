@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "convex/react";
+import { useEffect, useState } from "react";
+import { useAction, useQuery } from "convex/react";
 import Link from "next/link";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
@@ -20,7 +20,8 @@ interface OpportunityDetailViewProps {
 
 export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewProps) {
   const [editingCountry, setEditingCountry] = useState<string | null>(null);
-  const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
+  const loadGuidedFlow = useAction(api.dashboard.getGuidedFlowSnapshot);
+  const [guidedFlow, setGuidedFlow] = useState<{ resumeHref: string } | undefined>();
   const opportunity = useQuery(api.decisionOpportunities.get, {
     id: opportunityId as Id<"decisionOpportunities">,
   });
@@ -28,6 +29,20 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
     api.opportunities.listByDrug,
     opportunity ? { drugId: opportunity.drugId } : "skip"
   );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadGuidedFlow({}).then((result) => {
+      if (!cancelled) {
+        setGuidedFlow(result);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadGuidedFlow]);
 
   if (opportunity === undefined) {
     return (

@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { normalizeExternalUrl } from "@/lib/urlUtils";
@@ -9,7 +10,51 @@ import { CardGridSkeleton } from "@/components/shared/LoadingSkeleton";
 import { confidenceBadgeClass, statusBadgeClass } from "@/lib/decisionOpportunities";
 
 export function PriorityMatchesWidget() {
-  const cockpit = useQuery(api.dashboard.getCockpit, {});
+  const loadCockpit = useAction(api.dashboard.getCockpitSnapshot);
+  const [cockpit, setCockpit] = useState<
+    | {
+        priorityMatches: Array<{
+          id: string;
+          href: string;
+          productName: string;
+          genericName: string;
+          companyName: string;
+          focusMarkets: string[];
+          priorityScore: number;
+          rankingPosition: number | null;
+          confidenceLevel: "high" | "medium" | "low";
+          whyThisMarket: string;
+          howToEnter: string;
+          companyWebsite?: string | null;
+          companyLinkedinUrl?: string | null;
+          contactName?: string | null;
+          contactEmail?: string | null;
+          contactLinkedinUrl?: string | null;
+          targetRole: string;
+          status: "active" | "archived" | "needs_validation";
+        }>;
+      }
+    | undefined
+  >();
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void loadCockpit({}).then((result) => {
+        if (!cancelled) {
+          setCockpit(result);
+        }
+      });
+    };
+
+    refresh();
+    window.addEventListener("decision-opportunities:refresh", refresh);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("decision-opportunities:refresh", refresh);
+    };
+  }, [loadCockpit]);
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">

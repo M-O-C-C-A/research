@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useQuery } from "convex/react";
+import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CardGridSkeleton } from "@/components/shared/LoadingSkeleton";
 import { normalizeExternalUrl } from "@/lib/urlUtils";
@@ -50,12 +51,38 @@ interface DecisionOpportunityCardsProps {
 export function DecisionOpportunityCards({
   title = "Top Decision Opportunities",
   description = "Prioritized product-to-market plays that are close to real outreach.",
+  limit = 12,
   opportunities,
 }: DecisionOpportunityCardsProps) {
-  const queriedOpportunities = useQuery(
-    api.decisionOpportunities.list,
-    opportunities ? "skip" : { status: "active", limit: 12 }
-  );
+  const loadOpportunities = useAction(api.decisionOpportunities.listSnapshot);
+  const [queriedOpportunities, setQueriedOpportunities] = useState<
+    DecisionOpportunityCardsProps["opportunities"] | undefined
+  >(opportunities);
+
+  useEffect(() => {
+    if (opportunities !== undefined) {
+      return;
+    }
+
+    let cancelled = false;
+
+    const refresh = () => {
+      void loadOpportunities({ status: "active", limit }).then((result) => {
+        if (!cancelled) {
+          setQueriedOpportunities(result);
+        }
+      });
+    };
+
+    refresh();
+    window.addEventListener("decision-opportunities:refresh", refresh);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("decision-opportunities:refresh", refresh);
+    };
+  }, [limit, loadOpportunities, opportunities]);
+
   const visibleOpportunities = opportunities ?? queriedOpportunities;
 
   return (

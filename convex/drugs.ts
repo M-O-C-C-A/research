@@ -1,4 +1,5 @@
-import { query, mutation, QueryCtx } from "./_generated/server";
+import { internalQuery, mutation, query, QueryCtx } from "./_generated/server";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import { Doc } from "./_generated/dataModel";
@@ -215,6 +216,22 @@ export const list = query({
   },
 });
 
+export const listProductIntelligencePage = internalQuery({
+  args: { paginationOpts: paginationOptsValidator },
+  handler: async (ctx, { paginationOpts }) => {
+    const result = await ctx.db.query("drugs").paginate(paginationOpts);
+    return {
+      ...result,
+      page: result.page.map((drug) => ({
+        _id: drug._id,
+        name: drug.name,
+        genericName: drug.genericName,
+        canonicalProductId: drug.canonicalProductId,
+      })),
+    };
+  },
+});
+
 export const listMatchingOptions = query({
   args: {
     search: v.optional(v.string()),
@@ -254,6 +271,22 @@ export const listEnriched = query({
     const filtered = rows.filter((d) => matchesDrugSearch(d, search));
 
     return Promise.all(filtered.map(async (d) => buildEnrichedDrug(ctx, d)));
+  },
+});
+
+export const listRecentDigest = query({
+  args: { limit: v.optional(v.number()) },
+  handler: async (ctx, { limit }) => {
+    const rows = await ctx.db.query("drugs").order("desc").take(limit ?? 8);
+    return rows.map((drug) => ({
+      _id: drug._id,
+      name: drug.name,
+      genericName: drug.genericName,
+      therapeuticArea: drug.therapeuticArea,
+      approvalStatus: drug.approvalStatus,
+      primaryManufacturerName:
+        drug.primaryManufacturerName ?? drug.manufacturerName ?? "—",
+    }));
   },
 });
 

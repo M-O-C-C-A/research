@@ -1,4 +1,5 @@
 import {
+  action,
   internalMutation,
   internalQuery,
   mutation,
@@ -187,7 +188,43 @@ export const getImportDetail = query({
       return left.sourceRowNumber - right.sourceRowNumber;
     });
 
-    return { importDoc, rows: limitedRows, totalRowCount: importDoc.totalRows };
+    return {
+      importDoc,
+      rows: limitedRows.map((row) => ({
+        _id: row._id,
+        source: row.source,
+        sourceRecordId: row.sourceRecordId,
+        productName: row.productName,
+        genericName: row.genericName,
+        manufacturerName: row.manufacturerName,
+        supplierName: row.supplierName,
+        country: row.country,
+        registrationStatus: row.registrationStatus,
+        sourceStatus: row.sourceStatus,
+        approvalDate: row.approvalDate,
+        strength: row.strength,
+        packSize: row.packSize,
+        priceAed: row.priceAed,
+        productKind: row.productKind,
+        matchExplanation: row.matchExplanation,
+        sourceSheet: row.sourceSheet,
+        sourceRowNumber: row.sourceRowNumber,
+        matchStatus: row.matchStatus,
+        matchedDrugId: row.matchedDrugId,
+        validationIssues: row.validationIssues,
+      })),
+      totalRowCount: importDoc.totalRows,
+    };
+  },
+});
+
+export const getImportDetailSnapshot = action({
+  args: {
+    importId: v.id("registrationImports"),
+    rowLimit: v.optional(v.number()),
+  },
+  handler: async (ctx, args) => {
+    return await ctx.runQuery(api.registrationImports.getImportDetail, args);
   },
 });
 

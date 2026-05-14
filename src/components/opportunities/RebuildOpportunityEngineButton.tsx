@@ -14,6 +14,7 @@ export function RebuildOpportunityEngineButton() {
     setIsRunning(true);
     try {
       await rebuild({});
+      window.dispatchEvent(new CustomEvent("decision-opportunities:refresh"));
     } finally {
       setIsRunning(false);
     }

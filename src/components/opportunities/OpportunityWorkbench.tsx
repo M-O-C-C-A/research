@@ -1,6 +1,7 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { DecisionOpportunityCards } from "./DecisionOpportunityCards";
 import { RebuildOpportunityEngineButton } from "./RebuildOpportunityEngineButton";
@@ -9,8 +10,43 @@ import { ArrowRight, DatabaseZap, FileSearch, Target } from "lucide-react";
 import { WorkflowCallout } from "@/components/shared/WorkflowCallout";
 
 export function OpportunityWorkbench() {
-  const stats = useQuery(api.decisionOpportunities.stats, {});
-  const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
+  const loadStats = useAction(api.decisionOpportunities.statsSnapshot);
+  const loadGuidedFlow = useAction(api.dashboard.getGuidedFlowSnapshot);
+  const [stats, setStats] = useState<
+    {
+      total: number;
+      active: number;
+      needsValidation: number;
+      topFocus: number;
+      avgPriorityScore: number;
+    } | undefined
+  >();
+  const [guidedFlow, setGuidedFlow] = useState<{ resumeHref: string } | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void loadStats({}).then((result) => {
+        if (!cancelled) {
+          setStats(result);
+        }
+      });
+
+      void loadGuidedFlow({}).then((result) => {
+        if (!cancelled) {
+          setGuidedFlow(result);
+        }
+      });
+    };
+
+    refresh();
+    window.addEventListener("decision-opportunities:refresh", refresh);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("decision-opportunities:refresh", refresh);
+    };
+  }, [loadGuidedFlow, loadStats]);
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">

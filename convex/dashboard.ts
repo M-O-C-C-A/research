@@ -1,4 +1,5 @@
-import { query } from "./_generated/server";
+import { action, query } from "./_generated/server";
+import { api } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 
 function statusWeight(status: Doc<"decisionOpportunities">["status"]) {
@@ -110,6 +111,13 @@ export const getCockpit = query({
         unlinkedHighValueGaps: unlinkedHighValueGaps.length,
       },
     };
+  },
+});
+
+export const getCockpitSnapshot = action({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.runQuery(api.dashboard.getCockpit, {});
   },
 });
 
@@ -235,6 +243,7 @@ export const getGuidedFlow = query({
           ? "/pipeline"
           : primaryAction.href,
       bestOpportunityId: bestOpportunity?._id ?? null,
+      needsValidationCount: ranked.filter((item) => item.status === "needs_validation").length,
       snapshot: {
         companyCount: companies.length,
         productCount: drugs.length,
@@ -242,5 +251,12 @@ export const getGuidedFlow = query({
         activeOutreachCount: activePipelineCount,
       },
     };
+  },
+});
+
+export const getGuidedFlowSnapshot = action({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.runQuery(api.dashboard.getGuidedFlow, {});
   },
 });

@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import type { ComponentType } from "react";
-import { useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import { ArrowRight, Building2, FileSearch, FileText, GitBranch, Target } from "lucide-react";
 import { StatsBar } from "@/components/dashboard/StatsBar";
@@ -27,17 +28,53 @@ type WorkflowStep = {
 };
 
 export function GuidedWorkspace() {
-  const guidedFlow = useQuery(api.dashboard.getGuidedFlow, {});
-  const companyStats = useQuery(api.companies.stats, {});
-  const drugStats = useQuery(api.drugs.stats, {});
-  const oppStats = useQuery(api.decisionOpportunities.stats, {});
-  const pipelineStats = useQuery(api.companies.pipelineStats, {});
+  const loadGuidedFlow = useAction(api.dashboard.getGuidedFlowSnapshot);
+  const [guidedFlow, setGuidedFlow] = useState<
+    | {
+        currentStep: string;
+        primaryAction: {
+          label: string;
+          description: string;
+          href: string;
+        };
+        blockers: string[];
+        resumeHref: string;
+        bestOpportunityId: string | null;
+        needsValidationCount: number;
+        snapshot: {
+          companyCount: number;
+          productCount: number;
+          opportunityCount: number;
+          activeOutreachCount: number;
+        };
+      }
+    | undefined
+  >();
 
-  const companies = companyStats?.total ?? 0;
-  const drugs = drugStats?.total ?? 0;
-  const opportunities = oppStats?.active ?? 0;
-  const pipeline = pipelineStats?.activeCount ?? 0;
-  const needsValidation = oppStats?.needsValidation ?? 0;
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void loadGuidedFlow({}).then((result) => {
+        if (!cancelled) {
+          setGuidedFlow(result);
+        }
+      });
+    };
+
+    refresh();
+    window.addEventListener("decision-opportunities:refresh", refresh);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("decision-opportunities:refresh", refresh);
+    };
+  }, [loadGuidedFlow]);
+  const snapshot = guidedFlow?.snapshot;
+  const companies = snapshot?.companyCount ?? 0;
+  const drugs = snapshot?.productCount ?? 0;
+  const opportunities = snapshot?.opportunityCount ?? 0;
+  const pipeline = snapshot?.activeOutreachCount ?? 0;
+  const needsValidation = guidedFlow?.needsValidationCount ?? 0;
 
   const currentStage = guidedFlow?.currentStep ?? "company";
   const highlightedStep =
@@ -139,7 +176,7 @@ export function GuidedWorkspace() {
         <NextActionCard {...recommendedNextAction} />
       </section>
 
-      <StatsBar />
+      <StatsBar snapshot={snapshot} needsValidationCount={needsValidation} />
 
       <section className="grid gap-4 lg:grid-cols-2">
         <WorkflowCallout

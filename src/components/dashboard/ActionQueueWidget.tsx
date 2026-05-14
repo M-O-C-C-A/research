@@ -1,13 +1,51 @@
 "use client";
 
-import { useQuery } from "convex/react";
+import { useAction } from "convex/react";
+import { useEffect, useState } from "react";
 import { api } from "../../../convex/_generated/api";
 import Link from "next/link";
 import { ArrowRight, CheckCircle2, ClipboardList } from "lucide-react";
 import { TableSkeleton } from "@/components/shared/LoadingSkeleton";
 
 export function ActionQueueWidget() {
-  const cockpit = useQuery(api.dashboard.getCockpit, {});
+  const loadCockpit = useAction(api.dashboard.getCockpitSnapshot);
+  const [cockpit, setCockpit] = useState<
+    | {
+        actionQueue: Array<{
+          id: string;
+          title: string;
+          description: string;
+          actionLabel: string;
+          href: string;
+        }>;
+        insightSummary: {
+          promotedActiveCount: number;
+          needsValidationCount: number;
+          missingContactCount: number;
+          unlinkedHighValueGaps: number;
+        };
+      }
+    | undefined
+  >();
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void loadCockpit({}).then((result) => {
+        if (!cancelled) {
+          setCockpit(result);
+        }
+      });
+    };
+
+    refresh();
+    window.addEventListener("decision-opportunities:refresh", refresh);
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener("decision-opportunities:refresh", refresh);
+    };
+  }, [loadCockpit]);
 
   return (
     <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-5">

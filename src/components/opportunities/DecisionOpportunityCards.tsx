@@ -6,7 +6,7 @@ import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CardGridSkeleton } from "@/components/shared/LoadingSkeleton";
 import { normalizeExternalUrl } from "@/lib/urlUtils";
-import { AlertTriangle, ArrowRight, Mail, MapPinned, Radar, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, Building2, ExternalLink, Mail, MapPinned, Radar, ShieldCheck } from "lucide-react";
 import { confidenceBadgeClass, statusBadgeClass } from "@/lib/decisionOpportunities";
 
 interface DecisionOpportunityCardsProps {
@@ -15,6 +15,7 @@ interface DecisionOpportunityCardsProps {
   description?: string;
   opportunities?: Array<{
     _id: string;
+    companyId?: string | null;
     rankingPosition: number | null;
     status: "active" | "archived" | "needs_validation";
     productName: string;
@@ -27,6 +28,8 @@ interface DecisionOpportunityCardsProps {
     focusMarkets: string[];
     blockedFocusMarkets?: string[] | null;
     whyThisMarket: string;
+    mainIndication?: string | null;
+    regionalPrevalenceIncidence?: string | null;
     howToEnterExplanation: string;
     companyWebsite?: string | null;
     companyLinkedinUrl?: string | null;
@@ -116,7 +119,15 @@ export function DecisionOpportunityCards({
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visibleOpportunities.map((item) => {
             const readyToSend = item.outreachReady;
+            const companyWebsite = normalizeExternalUrl(item.companyWebsite);
             const contactLinkedinUrl = normalizeExternalUrl(item.contactLinkedinUrl);
+            const contactHref =
+              item.contactEmail
+                ? `mailto:${item.contactEmail}`
+                : contactLinkedinUrl ?? (item.companyId ? `/companies/${item.companyId}` : companyWebsite);
+            const contactLabel = item.contactName
+              ? `${item.contactName}${item.contactTitle ? ` · ${item.contactTitle}` : ""}`
+              : item.targetRole;
             const primaryBlocker =
               item.blockedFocusMarkets && item.blockedFocusMarkets.length > 0
                 ? `Already registered in ${item.blockedFocusMarkets.join(", ")}`
@@ -129,9 +140,8 @@ export function DecisionOpportunityCards({
               isDifferentEntity(mahName, companyName) &&
               isDifferentEntity(mahName, item.approachEntityName);
             return (
-            <Link
+            <article
               key={item._id}
-              href={`/opportunities/${item._id}`}
               className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 transition-colors hover:border-zinc-700 hover:bg-zinc-950"
             >
               <div className="flex items-start justify-between gap-3">
@@ -170,6 +180,68 @@ export function DecisionOpportunityCards({
                 </span>
               </div>
 
+              <div className="mt-4 grid gap-2 text-xs text-zinc-300">
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
+                    Main indication
+                  </p>
+                  <p className="mt-1 line-clamp-2">{item.mainIndication ?? "Main indication not yet validated."}</p>
+                </div>
+                <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
+                    Regional prevalence/incidence
+                  </p>
+                  <p className="mt-1 line-clamp-2">
+                    {item.regionalPrevalenceIncidence ?? "Prevalence/incidence not yet validated."}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-2 text-xs">
+                <div className="flex items-start gap-2">
+                  <Building2 className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
+                      Company website
+                    </p>
+                    {companyWebsite ? (
+                      <a
+                        href={companyWebsite}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-1 inline-flex max-w-full items-center gap-1 text-zinc-200 hover:text-[var(--brand-300)]"
+                      >
+                        <span className="truncate">{companyWebsite.replace(/^https?:\/\//, "")}</span>
+                        <ExternalLink className="h-3 w-3 shrink-0" />
+                      </a>
+                    ) : (
+                      <p className="mt-1 text-zinc-400">Website not yet validated</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <Mail className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
+                      Contact details
+                    </p>
+                    {contactHref ? (
+                      <a
+                        href={contactHref}
+                        target={contactHref.startsWith("http") ? "_blank" : undefined}
+                        rel={contactHref.startsWith("http") ? "noopener noreferrer" : undefined}
+                        className="mt-1 inline-flex max-w-full items-center gap-1 text-zinc-200 hover:text-[var(--brand-300)]"
+                      >
+                        <span className="truncate">{contactLabel}</span>
+                        {contactHref.startsWith("http") && <ExternalLink className="h-3 w-3 shrink-0" />}
+                      </a>
+                    ) : (
+                      <p className="mt-1 text-zinc-400">{contactLabel}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
               <div className="mt-4 space-y-3 text-xs text-zinc-300">
                 <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
@@ -201,30 +273,16 @@ export function DecisionOpportunityCards({
                     <p className="mt-1">{primaryBlocker}</p>
                   </div>
                 </div>
-                <div className="flex items-start gap-2">
-                  <Mail className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
-                      Who to contact
-                    </p>
-                    <p className="mt-1 text-zinc-300">
-                      {item.contactName
-                        ? `${item.contactName} · ${item.contactTitle ?? item.targetRole}`
-                        : item.targetRole}
-                    </p>
-                    {item.contactEmail && <p className="mt-1 text-zinc-300">{item.contactEmail}</p>}
-                    {!item.contactEmail && contactLinkedinUrl && (
-                      <p className="mt-1 text-zinc-300">LinkedIn available</p>
-                    )}
-                  </div>
-                </div>
               </div>
 
-              <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-300)]">
+              <Link
+                href={`/opportunities/${item._id}`}
+                className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-300)] hover:text-white"
+              >
                 Review recommendation
                 <ArrowRight className="h-3 w-3" />
-              </div>
-            </Link>
+              </Link>
+            </article>
             );
           })}
         </div>

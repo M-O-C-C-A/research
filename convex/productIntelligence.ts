@@ -305,25 +305,26 @@ export const getCanonicalProduct = query({
     const product = await ctx.db.get(id);
     if (!product) return null;
 
-    const [links, entities, linkedDrugs, relatedByInn, candidateBiosimilars] = await Promise.all([
-      ctx.db
-        .query("canonicalProductLinks")
-        .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", id))
-        .collect(),
-      ctx.db
-        .query("canonicalProductEntities")
-        .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", id))
-        .collect(),
-      ctx.db
-        .query("drugs")
-        .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", id))
-        .collect(),
-      ctx.db
-        .query("canonicalProducts")
-        .withIndex("by_inn", (q) => q.eq("inn", product.inn))
-        .take(50),
-      ctx.db.query("canonicalProducts").withIndex("by_brand_name").take(MAX_LIST_SCAN),
-    ]);
+    const links = await ctx.db
+      .query("canonicalProductLinks")
+      .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", id))
+      .collect();
+    const entities = await ctx.db
+      .query("canonicalProductEntities")
+      .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", id))
+      .collect();
+    const linkedDrugs = await ctx.db
+      .query("drugs")
+      .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", id))
+      .collect();
+    const relatedByInn = await ctx.db
+      .query("canonicalProducts")
+      .withIndex("by_inn", (q) => q.eq("inn", product.inn))
+      .take(50);
+    const candidateBiosimilars = await ctx.db
+      .query("canonicalProducts")
+      .withIndex("by_brand_name")
+      .take(MAX_LIST_SCAN);
 
     const sourceRows = await Promise.all(
       links.map(async (link) => {
@@ -370,9 +371,10 @@ export const listCanonicalProductsByCompany = query({
       .collect();
 
     const canonicalProductIds = [...new Set(entityRows.map((row) => row.canonicalProductId))];
-    const products = await Promise.all(
-      canonicalProductIds.map(async (id) => await ctx.db.get(id))
-    );
+    const products: Array<Doc<"canonicalProducts"> | null> = [];
+    for (const id of canonicalProductIds) {
+      products.push(await ctx.db.get(id));
+    }
 
     return products
       .filter((product): product is NonNullable<typeof product> => Boolean(product))

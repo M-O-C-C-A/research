@@ -17,4 +17,11 @@ crons.cron(
   {}
 );
 
+crons.cron(
+  "daily continuous opportunity alert delivery",
+  "20 5 * * *",
+  internal.continuousOpportunityEngine.processPendingAlertDeliveriesInternal,
+  {}
+);
+
 export default crons;

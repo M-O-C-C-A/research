@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button";
 import { CountryCellEditor } from "@/components/drugs/CountryCellEditor";
 import { MandateReportPanel } from "@/components/opportunities/MandateReportPanel";
 import { DealEconomicsPanel } from "@/components/opportunities/DealEconomicsPanel";
-import { AlertTriangle, ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight } from "lucide-react";
+import { SizingCascadePanel } from "@/components/opportunities/SizingCascadePanel";
+import { AlertTriangle, ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight, Download } from "lucide-react";
 
 interface OpportunityDetailViewProps {
   opportunityId: string;
@@ -179,6 +180,22 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">Priority Score</p>
             <p className="mt-1 text-3xl font-bold text-white">{opportunity.priorityScore.toFixed(1)}</p>
             <p className="text-xs text-zinc-500">Focus: {opportunity.focusMarkets.join(", ")}</p>
+            <div className="mt-3 flex flex-wrap justify-start gap-2 sm:justify-end">
+              <a
+                href={`/api/opportunities/${opportunityId}/asset-brief.pdf`}
+                className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:text-white"
+              >
+                <Download className="h-3.5 w-3.5" />
+                PDF brief
+              </a>
+              <a
+                href={`/api/opportunities/${opportunityId}/model.xlsx`}
+                className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:text-white"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Excel model
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -247,6 +264,8 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
       </section>
 
       <MandateReportPanel decisionOpportunityId={opportunityId} />
+
+      <SizingCascadePanel decisionOpportunityId={opportunityId} />
 
       <DealEconomicsPanel decisionOpportunityId={opportunityId} />
 

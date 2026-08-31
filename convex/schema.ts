@@ -611,6 +611,52 @@ const registrationFactStatus = v.union(
 
 const dealModel = v.union(v.literal("MODEL_1_REGIONAL_AGENT"), v.literal("MODEL_4_BROKER_SUBLICENSE"));
 
+const engineSourceType = v.union(
+  v.literal("home_authorization"),
+  v.literal("target_registration"),
+  v.literal("shortage"),
+  v.literal("procurement"),
+  v.literal("company_rights"),
+  v.literal("manual_import"),
+  v.literal("patent_exclusivity"),
+  v.literal("orphan_register"),
+  v.literal("disease_burden")
+);
+
+const productClass = v.union(
+  v.literal("innovator"),
+  v.literal("on_patent"),
+  v.literal("orphan_rare_disease"),
+  v.literal("hybrid"),
+  v.literal("off_patent_biosimilar")
+);
+
+const sizingInputStatus = v.union(
+  v.literal("official_source"),
+  v.literal("company_release"),
+  v.literal("literature"),
+  v.literal("practitioner_estimate"),
+  v.literal("unvalidated")
+);
+
+const registryStatusMatrix = v.object({
+  fda: registrationFactStatus,
+  ema: registrationFactStatus,
+  bfarm: registrationFactStatus,
+  sfda: registrationFactStatus,
+  mohap: registrationFactStatus,
+  eda: registrationFactStatus,
+});
+
+const exclusionFlags = v.object({
+  alreadyRegisteredTarget: v.boolean(),
+  top20Pharma: v.boolean(),
+  menaRightsLicensed: v.boolean(),
+  withdrawnOrSuspended: v.boolean(),
+  belowMarginFloor: v.boolean(),
+  distributionInfeasible: v.boolean(),
+});
+
 export default defineSchema({
   companies: defineTable({
     name: v.string(),
@@ -1667,14 +1713,7 @@ export default defineSchema({
   sourceRegistries: defineTable({
     sourceRegistry: v.string(),
     title: v.string(),
-    sourceType: v.union(
-      v.literal("home_authorization"),
-      v.literal("target_registration"),
-      v.literal("shortage"),
-      v.literal("procurement"),
-      v.literal("company_rights"),
-      v.literal("manual_import")
-    ),
+    sourceType: engineSourceType,
     baseUrl: v.string(),
     robotsUrl: v.optional(v.string()),
     cadence: sourceCadence,
@@ -1736,6 +1775,29 @@ export default defineSchema({
     .index("by_substance_key", ["substanceKey"])
     .index("by_normalized_inn", ["normalizedInn"])
     .index("by_match_status", ["matchStatus"]),
+
+  substanceCrosswalks: defineTable({
+    substanceKey: v.string(),
+    sourceSystem: v.union(
+      v.literal("rxnorm"),
+      v.literal("atc"),
+      v.literal("inn"),
+      v.literal("internal")
+    ),
+    sourceCode: v.string(),
+    displayName: v.string(),
+    normalizedName: v.string(),
+    synonymType: v.union(v.literal("preferred"), v.literal("synonym"), v.literal("salt"), v.literal("combination")),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_substance_key", ["substanceKey"])
+    .index("by_source_system_and_source_code", ["sourceSystem", "sourceCode"])
+    .index("by_normalized_name", ["normalizedName"]),
 
   authorizedProductFacts: defineTable({
     canonicalProductId: v.optional(v.id("canonicalProducts")),
@@ -1893,14 +1955,24 @@ export default defineSchema({
     companyName: v.string(),
     primaryMarket: engineCountry,
     targetMarkets: v.array(engineCountry),
+    productClass: v.optional(productClass),
+    indication: v.optional(v.string()),
+    registryStatusMatrix: v.optional(registryStatusMatrix),
     gateStatus: opportunityGateStatus,
     gateReasons: v.array(v.string()),
+    exclusionFlags: v.optional(exclusionFlags),
     isTop20Excluded: v.boolean(),
     registeredTargetMarkets: v.array(engineCountry),
     homeAuthorizationStatus: v.string(),
+    approvalsSummary: v.optional(v.string()),
     territoryRightsStatus: v.string(),
+    menaRightsSummary: v.optional(v.string()),
     opportunityScore: v.number(),
     riskAdjustedMargin: v.number(),
+    peakSalesUsd: v.optional(v.number()),
+    peakSalesByMarket: v.optional(v.record(v.string(), v.number())),
+    kemedicaMarginAtPeakUsd: v.optional(v.number()),
+    cascadeBasis: v.optional(v.string()),
     model1ExpectedValue: v.number(),
     model4ExpectedValue: v.number(),
     rankingPosition: v.optional(v.number()),
@@ -1911,6 +1983,32 @@ export default defineSchema({
     .index("by_decision_opportunity", ["decisionOpportunityId"])
     .index("by_gate_status", ["gateStatus"])
     .index("by_primary_market", ["primaryMarket"]),
+
+  opportunitySizingInputs: defineTable({
+    decisionOpportunityId: v.optional(v.id("decisionOpportunities")),
+    drugId: v.optional(v.id("drugs")),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    country: engineCountry,
+    eligiblePatients: v.number(),
+    diagnosedReachableRate: v.number(),
+    brandedTreatmentRate: v.number(),
+    kemedicaShareRate: v.number(),
+    netPricePerPatientYearUsd: v.number(),
+    marketMarginRate: v.number(),
+    licenseSignedProbability: v.number(),
+    registrationGrantedProbability: v.number(),
+    inputStatus: sizingInputStatus,
+    basis: v.string(),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_drug_and_country", ["drugId", "country"])
+    .index("by_canonical_product_and_country", ["canonicalProductId", "country"]),
 
   changeEvents: defineTable({
     eventType: changeEventType,
@@ -1936,6 +2034,21 @@ export default defineSchema({
     .index("by_event_type_and_created_at", ["eventType", "createdAt"])
     .index("by_drug", ["drugId"])
     .index("by_current_run", ["currentRunId"]),
+
+  alertDeliveries: defineTable({
+    changeEventId: v.id("changeEvents"),
+    channel: v.union(v.literal("in_app"), v.literal("email_digest"), v.literal("teams_webhook")),
+    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("skipped"), v.literal("failed")),
+    destination: v.string(),
+    retryCount: v.number(),
+    lastError: v.optional(v.string()),
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_change_event", ["changeEventId"])
+    .index("by_status", ["status"])
+    .index("by_channel_and_status", ["channel", "status"]),
 
   watchlistItems: defineTable({
     drugId: v.optional(v.id("drugs")),

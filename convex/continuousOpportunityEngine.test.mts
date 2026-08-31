@@ -3,9 +3,12 @@ import assert from "node:assert/strict";
 
 const engineModulePath = "./continuousOpportunityEngine.ts";
 const {
+  calculatePeakSales,
   calculateModel1ExpectedValue,
   calculateModel4ExpectedValue,
+  calculateRiskAdjustedMargin,
   canMarkVerifiedAbsent,
+  defaultMarketMarginRate,
   isTop20OwnerName,
 } = (await import(engineModulePath)) as typeof import("./continuousOpportunityEngine");
 
@@ -39,6 +42,36 @@ test("Model 4 economics uses broker and sub-license fees with lower operating bu
   });
 
   assert.equal(value, 46_250);
+});
+
+test("country margin defaults match KEMEDICA screen assumptions", () => {
+  assert.equal(defaultMarketMarginRate("Egypt"), 28);
+  assert.equal(defaultMarketMarginRate("Saudi Arabia"), 32);
+  assert.equal(defaultMarketMarginRate("UAE"), 35);
+  assert.equal(defaultMarketMarginRate("Qatar"), 30);
+});
+
+test("screen sizing formula calculates peak sales from the five-step cascade", () => {
+  const peakSales = calculatePeakSales({
+    eligiblePatients: 10_000,
+    diagnosedReachableRate: 50,
+    brandedTreatmentRate: 40,
+    kemedicaShareRate: 10,
+    netPricePerPatientYearUsd: 20_000,
+  });
+
+  assert.equal(peakSales, 4_000_000);
+});
+
+test("risk-adjusted margin applies market margin and two probabilities", () => {
+  const riskAdjustedMargin = calculateRiskAdjustedMargin({
+    peakSalesUsd: 4_000_000,
+    marketMarginRate: 32,
+    licenseSignedProbability: 50,
+    registrationGrantedProbability: 75,
+  });
+
+  assert.equal(riskAdjustedMargin, 480_000);
 });
 
 test("verified absence requires authoritative registry search metadata", () => {

@@ -110,9 +110,9 @@ export function OpportunityWorkbench() {
           <div key={card.label} className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="text-sm text-zinc-500">{card.label}</p>
+                <p className="text-sm text-zinc-300">{card.label}</p>
                 <p className="mt-2 text-3xl font-bold text-white">{card.value}</p>
-                <p className="mt-1 text-xs text-zinc-600">{card.sublabel}</p>
+                <p className="mt-1 text-xs text-zinc-400">{card.sublabel}</p>
               </div>
               <div className="rounded-lg bg-zinc-950 p-2.5">
                 <card.icon className="h-5 w-5 text-[var(--brand-300)]" />

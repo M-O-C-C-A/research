@@ -20,6 +20,8 @@ interface DecisionOpportunityCardsProps {
     productName: string;
     genericName: string;
     approachEntityName: string;
+    manufacturerName?: string | null;
+    marketAuthorizationHolderName?: string | null;
     priorityScore: number;
     confidenceLevel: "high" | "medium" | "low";
     focusMarkets: string[];
@@ -85,6 +87,11 @@ export function DecisionOpportunityCards({
 
   const visibleOpportunities = opportunities ?? queriedOpportunities;
 
+  function isDifferentEntity(left?: string | null, right?: string | null) {
+    if (!left?.trim() || !right?.trim()) return false;
+    return left.trim().toLowerCase() !== right.trim().toLowerCase();
+  }
+
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
       <div className="mb-4 flex items-center justify-between gap-4">
@@ -92,7 +99,7 @@ export function DecisionOpportunityCards({
           <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
             {title}
           </h2>
-          <p className="mt-1 text-xs text-zinc-500">{description}</p>
+          <p className="mt-1 text-xs text-zinc-400">{description}</p>
         </div>
       </div>
 
@@ -116,6 +123,11 @@ export function DecisionOpportunityCards({
                 : readyToSend
                   ? "Ready for outreach"
                   : "Needs validation before outreach";
+            const companyName = item.manufacturerName ?? item.approachEntityName;
+            const mahName = item.marketAuthorizationHolderName;
+            const showMah =
+              isDifferentEntity(mahName, companyName) &&
+              isDifferentEntity(mahName, item.approachEntityName);
             return (
             <Link
               key={item._id}
@@ -125,13 +137,15 @@ export function DecisionOpportunityCards({
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="truncate text-sm font-semibold text-white">{item.productName}</p>
-                  <p className="truncate text-xs text-zinc-500">
-                    {item.genericName} · {item.approachEntityName}
+                  <p className="mt-1 truncate text-xs text-zinc-300">
+                    INN: {item.genericName}
                   </p>
+                  <p className="truncate text-xs text-zinc-400">Company: {companyName}</p>
+                  {showMah && <p className="truncate text-xs text-zinc-400">MAH: {mahName}</p>}
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-white">{item.priorityScore.toFixed(1)}</p>
-                  <p className="text-[11px] text-zinc-500">score</p>
+                  <p className="text-[11px] text-zinc-300">score</p>
                 </div>
               </div>
 
@@ -156,9 +170,9 @@ export function DecisionOpportunityCards({
                 </span>
               </div>
 
-              <div className="mt-4 space-y-3 text-xs text-zinc-400">
+              <div className="mt-4 space-y-3 text-xs text-zinc-300">
                 <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
-                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
                     What to pursue
                   </p>
                   <p className="mt-1 text-zinc-300">
@@ -168,7 +182,7 @@ export function DecisionOpportunityCards({
                 <div className="flex items-start gap-2">
                   <MapPinned className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
                       Why it matters
                     </p>
                     <p className="mt-1">{item.whyThisMarket}</p>
@@ -181,7 +195,7 @@ export function DecisionOpportunityCards({
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-300" />
                   )}
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
                       What blocks it
                     </p>
                     <p className="mt-1">{primaryBlocker}</p>
@@ -190,7 +204,7 @@ export function DecisionOpportunityCards({
                 <div className="flex items-start gap-2">
                   <Mail className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-300">
                       Who to contact
                     </p>
                     <p className="mt-1 text-zinc-300">

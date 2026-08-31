@@ -155,11 +155,132 @@ const ANALYSIS_ROW_VALIDATOR = v.object({
 
 type CanonicalProductDoc = Doc<"canonicalProducts">;
 type DrugDoc = Doc<"drugs">;
-type OpportunityDoc = Doc<"opportunities">;
+type OpportunityAvailability =
+  | "formally_registered"
+  | "tender_formulary_only"
+  | "shortage_listed"
+  | "hospital_import_only"
+  | "not_found"
+  | "ambiguous"
+  | "unverified";
+type OpportunityDoc = {
+  country: string;
+  competitorPresence?: string;
+  regulatoryStatus?: string;
+  marketSizeEstimate?: string;
+  availabilityStatus?: OpportunityAvailability;
+  matchedBrandName?: string;
+  matchedGenericName?: string;
+  genericEquivalentDetected?: boolean;
+  addressablePopulation?: string;
+  treatmentVolumeProxy?: string;
+  priceCorridor?: string;
+  primaryPriceBenchmark?: string;
+  pricingConfidence?: "high" | "medium" | "low" | "unknown";
+  pricePositioning?: "premium" | "parity" | "discount" | "unknown";
+  competitionIntensity?: "low" | "medium" | "high" | "unknown";
+  competitivePriceSummary?: string;
+  euReferenceAnchor?: string;
+  gccRegisteredAnchor?: string;
+  tenderBenchmarkAnchor?: string;
+  priceCorridorBand?: string;
+  recommendedPricingBand?: string;
+  priceReferencingRisk?: "low" | "medium" | "high" | "unknown";
+  tenderOpportunity?: boolean;
+  tenderSignalStrength?: "high" | "medium" | "low" | "none";
+  commercialEvidenceStatus?: "strong" | "partial" | "proxy_only" | "insufficient";
+  opportunityKind?:
+    | "commercial_opportunity"
+    | "tender_opportunity"
+    | "commercial_and_tender"
+    | "no_clear_opportunity"
+    | "insufficient_commercial_evidence";
+  commercialOpportunityScore?: number;
+  opportunityScore?: number;
+  annualOpportunityRange?: string;
+  publicChannelShare?: number;
+  privateChannelShare?: number;
+  estimatedCustomers?: number;
+  accessibleShare?: number;
+  physicianAdoptionRate?: number;
+  accessibleVolumeEstimate?: string;
+  baseVolumeCase?: string;
+  conservativeVolumeCase?: string;
+  upsideVolumeCase?: string;
+  publicPrivateMixSummary?: string;
+  physicianAdoptionSummary?: string;
+  reimbursementConstraintLevel?: "low" | "medium" | "high" | "unknown";
+  tenderBarrierLevel?: "low" | "medium" | "high" | "unknown";
+  entryStrategyRecommendation?: string;
+  entryStrategyChannel?: "private_hospital" | "retail_pharmacy" | "public_tender" | "specialty_center" | "hybrid" | "unknown";
+  entryStrategySequencing?: "private_first" | "private_to_tender" | "tender_led" | "hybrid_launch" | "watch";
+  marketAccessRoute?: "public_tender" | "private_hospital" | "retail_pharmacy" | "specialty_center" | "named_patient";
+  marketAccessNotes?: string;
+  evidenceItems?: Array<{
+    claim: string;
+    title?: string;
+    url?: string;
+    sourceType:
+      | "official_registry"
+      | "shortage_list"
+      | "tender_portal"
+      | "public_procurement"
+      | "essential_medicines"
+      | "market_report"
+      | "company"
+      | "internal";
+    confidence: "confirmed" | "likely" | "inferred";
+    sourceSystem?: "cms" | "nhsbsa" | "sfda" | "eda_egypt" | "mohap_uae" | "bfarm_amice" | "who" | "nupco" | "evaluate" | "clarivate" | "lauer_taxe" | "manual" | "other";
+    sourceCategory?: "official" | "commercial_database" | "proxy";
+    observedAt?: number;
+    notes?: string;
+    sourceRecordId?: string;
+  }>;
+};
 type PriceEvidenceDoc = Doc<"priceEvidence">;
-type CommercialSignalDoc = Doc<"commercialSignals">;
-type GapDoc = Doc<"gapOpportunities">;
-type WebsiteEvidenceDoc = Doc<"marketWebsiteEvidence">;
+type CommercialSignalDoc = {
+  country: string;
+  signalType: "tender" | "procurement" | "reimbursement" | "tariff" | "channel" | "competition" | "proxy";
+  signalStrength: "high" | "medium" | "low";
+  summary: string;
+  sourceTitle: string;
+  sourceUrl?: string;
+  sourceSystem: "cms" | "nhsbsa" | "sfda" | "eda_egypt" | "mohap_uae" | "bfarm_amice" | "who" | "nupco" | "evaluate" | "clarivate" | "lauer_taxe" | "manual" | "other";
+  sourceCategory: "official" | "commercial_database" | "proxy";
+  confidence: "confirmed" | "likely" | "inferred";
+  observedAt?: number;
+  notes?: string;
+};
+type GapDoc = { targetCountries: string[]; whoDiseaseBurden?: string; evidenceSummary?: string };
+type WebsiteEvidenceDoc = {
+  country: string;
+  claim: string;
+  title: string;
+  url: string;
+  sourceType:
+    | "official_registry"
+    | "shortage_list"
+    | "tender_portal"
+    | "public_procurement"
+    | "essential_medicines"
+    | "market_report"
+    | "company"
+    | "internal";
+  confidence: "confirmed" | "likely" | "inferred";
+  sourceSystem?: "cms" | "nhsbsa" | "sfda" | "eda_egypt" | "mohap_uae" | "bfarm_amice" | "who" | "nupco" | "evaluate" | "clarivate" | "lauer_taxe" | "manual" | "other";
+  sourceCategory?: "official" | "commercial_database" | "proxy";
+  observedAt?: number;
+  notes?: string;
+};
+type AnalysisInputs = {
+  product: CanonicalProductDoc;
+  linkedDrugs: DrugDoc[];
+  opportunities: OpportunityDoc[];
+  priceEvidence: PriceEvidenceDoc[];
+  commercialSignals: CommercialSignalDoc[];
+  gaps: GapDoc[];
+  websiteEvidence: WebsiteEvidenceDoc[];
+};
 
 function normalizeCountry(value: string) {
   return value.trim().toLowerCase();
@@ -175,7 +296,7 @@ function orderedCountries(input?: readonly string[]) {
   });
 }
 
-function availabilityRank(status?: OpportunityDoc["availabilityStatus"]) {
+function availabilityRank(status?: OpportunityAvailability) {
   switch (status) {
     case "formally_registered":
       return 6;
@@ -212,7 +333,7 @@ function extractLargestNumber(value?: string | null) {
 }
 
 function pickCurrency(
-  priceRows: PriceEvidenceDoc[],
+  priceRows: Array<{ currency: string }>,
   fallbackText?: string
 ) {
   const fromRow = priceRows.find((row) => row.currency)?.currency;
@@ -308,7 +429,7 @@ function uniqueEvidenceItems(
   ].slice(0, 12);
 }
 
-function presenceLabel(status: OpportunityDoc["availabilityStatus"] | "registered" | "not_found" | "unverified") {
+function presenceLabel(status: OpportunityAvailability | "registered" | "not_found" | "unverified") {
   if (status === "formally_registered" || status === "registered") return "available";
   if (status === "tender_formulary_only") return "tender/formulary only";
   if (status === "hospital_import_only") return "hospital/import only";
@@ -318,7 +439,10 @@ function presenceLabel(status: OpportunityDoc["availabilityStatus"] | "registere
   return "unverified";
 }
 
-function summarizeEpidemiology(gaps: GapDoc[], country: string) {
+function summarizeEpidemiology(
+  gaps: Array<{ targetCountries: string[]; whoDiseaseBurden?: string }>,
+  country: string
+) {
   const scoped = gaps.filter((gap) =>
     gap.targetCountries.some((target) => normalizeCountry(target) === normalizeCountry(country))
   );
@@ -345,7 +469,7 @@ function summarizeEpidemiology(gaps: GapDoc[], country: string) {
 function buildAvailabilityNarrative(args: {
   product: CanonicalProductDoc;
   country: string;
-  availabilityStatus: OpportunityDoc["availabilityStatus"];
+  availabilityStatus: OpportunityAvailability;
   marketedNames: string[];
   genericAvailability:
     | "originator_only"
@@ -402,7 +526,7 @@ function buildChannelSummary(args: {
 
 function buildPriorityReason(args: {
   country: string;
-  availabilityStatus: OpportunityDoc["availabilityStatus"];
+  availabilityStatus: OpportunityAvailability;
   opportunity?: OpportunityDoc;
   evidenceCount: number;
 }) {
@@ -445,7 +569,7 @@ function deriveAvailabilityStatus(
 function deriveGenericAvailability(args: {
   product: CanonicalProductDoc;
   opportunities: OpportunityDoc[];
-  availabilityStatus: OpportunityDoc["availabilityStatus"];
+  availabilityStatus: OpportunityAvailability;
   marketedNames: string[];
 }) {
   if (args.availabilityStatus === "not_found" || args.availabilityStatus === "unverified") {
@@ -473,7 +597,7 @@ export const getAnalysisInputs = internalQuery({
       .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", canonicalProductId))
       .collect();
 
-    const opportunities = (
+    const opportunities: OpportunityDoc[] = (
       await Promise.all(
         linkedDrugs.map((drug) =>
           ctx.db.query("opportunities").withIndex("by_drug", (q) => q.eq("drugId", drug._id)).collect()
@@ -481,7 +605,7 @@ export const getAnalysisInputs = internalQuery({
       )
     ).flat();
 
-    const priceEvidence = (
+    const priceEvidence: PriceEvidenceDoc[] = (
       await Promise.all(
         linkedDrugs.map((drug) =>
           ctx.db.query("priceEvidence").withIndex("by_drug", (q) => q.eq("drugId", drug._id)).collect()
@@ -489,7 +613,7 @@ export const getAnalysisInputs = internalQuery({
       )
     ).flat();
 
-    const commercialSignals = (
+    const commercialSignals: CommercialSignalDoc[] = (
       await Promise.all(
         linkedDrugs.map((drug) =>
           ctx.db.query("commercialSignals").withIndex("by_drug", (q) => q.eq("drugId", drug._id)).collect()
@@ -497,12 +621,12 @@ export const getAnalysisInputs = internalQuery({
       )
     ).flat();
 
-    const gaps = await ctx.db
+    const gaps: GapDoc[] = await ctx.db
       .query("gapOpportunities")
       .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", canonicalProductId))
       .collect();
 
-    const websiteEvidenceFromDrugs = (
+    const websiteEvidenceFromDrugs: WebsiteEvidenceDoc[] = (
       await Promise.all(
         linkedDrugs.map((drug) =>
           ctx.db
@@ -512,7 +636,7 @@ export const getAnalysisInputs = internalQuery({
         )
       )
     ).flat();
-    const websiteEvidenceFromCanonical = await ctx.db
+    const websiteEvidenceFromCanonical: WebsiteEvidenceDoc[] = await ctx.db
       .query("marketWebsiteEvidence")
       .withIndex("by_canonical_product_and_country", (q) =>
         q.eq("canonicalProductId", canonicalProductId)
@@ -564,11 +688,16 @@ export const analyzeCanonicalProductMarkets = action({
     canonicalProductId: v.id("canonicalProducts"),
     targetCountries: v.optional(v.array(v.string())),
   },
-  handler: async (ctx, args) => {
-    const inputs = await ctx.runQuery(
+  handler: async (ctx, args): Promise<{
+    canonicalProductId: string;
+    countriesAnalyzed: number;
+    availableMarkets: number;
+    summary: string;
+  }> => {
+    const inputs = (await ctx.runQuery(
       internal.productMarketAnalysis.getAnalysisInputs,
       { canonicalProductId: args.canonicalProductId }
-    );
+    )) as AnalysisInputs | null;
 
     if (!inputs) {
       throw new Error("Canonical product not found");

@@ -10,4 +10,11 @@ crons.cron(
   {}
 );
 
+crons.cron(
+  "daily continuous opportunity source dispatcher",
+  "0 5 * * *",
+  internal.continuousOpportunityEngine.runDueSourceDispatcherInternal,
+  {}
+);
+
 export default crons;

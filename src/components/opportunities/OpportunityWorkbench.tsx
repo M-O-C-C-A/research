@@ -8,6 +8,7 @@ import { DecisionOpportunityCards } from "./DecisionOpportunityCards";
 import { RebuildOpportunityEngineButton } from "./RebuildOpportunityEngineButton";
 import { ArrowRight, FileSearch, Target } from "lucide-react";
 import { WorkflowCallout } from "@/components/shared/WorkflowCallout";
+import { ContinuousOpportunityDashboard } from "./ContinuousOpportunityDashboard";
 
 export function OpportunityWorkbench() {
   const loadStats = useAction(api.decisionOpportunities.statsSnapshot);
@@ -50,16 +51,18 @@ export function OpportunityWorkbench() {
 
   return (
     <main className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <ContinuousOpportunityDashboard />
+
       <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.25em] text-[var(--brand-300)]">
-            Historical Research
+            Existing Decision Layer
           </p>
           <h1 className="mt-2 text-3xl font-semibold text-white">
-            Legacy opportunity research
+            Opportunity shortlist
           </h1>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-zinc-400">
-            This preserved workspace contains the previous scoring and research records. It does not publish leads to the outreach queue.
+            These promoted cards remain the analyst workspace for opening a product-company-market pursuit, generating a mandate report, and preparing outreach.
           </p>
         </div>
         <details className="w-full rounded-lg border border-zinc-800 bg-zinc-900 p-3 sm:w-auto">
@@ -78,13 +81,15 @@ export function OpportunityWorkbench() {
         </details>
       </div>
 
-      <WorkflowCallout
+      <div className="mb-8">
+        <WorkflowCallout
         eyebrow="Decision Flow"
         title="Open the top pursuit, clear blockers, then prepare outreach"
         description="Higher scores indicate better commercial fit. If a card is blocked, resolve the blocker before spending time on outreach."
         href={guidedFlow?.resumeHref ?? "/workflow"}
         actionLabel="Resume next action"
-      />
+        />
+      </div>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         {[

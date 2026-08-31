@@ -13,6 +13,7 @@ import { normalizeExternalUrl } from "@/lib/urlUtils";
 import { Button } from "@/components/ui/button";
 import { CountryCellEditor } from "@/components/drugs/CountryCellEditor";
 import { MandateReportPanel } from "@/components/opportunities/MandateReportPanel";
+import { DealEconomicsPanel } from "@/components/opportunities/DealEconomicsPanel";
 import { AlertTriangle, ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight } from "lucide-react";
 
 interface OpportunityDetailViewProps {
@@ -246,6 +247,8 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
       </section>
 
       <MandateReportPanel decisionOpportunityId={opportunityId} />
+
+      <DealEconomicsPanel decisionOpportunityId={opportunityId} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">

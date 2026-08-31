@@ -8,17 +8,21 @@ import { cn } from "@/lib/utils";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
 
 const NAV_LINKS = [
+  { label: "Screen", href: "/opportunities" },
   { label: "Leads", href: "/leads" },
   { label: "Products", href: "/drugs" },
   { label: "Companies", href: "/companies" },
+  { label: "Watchlist", href: "/watchlist" },
+  { label: "Markets", href: "/markets" },
+  { label: "Review", href: "/review" },
   { label: "Outreach", href: "/pipeline" },
 ];
 
 export function NavBar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const startProcessHref = "/leads";
-  const startProcessLabel = "Open Lead Queue";
+  const startProcessHref = "/opportunities";
+  const startProcessLabel = "Open Screen";
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";

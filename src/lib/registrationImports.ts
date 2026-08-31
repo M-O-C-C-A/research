@@ -68,6 +68,9 @@ const COUNTRY_ALIASES: Record<string, string> = {
   ksa: "Saudi Arabia",
   saudi: "Saudi Arabia",
   "saudi arabia": "Saudi Arabia",
+  egypt: "Egypt",
+  "arab republic of egypt": "Egypt",
+  "egyptian arab republic": "Egypt",
   "state of qatar": "Qatar",
 };
 

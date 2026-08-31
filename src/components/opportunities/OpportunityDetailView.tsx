@@ -12,6 +12,7 @@ import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/li
 import { normalizeExternalUrl } from "@/lib/urlUtils";
 import { Button } from "@/components/ui/button";
 import { CountryCellEditor } from "@/components/drugs/CountryCellEditor";
+import { MandateReportPanel } from "@/components/opportunities/MandateReportPanel";
 import { AlertTriangle, ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight } from "lucide-react";
 
 interface OpportunityDetailViewProps {
@@ -137,7 +138,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         />
       )}
       <GuidedFlowBanner
-        hereLabel="Best opportunity detail"
+        hereLabel="Opportunity detail"
         helperText="Use this page to validate the recommendation, clear blockers, and decide whether KEMEDICA is ready to send outreach now."
         nextHref={bannerNextHref}
       />
@@ -243,6 +244,8 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           </div>
         </div>
       </section>
+
+      <MandateReportPanel decisionOpportunityId={opportunityId} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
@@ -468,7 +471,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <div className="min-w-0 space-y-6">
-          <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6" open>
+          <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
             <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Decision details and scoring
             </summary>
@@ -559,10 +562,10 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
+          <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
+            <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Evidence And Transparency
-            </h3>
+            </summary>
             <div className="mt-4 space-y-3">
               {opportunity.evidence.length === 0 ? (
                 <p className="text-sm text-zinc-500">No structured evidence links yet.</p>
@@ -591,7 +594,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                 ))
               )}
             </div>
-          </div>
+          </details>
         </div>
 
         <div className="min-w-0 space-y-6">

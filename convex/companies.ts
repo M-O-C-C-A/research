@@ -68,16 +68,18 @@ function normalizeCompanyKey(name: string, country: string) {
 }
 
 export const list = query({
-  args: { search: v.optional(v.string()) },
-  handler: async (ctx, { search }) => {
-    const all = await ctx.db.query("companies").order("asc").collect();
-    if (!search) return all;
-    const q = search.toLowerCase();
+  args: { search: v.optional(v.string()), limit: v.optional(v.number()) },
+  handler: async (ctx, { search, limit }) => {
+    const normalizedSearch = search?.trim().toLowerCase();
+    const all = normalizedSearch
+      ? await ctx.db.query("companies").order("asc").collect()
+      : await ctx.db.query("companies").withIndex("by_name").take(limit ?? 500);
+    if (!normalizedSearch) return all;
     return all.filter(
       (c) =>
-        c.name.toLowerCase().includes(q) ||
-        c.country.toLowerCase().includes(q) ||
-        c.therapeuticAreas.some((a) => a.toLowerCase().includes(q))
+        c.name.toLowerCase().includes(normalizedSearch) ||
+        c.country.toLowerCase().includes(normalizedSearch) ||
+        c.therapeuticAreas.some((a) => a.toLowerCase().includes(normalizedSearch))
     );
   },
 });

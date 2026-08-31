@@ -833,17 +833,17 @@ export const analyzeCanonicalProductMarkets = action({
 export const getByCanonicalProduct = query({
   args: { canonicalProductId: v.id("canonicalProducts") },
   handler: async (ctx, { canonicalProductId }) => {
-    const [product, rows, gaps] = await Promise.all([
-      ctx.db.get(canonicalProductId),
-      ctx.db
-        .query("canonicalProductMarketAnalyses")
-        .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", canonicalProductId))
-        .collect(),
-      ctx.db
-        .query("gapOpportunities")
-        .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", canonicalProductId))
-        .collect(),
-    ]);
+    // Keep these inferred document types separate. The combined tuple becomes
+    // prohibitively deep once the schema includes the lead-engine records.
+    const product: CanonicalProductDoc | null = await ctx.db.get(canonicalProductId);
+    const rows: Doc<"canonicalProductMarketAnalyses">[] = await ctx.db
+      .query("canonicalProductMarketAnalyses")
+      .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", canonicalProductId))
+      .collect();
+    const gaps: GapDoc[] = await ctx.db
+      .query("gapOpportunities")
+      .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", canonicalProductId))
+      .collect();
 
     if (!product) return null;
 

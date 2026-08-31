@@ -162,7 +162,7 @@ export function DrugList() {
           ? "Refreshing FDA and EMA products, rebuilding the canonical graph, and rerunning GCC++ gap analysis."
           :
         source === "update"
-          ? "Pulling FDA and EMA records, then rebuilding the canonical product graph."
+          ? "Pulling FDA and EMA records, then refreshing the source evidence."
           : "Your product intelligence refresh is in progress.",
     });
     try {
@@ -185,8 +185,8 @@ export function DrugList() {
           title: "GCC++ workspace rebuilt",
           body:
             imported > 0
-              ? `Imported ${imported} FDA/EMA source records and launched the GCC++ gap refresh (job ${gapFlowJobId}). The sync steps already rebuilt the canonical product graph. If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`
-              : `The system rebuild completed and the GCC++ gap refresh was launched (job ${gapFlowJobId}), but no new FDA/EMA source records were imported in this run. The sync steps still rebuilt the canonical product graph. If you also want UAE registry evidence included, upload or apply the UAE workbook from Import Registrations.`,
+              ? `Imported ${imported} FDA/EMA source records and launched the opportunity refresh (job ${gapFlowJobId}). If you also want UAE registry evidence included, upload or apply the UAE workbook from Advanced imports.`
+              : `The system refresh completed and the opportunity refresh was launched (job ${gapFlowJobId}), but no new FDA/EMA source records were imported in this run. If you also want UAE registry evidence included, upload or apply the UAE workbook from Advanced imports.`,
         });
         shouldRefreshSyncStats = true;
       } else if (source === "update") {
@@ -211,7 +211,7 @@ export function DrugList() {
           setSyncMessage({
             tone: "success",
             title: "Product directory updated",
-            body: `Imported ${imported} source records. The FDA and EMA sync steps rebuilt the canonical product graph automatically.`,
+            body: `Imported ${imported} source records and refreshed the product evidence automatically.`,
           });
         }
         shouldRefreshSyncStats = true;
@@ -296,7 +296,7 @@ export function DrugList() {
           result.created > 0 ? "Product gap ready" : "No product-led gap created",
         body:
           result.created > 0
-            ? `${productName} now has a product-led gap in Best Opportunities / Gaps.`
+            ? `${productName} now has an opportunity in the main shortlist.`
             : result.summary,
       });
     } catch (error) {
@@ -326,21 +326,24 @@ export function DrugList() {
   return (
     <div>
       <GuidedFlowBanner
-        hereLabel="Product directory"
-        helperText="Use this list to review products, then open the product detail or best-opportunity view to decide what KEMEDICA should pursue next."
+        hereLabel="Products"
+        helperText="Use this list only when an opportunity needs product context: identity, owner, manufacturer, and market evidence."
       />
 
-      <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+      <details className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+        <summary className="cursor-pointer text-sm font-medium text-zinc-300">
+          Advanced imports and source refresh
+        </summary>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--brand-300)]">
-              Product Intelligence Sync
+              Admin
             </p>
             <h2 className="mt-2 text-lg font-semibold text-white">
-              Update the product directory
+              Refresh source data
             </h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Pull FDA and EMA product records into the directory, then rebuild the canonical product graph automatically.
+              Pull FDA and EMA records, rebuild the product graph, or import registrations when the underlying evidence needs maintenance.
             </p>
             <p className="mt-2 text-xs text-zinc-500">
               {syncStats
@@ -481,7 +484,7 @@ export function DrugList() {
             )}
           </div>
         </div>
-      </div>
+      </details>
 
       <div className="mb-6 flex flex-wrap gap-3">
         <div className="relative w-full flex-1 sm:min-w-48 sm:max-w-sm">
@@ -508,18 +511,12 @@ export function DrugList() {
             ))}
           </SelectContent>
         </Select>
-        <Link
-          href="/drugs/imports"
-          className={cn(buttonVariants({ variant: "outline", size: "sm" }))}
-        >
-          Import Registrations
-        </Link>
         <AddDrugButton />
       </div>
 
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
         <p className="text-sm text-zinc-300">
-          Use this page as your product directory. It now reads from the canonical FDA/EU product graph so you can compare brand, INN, source geography, ownership, and regulatory identity before outreach.
+          Products are supporting context for deciding whether a pursuit is real. Open a product when you need to confirm identity, owner, manufacturer, or country evidence before outreach.
         </p>
         <div className="mt-4 rounded-lg border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-300)]">
@@ -674,7 +671,7 @@ export function DrugList() {
                         href={`/drugs/catalog/${product._id}`}
                         className="inline-flex items-center gap-1 text-sm text-[var(--brand-300)] hover:text-[var(--brand-400)]"
                       >
-                        Review product intelligence
+                        Research product
                         <ArrowRight className="h-4 w-4" />
                       </Link>
                       <Button

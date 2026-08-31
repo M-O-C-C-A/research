@@ -218,6 +218,10 @@ export const repairData = mutation({
 export const runRepair = action({
   args: {},
   handler: async (ctx) => {
-    return await ctx.runMutation(api.researchLifecycle.repairData, {});
+    const result: { drugsNormalized: number; gapsMerged: number } = await ctx.runMutation(
+      api.researchLifecycle.repairData,
+      {}
+    );
+    return result;
   },
 });

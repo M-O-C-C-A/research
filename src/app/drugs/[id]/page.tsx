@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DrugDetail } from "@/components/drugs/DrugDetail";
 import { DrugDetailTabs } from "@/components/drugs/DrugDetailTabs";
+import { ResearchPanel } from "@/components/research/ResearchPanel";
 
 export default async function DrugDetailPage({
   params,
@@ -16,10 +17,13 @@ export default async function DrugDetailPage({
           { label: "Drugs", href: "/drugs" },
           { label: "Drug detail" },
         ]}
-        title="Drug review"
-        description="Review this product, understand the market opportunity, generate a decision brief, and move to the next recommended action."
+        title="Product"
+        description="Confirm product identity, market evidence, and the next pursuit decision."
       />
       <DrugDetail drugId={id} />
+      <div className="mb-6">
+        <ResearchPanel target="product" targetId={id} />
+      </div>
       <DrugDetailTabs drugId={id} />
     </main>
   );

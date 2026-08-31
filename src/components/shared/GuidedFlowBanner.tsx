@@ -31,11 +31,11 @@ export function GuidedFlowBanner({
   nextLabel: nextLabelOverride,
   guidedFlow,
 }: GuidedFlowBannerProps) {
-  const nextLabel = nextLabelOverride ?? guidedFlow?.primaryAction.label ?? "Start with a company";
+  const nextLabel = nextLabelOverride ?? guidedFlow?.primaryAction.label ?? "Review opportunities";
   const nextHref = nextHrefOverride ?? guidedFlow?.resumeHref ?? "/workflow";
   const currentStep = guidedFlow?.currentStep
     ? STEP_LABELS[guidedFlow.currentStep] ?? guidedFlow.currentStep
-    : "Choose a company";
+    : "Review opportunities";
 
   return (
     <div className="rounded-xl border border-[color:var(--brand-border)] bg-zinc-900/90 p-4 shadow-[0_20px_60px_-40px_var(--brand-glow)]">

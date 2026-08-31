@@ -13,10 +13,10 @@ export default async function GapPage({
       <PageHeader
         breadcrumbs={[
           { label: "Opportunities", href: "/gaps" },
-          { label: "Gap Detail" },
+          { label: "Opportunity Detail" },
         ]}
-        title="Gap Opportunity"
-        description="Demand gap, supplier matches, product links, and promotion state in one canonical view."
+        title="Opportunity"
+        description="Review the pursuit, evidence, blockers, and next commercial action."
       />
       <GapDetailPage gapId={id} />
     </main>

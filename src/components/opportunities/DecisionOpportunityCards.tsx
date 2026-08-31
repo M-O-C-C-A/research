@@ -6,8 +6,8 @@ import { useAction } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { CardGridSkeleton } from "@/components/shared/LoadingSkeleton";
 import { normalizeExternalUrl } from "@/lib/urlUtils";
-import { AlertTriangle, ArrowRight, ExternalLink, Globe2, Linkedin, Mail, MapPinned, Radar, ShieldCheck } from "lucide-react";
-import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
+import { AlertTriangle, ArrowRight, Mail, MapPinned, Radar, ShieldCheck } from "lucide-react";
+import { confidenceBadgeClass, statusBadgeClass } from "@/lib/decisionOpportunities";
 
 interface DecisionOpportunityCardsProps {
   limit?: number;
@@ -109,25 +109,21 @@ export function DecisionOpportunityCards({
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {visibleOpportunities.map((item) => {
             const readyToSend = item.outreachReady;
-            const websiteUrl = normalizeExternalUrl(item.companyWebsite);
-            const companyLinkedinUrl = normalizeExternalUrl(item.companyLinkedinUrl);
             const contactLinkedinUrl = normalizeExternalUrl(item.contactLinkedinUrl);
+            const primaryBlocker =
+              item.blockedFocusMarkets && item.blockedFocusMarkets.length > 0
+                ? `Already registered in ${item.blockedFocusMarkets.join(", ")}`
+                : readyToSend
+                  ? "Ready for outreach"
+                  : "Needs validation before outreach";
             return (
             <Link
               key={item._id}
               href={`/opportunities/${item._id}`}
-              className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 transition-all hover:border-zinc-700 hover:bg-zinc-950"
+              className="rounded-xl border border-zinc-800 bg-zinc-950/70 p-4 transition-colors hover:border-zinc-700 hover:bg-zinc-950"
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <span className="inline-flex rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-semibold text-zinc-400">
-                      #{item.rankingPosition ?? "—"}
-                    </span>
-                    <span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-medium ${statusBadgeClass(item.status)}`}>
-                      {item.status.replace("_", " ")}
-                    </span>
-                  </div>
                   <p className="truncate text-sm font-semibold text-white">{item.productName}</p>
                   <p className="truncate text-xs text-zinc-500">
                     {item.genericName} · {item.approachEntityName}
@@ -135,11 +131,14 @@ export function DecisionOpportunityCards({
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-white">{item.priorityScore.toFixed(1)}</p>
-                  <p className="text-[11px] text-zinc-500">priority</p>
+                  <p className="text-[11px] text-zinc-500">score</p>
                 </div>
               </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
+                <span className="inline-flex rounded-md bg-zinc-900 px-2 py-1 text-[11px] font-semibold text-zinc-400">
+                  #{item.rankingPosition ?? "—"}
+                </span>
                 <span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-medium ${confidenceBadgeClass(item.confidenceLevel)}`}>
                   {item.confidenceLevel} confidence
                 </span>
@@ -152,29 +151,18 @@ export function DecisionOpportunityCards({
                 >
                   {readyToSend ? "outreach ready" : "blocked"}
                 </span>
-                <span className="inline-flex rounded-md bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300">
-                  {entryStrategyLabel(item.entryStrategy)}
+                <span className={`inline-flex rounded-md px-2 py-1 text-[11px] font-medium ${statusBadgeClass(item.status)}`}>
+                  {item.status.replace("_", " ")}
                 </span>
-                <span className="inline-flex rounded-md bg-zinc-900 px-2 py-1 text-[11px] text-zinc-300">
-                  {item.regulatoryFeasibility}
-                </span>
-                {item.blockedFocusMarkets?.map((market) => (
-                  <span
-                    key={`${item._id}-${market}-registered`}
-                    className="inline-flex rounded-md border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-[11px] text-amber-200"
-                  >
-                    already registered in {market}
-                  </span>
-                ))}
               </div>
 
               <div className="mt-4 space-y-3 text-xs text-zinc-400">
                 <div className="rounded-lg border border-zinc-800 bg-zinc-900/40 px-3 py-2.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                    What this is
+                    What to pursue
                   </p>
                   <p className="mt-1 text-zinc-300">
-                    {item.productName} for {item.focusMarkets.join(", ")} via {item.approachEntityName}.
+                    {item.productName} in {item.focusMarkets.join(", ")}
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -187,49 +175,16 @@ export function DecisionOpportunityCards({
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
-                  <ShieldCheck className="mt-0.5 h-3.5 w-3.5 text-emerald-400" />
-                  <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                      What to do next
-                    </p>
-                    <p className="mt-1">{item.howToEnterExplanation}</p>
-                  </div>
-                </div>
-                {item.companyFootprintStatus &&
-                  item.companyFootprintStatus !== "clean_whitespace" && (
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-300" />
-                      <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-amber-200">
-                          Commercial caution
-                        </p>
-                        <p className="mt-1 text-amber-100">
-                          {item.companyFootprintReason ??
-                            "The linked company already shows some GCC++ footprint, so this opportunity is less clean commercially."}
-                        </p>
-                      </div>
-                    </div>
+                  {readyToSend ? (
+                    <ShieldCheck className="mt-0.5 h-3.5 w-3.5 text-emerald-400" />
+                  ) : (
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 text-amber-300" />
                   )}
-                <div className="flex items-start gap-2">
-                  <Globe2 className="mt-0.5 h-3.5 w-3.5 text-[var(--brand-300)]" />
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
-                      Company details
+                      What blocks it
                     </p>
-                    <div className="mt-1 flex flex-wrap gap-3 text-zinc-300">
-                      {websiteUrl && (
-                        <span className="inline-flex items-center gap-1">
-                          <ExternalLink className="h-3 w-3" />
-                          Website
-                        </span>
-                      )}
-                      {companyLinkedinUrl && (
-                        <span className="inline-flex items-center gap-1">
-                          <Linkedin className="h-3 w-3" />
-                          Company LinkedIn
-                        </span>
-                      )}
-                    </div>
+                    <p className="mt-1">{primaryBlocker}</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-2">
@@ -243,11 +198,9 @@ export function DecisionOpportunityCards({
                         ? `${item.contactName} · ${item.contactTitle ?? item.targetRole}`
                         : item.targetRole}
                     </p>
-                    {(item.contactEmail || contactLinkedinUrl) && (
-                      <div className="mt-1 flex flex-wrap gap-3 text-zinc-300">
-                        {item.contactEmail && <span>{item.contactEmail}</span>}
-                        {contactLinkedinUrl && <span>LinkedIn</span>}
-                      </div>
+                    {item.contactEmail && <p className="mt-1 text-zinc-300">{item.contactEmail}</p>}
+                    {!item.contactEmail && contactLinkedinUrl && (
+                      <p className="mt-1 text-zinc-300">LinkedIn available</p>
                     )}
                   </div>
                 </div>

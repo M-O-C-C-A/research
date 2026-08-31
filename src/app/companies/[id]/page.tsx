@@ -1,6 +1,7 @@
 import { PageHeader } from "@/components/shared/PageHeader";
 import { CompanyDetail } from "@/components/companies/CompanyDetail";
 import { CompanyDrugList } from "@/components/companies/CompanyDrugList";
+import { ResearchPanel } from "@/components/research/ResearchPanel";
 
 export default async function CompanyDetailPage({
   params,
@@ -16,10 +17,13 @@ export default async function CompanyDetailPage({
           { label: "Companies", href: "/companies" },
           { label: "Company detail" },
         ]}
-        title="Company review"
-        description="Use this page to understand the company, review its products, and decide whether it belongs in the next outreach step."
+        title="Company"
+        description="Confirm fit, contacts, and linked products for an active opportunity."
       />
       <CompanyDetail companyId={id} />
+      <div className="mb-6">
+        <ResearchPanel target="company" targetId={id} />
+      </div>
       <CompanyDrugList companyId={id} />
     </main>
   );

@@ -108,7 +108,9 @@ function SignalRow({ item }: { item: InboxItem }) {
           {item.contact ? <><p className="text-sm text-zinc-200">{item.contact.name}</p><p className="mt-1 text-xs text-zinc-500">{item.contact.title}</p></> : <span className="text-sm text-amber-200">No current route</span>}
         </TableCell>
         <TableCell className="max-w-64 py-3 whitespace-normal">
-          <p className="text-xs leading-relaxed text-zinc-400">{item.blockers[0] ?? "All evidence gates passed."}</p>
+          <span className="inline-flex border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[11px] font-medium text-emerald-200">{item.originLabel}</span>
+          <p className="mt-2 text-xs capitalize text-zinc-500">{item.readinessStatus.replaceAll("_", " ")}</p>
+          <p className="mt-1 text-xs leading-relaxed text-zinc-400">{item.blockers[0] ?? "All evidence gates passed."}</p>
           {item.blockers.length > 1 && <p className="mt-1 text-xs text-zinc-600">+{item.blockers.length - 1} more</p>}
         </TableCell>
         <TableCell className="pr-4 py-3 whitespace-normal">

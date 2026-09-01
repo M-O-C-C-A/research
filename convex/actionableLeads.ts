@@ -1,7 +1,7 @@
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { Doc, Id } from "./_generated/dataModel";
-import { evaluateLeadGate, isOutreachQualifyingSignal } from "./leadQualification";
+import { evaluateLeadGate, isOutreachQualifyingSignal, LEAD_EVIDENCE_MAX_AGE_DAYS } from "./leadQualification";
 
 const DAY = 24 * 60 * 60 * 1000;
 const ACTIVE_STAGES = ["new", "working", "contacted", "replied"] as const;
@@ -177,15 +177,28 @@ function companyHasConflictingMarketAccess(company: Doc<"companies"> | undefined
   );
 }
 
+function enrichQuickWinLead(lead: Doc<"actionableLeads">) {
+  return {
+    ...lead,
+    origin: lead.origin ?? ("quick_win_signal" as const),
+    originLabel: "Quick win" as const,
+    readinessStatus: lead.readinessStatus ?? ("outreach_ready" as const),
+    rankRationale: lead.rankRationale ?? "Quick-win signal ranked by freshness, urgency, deadline, and contact route.",
+    blockers: lead.blockers ?? [],
+    targetCountry: lead.country,
+  };
+}
+
 export const list = query({
   args: { stage: v.optional(LEAD_STAGE), limit: v.optional(v.number()) },
   handler: async (ctx, { stage, limit = 50 }) => {
     if (stage) {
-      return await ctx.db
+      const rows = await ctx.db
         .query("actionableLeads")
         .withIndex("by_stage_and_rank_score", (q) => q.eq("stage", stage))
         .order("desc")
         .take(limit);
+      return rows.map(enrichQuickWinLead);
     }
 
     const groups = await Promise.all(
@@ -200,7 +213,8 @@ export const list = query({
     return groups
       .flat()
       .sort((left, right) => right.rankScore - left.rankScore || right.updatedAt - left.updatedAt)
-      .slice(0, limit);
+      .slice(0, limit)
+      .map(enrichQuickWinLead);
   },
 });
 
@@ -370,8 +384,18 @@ export const listSignalInbox = query({
         hasNamedContact: Boolean(contact?.name),
         hasPublicRoute: Boolean(contact?.email || contact?.linkedinUrl),
         contactVerifiedAt: contact?.verifiedAt,
+        requireContact: false,
       });
-      const suggestedAction = !signal.isOfficial || signal.observedAt < now - 14 * DAY
+      const readinessStatus = gate.eligible
+        ? contact
+          ? ("outreach_ready" as const)
+          : ("needs_contact" as const)
+        : ("blocked" as const);
+      const contactBlockers =
+        gate.eligible && !contact
+          ? ["No current public business contact is available yet."]
+          : [];
+      const suggestedAction = !signal.isOfficial || signal.observedAt < now - LEAD_EVIDENCE_MAX_AGE_DAYS * DAY
         ? "No action: evidence has expired"
         : resolution?.productMatchStatus === "not_relevant"
           ? "Marked not relevant"
@@ -401,7 +425,12 @@ export const listSignalInbox = query({
           .map((company) => ({ _id: company._id, name: company.name })),
         contact: contact && { name: contact.name, title: contact.title, email: contact.email, linkedinUrl: contact.linkedinUrl },
         eligible: gate.eligible,
-        blockers: gate.blockers,
+        origin: "quick_win_signal" as const,
+        originLabel: "Quick win" as const,
+        readinessStatus,
+        rankRationale: "Quick-win signal ranked by freshness, urgency, deadline, and contact route.",
+        blockers: [...gate.blockers, ...contactBlockers],
+        targetCountry: signal.country,
         suggestedAction,
       }];
     });
@@ -433,8 +462,8 @@ export const inboxStats = query({
       isOutreachQualifyingSignal(signal.signalType)
     );
     return {
-      currentOutreachSignals: outreachSignals.filter((signal) => signal.observedAt >= now - 14 * DAY).length,
-      staleOutreachSignals: outreachSignals.filter((signal) => signal.observedAt < now - 14 * DAY).length,
+      currentOutreachSignals: outreachSignals.filter((signal) => signal.observedAt >= now - LEAD_EVIDENCE_MAX_AGE_DAYS * DAY).length,
+      staleOutreachSignals: outreachSignals.filter((signal) => signal.observedAt < now - LEAD_EVIDENCE_MAX_AGE_DAYS * DAY).length,
     };
   },
 });
@@ -471,7 +500,7 @@ export const listCurrentSignalIds = internalQuery({
     ]);
     const now = Date.now();
     return [...saudiSignals, ...uaeSignals, ...egyptSignals]
-      .filter((signal) => signal.observedAt >= now - 14 * DAY && isOutreachQualifyingSignal(signal.signalType))
+      .filter((signal) => signal.observedAt >= now - LEAD_EVIDENCE_MAX_AGE_DAYS * DAY && isOutreachQualifyingSignal(signal.signalType))
       .map((signal) => signal._id);
   },
 });
@@ -845,6 +874,7 @@ export const requalifySignals = internalMutation({
         hasNamedContact: Boolean(contact?.name),
         hasPublicRoute: Boolean(contact?.email || contact?.linkedinUrl),
         contactVerifiedAt: contact?.verifiedAt,
+        requireContact: false,
       });
       if (!gate.eligible || !contact) continue;
 
@@ -881,6 +911,10 @@ export const requalifySignals = internalMutation({
         signalTitle: signal.title,
         sourceUrl: signal.sourceUrl,
         deadline: signal.deadline,
+        origin: "quick_win_signal" as const,
+        readinessStatus: "outreach_ready" as const,
+        rankRationale: "Quick-win signal ranked by freshness, urgency, deadline, and contact route.",
+        blockers: [] as string[],
         rankScore,
         qualificationReasons,
         lastQualifiedAt: now,

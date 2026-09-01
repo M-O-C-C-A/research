@@ -54,6 +54,8 @@ import type * as researchEvidencePolicy from "../researchEvidencePolicy.js";
 import type * as researchInputs from "../researchInputs.js";
 import type * as researchLifecycle from "../researchLifecycle.js";
 import type * as researchWorkflow from "../researchWorkflow.js";
+import type * as sustainableOpportunities from "../sustainableOpportunities.js";
+import type * as sustainableOpportunityQualification from "../sustainableOpportunityQualification.js";
 import type * as tavilyResearch from "../tavilyResearch.js";
 
 import type {
@@ -109,6 +111,8 @@ declare const fullApi: ApiFromModules<{
   researchInputs: typeof researchInputs;
   researchLifecycle: typeof researchLifecycle;
   researchWorkflow: typeof researchWorkflow;
+  sustainableOpportunities: typeof sustainableOpportunities;
+  sustainableOpportunityQualification: typeof sustainableOpportunityQualification;
   tavilyResearch: typeof tavilyResearch;
 }>;
 

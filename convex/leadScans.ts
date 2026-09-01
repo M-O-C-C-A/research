@@ -103,6 +103,7 @@ async function runScan(ctx: ActionCtx, trigger: "manual" | "scheduled") {
   const warnings: string[] = [];
   let signalsFound = 0;
   let leadsPublished = 0;
+  let sustainableOpportunities = 0;
   let successfulSources = 0;
 
   try {
@@ -163,6 +164,11 @@ async function runScan(ctx: ActionCtx, trigger: "manual" | "scheduled") {
       );
       leadsPublished = qualification.published;
     }
+    const sustainable: { published: number } = await ctx.runMutation(
+      internal.sustainableOpportunities.rebuild,
+      {}
+    );
+    sustainableOpportunities = sustainable.published;
     const leadsExpired: number = await ctx.runMutation(internal.actionableLeads.expireStale, {});
     const status =
       successfulSources === 0 ? "error" : warnings.length > 0 ? "partial" : "completed";
@@ -175,7 +181,7 @@ async function runScan(ctx: ActionCtx, trigger: "manual" | "scheduled") {
       warnings,
       ...(successfulSources === 0 ? { errorMessage: "No official source could be fetched." } : {}),
     });
-    return { scanId, status, signalsFound, leadsPublished, leadsExpired, warnings };
+    return { scanId, status, signalsFound, leadsPublished, sustainableOpportunities, leadsExpired, warnings };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     await ctx.runMutation(internal.actionableLeads.completeScanRun, {

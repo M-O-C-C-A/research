@@ -103,6 +103,17 @@ const leadSignalType = v.union(
   v.literal("registration")
 );
 
+const leadOrigin = v.union(
+  v.literal("sustainable_whitespace"),
+  v.literal("quick_win_signal")
+);
+
+const opportunityReadinessStatus = v.union(
+  v.literal("needs_contact"),
+  v.literal("outreach_ready"),
+  v.literal("blocked")
+);
+
 const actionableLeadStage = v.union(
   v.literal("new"),
   v.literal("working"),
@@ -603,6 +614,7 @@ const registrationFactStatus = v.union(
   v.literal("not_registered"),
   v.literal("not_found_unverified"),
   v.literal("verified_absent"),
+  v.literal("under_registration"),
   v.literal("pending"),
   v.literal("withdrawn"),
   v.literal("suspended"),
@@ -833,7 +845,15 @@ export default defineSchema({
     patentUrgencyScore: v.optional(v.number()),
     menaRegistrations: v.optional(v.array(v.object({
       country: v.string(),
-      status: v.union(v.literal("registered"), v.literal("not_found"), v.literal("unverified")),
+      status: v.union(
+        v.literal("registered"),
+        v.literal("under_registration"),
+        v.literal("verified_absent"),
+        v.literal("not_found"),
+        v.literal("not_found_unverified"),
+        v.literal("unverified"),
+        v.literal("unknown")
+      ),
       registrationNumber: v.optional(v.string()),
       source: v.string(),
       url: v.optional(v.string()),
@@ -2295,6 +2315,10 @@ export default defineSchema({
     signalTitle: v.string(),
     sourceUrl: v.string(),
     deadline: v.optional(v.number()),
+    origin: v.optional(leadOrigin),
+    readinessStatus: v.optional(opportunityReadinessStatus),
+    rankRationale: v.optional(v.string()),
+    blockers: v.optional(v.array(v.string())),
     stage: actionableLeadStage,
     rankScore: v.number(),
     qualificationReasons: v.array(v.string()),
@@ -2306,6 +2330,40 @@ export default defineSchema({
     .index("by_stage_and_rank_score", ["stage", "rankScore"])
     .index("by_company_and_stage", ["companyId", "stage"])
     .index("by_signal_and_drug_and_company", ["signalId", "drugId", "companyId"])
+    .index("by_stale_after", ["staleAfter"])
+    .index("by_updated_at", ["updatedAt"]),
+
+  candidateOpportunities: defineTable({
+    origin: leadOrigin,
+    readinessStatus: opportunityReadinessStatus,
+    drugId: v.id("drugs"),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    companyId: v.id("companies"),
+    productName: v.string(),
+    genericName: v.string(),
+    approachEntityName: v.string(),
+    targetCountry: leadCountry,
+    targetCountries: v.array(leadCountry),
+    sourceSystems: v.array(productSourceSystem),
+    approvalDate: v.optional(v.string()),
+    approvedAt: v.optional(v.number()),
+    evidenceObservedAt: v.number(),
+    sourceUrl: v.string(),
+    rankScore: v.number(),
+    rankRationale: v.string(),
+    blockers: v.array(v.string()),
+    qualificationReasons: v.array(v.string()),
+    contactName: v.optional(v.string()),
+    contactTitle: v.optional(v.string()),
+    contactRoute: v.optional(v.union(v.literal("email"), v.literal("linkedin"))),
+    lastQualifiedAt: v.number(),
+    staleAfter: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_origin_and_rank_score", ["origin", "rankScore"])
+    .index("by_readiness_status_and_rank_score", ["readinessStatus", "rankScore"])
+    .index("by_drug_and_company_and_target_country", ["drugId", "companyId", "targetCountry"])
     .index("by_stale_after", ["staleAfter"])
     .index("by_updated_at", ["updatedAt"]),
 

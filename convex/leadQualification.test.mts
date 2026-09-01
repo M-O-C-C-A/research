@@ -24,11 +24,29 @@ test("fails closed for missing ownership, conflicts, stale sources, and absent c
   for (const input of [
     { ...validInput, ownershipConfirmed: false },
     { ...validInput, conflictingMarketAccess: true },
-    { ...validInput, observedAt: now - 15 * 24 * 60 * 60 * 1000 },
+    { ...validInput, observedAt: now - 91 * 24 * 60 * 60 * 1000 },
     { ...validInput, hasNamedContact: false, hasPublicRoute: false },
   ]) {
     assert.equal(evaluateLeadGate(input).eligible, false);
   }
+});
+
+test("keeps official quick-win evidence current for 90 days", () => {
+  assert.equal(evaluateLeadGate({ ...validInput, observedAt: now - 89 * 24 * 60 * 60 * 1000 }).eligible, true);
+  assert.equal(evaluateLeadGate({ ...validInput, observedAt: now - 91 * 24 * 60 * 60 * 1000 }).eligible, false);
+});
+
+test("can evaluate second-root evidence before contact discovery", () => {
+  assert.equal(
+    evaluateLeadGate({
+      ...validInput,
+      hasNamedContact: false,
+      hasPublicRoute: false,
+      contactVerifiedAt: undefined,
+      requireContact: false,
+    }).eligible,
+    true
+  );
 });
 
 test("keeps registration evidence out of the outreach workflow", () => {

@@ -10,6 +10,7 @@ import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { ProductMarketAnalysisPanel } from "@/components/drugs/ProductMarketAnalysisPanel";
+import { ResearchButton } from "@/components/research/ResearchPanel";
 
 const STATUS_STYLES: Record<string, string> = {
   active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30",
@@ -126,6 +127,9 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
             </div>
           </div>
           <div className="flex flex-col items-start gap-2 sm:items-end">
+            {product.linkedDrugs[0] && (
+              <ResearchButton target="product" targetId={product.linkedDrugs[0]._id} />
+            )}
             <Button
               type="button"
               onClick={() => void handleAnalyzeProductGap()}
@@ -187,11 +191,22 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
         </div>
 
         {marketAnalysis && marketAnalysis.countries.length > 0 && (
-          <ProductMarketAnalysisPanel analysis={marketAnalysis} />
+          <details className="mt-6 rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+            <summary className="cursor-pointer text-sm font-medium text-zinc-300">
+              Detailed market evidence
+            </summary>
+            <div className="mt-4">
+              <ProductMarketAnalysisPanel analysis={marketAnalysis} />
+            </div>
+          </details>
         )}
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+      <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-6">
+        <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wider text-zinc-300">
+          Advanced product graph
+        </summary>
+      <section className="mt-5 grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
         <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-900 p-6">
           <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">Regulatory identity</p>
           <div className="mt-4 space-y-3">
@@ -341,6 +356,7 @@ export function CanonicalProductDetail({ productId }: CanonicalProductDetailProp
           )}
         </div>
       </section>
+      </details>
     </div>
   );
 }

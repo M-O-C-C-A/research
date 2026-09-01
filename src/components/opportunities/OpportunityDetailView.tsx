@@ -12,7 +12,10 @@ import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/li
 import { normalizeExternalUrl } from "@/lib/urlUtils";
 import { Button } from "@/components/ui/button";
 import { CountryCellEditor } from "@/components/drugs/CountryCellEditor";
-import { AlertTriangle, ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight } from "lucide-react";
+import { MandateReportPanel } from "@/components/opportunities/MandateReportPanel";
+import { DealEconomicsPanel } from "@/components/opportunities/DealEconomicsPanel";
+import { SizingCascadePanel } from "@/components/opportunities/SizingCascadePanel";
+import { AlertTriangle, ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight, Download } from "lucide-react";
 
 interface OpportunityDetailViewProps {
   opportunityId: string;
@@ -137,7 +140,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
         />
       )}
       <GuidedFlowBanner
-        hereLabel="Best opportunity detail"
+        hereLabel="Opportunity detail"
         helperText="Use this page to validate the recommendation, clear blockers, and decide whether KEMEDICA is ready to send outreach now."
         nextHref={bannerNextHref}
       />
@@ -177,6 +180,22 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">Priority Score</p>
             <p className="mt-1 text-3xl font-bold text-white">{opportunity.priorityScore.toFixed(1)}</p>
             <p className="text-xs text-zinc-500">Focus: {opportunity.focusMarkets.join(", ")}</p>
+            <div className="mt-3 flex flex-wrap justify-start gap-2 sm:justify-end">
+              <a
+                href={`/api/opportunities/${opportunityId}/asset-brief.pdf`}
+                className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:text-white"
+              >
+                <Download className="h-3.5 w-3.5" />
+                PDF brief
+              </a>
+              <a
+                href={`/api/opportunities/${opportunityId}/model.xlsx`}
+                className="inline-flex items-center gap-1 rounded-md border border-zinc-700 px-2.5 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:border-zinc-500 hover:text-white"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Excel model
+              </a>
+            </div>
           </div>
         </div>
       </section>
@@ -243,6 +262,12 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           </div>
         </div>
       </section>
+
+      <MandateReportPanel decisionOpportunityId={opportunityId} />
+
+      <SizingCascadePanel decisionOpportunityId={opportunityId} />
+
+      <DealEconomicsPanel decisionOpportunityId={opportunityId} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
@@ -468,7 +493,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
         <div className="min-w-0 space-y-6">
-          <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6" open>
+          <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
             <summary className="cursor-pointer list-none text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Decision details and scoring
             </summary>
@@ -559,10 +584,10 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </div>
           </div>
 
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
+          <details className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
+            <summary className="cursor-pointer text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Evidence And Transparency
-            </h3>
+            </summary>
             <div className="mt-4 space-y-3">
               {opportunity.evidence.length === 0 ? (
                 <p className="text-sm text-zinc-500">No structured evidence links yet.</p>
@@ -591,7 +616,7 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                 ))
               )}
             </div>
-          </div>
+          </details>
         </div>
 
         <div className="min-w-0 space-y-6">

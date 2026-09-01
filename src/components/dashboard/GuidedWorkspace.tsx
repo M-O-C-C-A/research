@@ -76,7 +76,7 @@ export function GuidedWorkspace() {
   const pipeline = snapshot?.activeOutreachCount ?? 0;
   const needsValidation = guidedFlow?.needsValidationCount ?? 0;
 
-  const currentStage = guidedFlow?.currentStep ?? "company";
+  const currentStage = guidedFlow?.currentStep ?? "opportunity";
   const highlightedStep =
     currentStage === "blockers" || currentStage === "outreach"
       ? "outreach"
@@ -85,38 +85,38 @@ export function GuidedWorkspace() {
         : currentStage;
   const recommendedNextAction = guidedFlow?.primaryAction
     ? {
-        label: currentStage === "follow_up" ? "Continue Process" : "Start Process",
+        label: currentStage === "follow_up" ? "Continue Process" : "Review Opportunities",
         title: guidedFlow.primaryAction.label,
         description: guidedFlow.primaryAction.description,
         href: guidedFlow.primaryAction.href,
         actionLabel: guidedFlow.primaryAction.label,
       }
     : {
-        label: "Start Process",
-        title: "Start with a company",
-        description: "Add one manufacturer so the system can guide you toward a real opportunity.",
-        href: "/companies",
-        actionLabel: "Start with a company",
+        label: "Review Opportunities",
+        title: "Start with the shortlist",
+        description: "Open the ranked opportunities and decide which pursuit deserves outreach.",
+        href: "/gaps",
+        actionLabel: "Open opportunities",
       };
 
   const steps: WorkflowStep[] = [
     {
       key: "company",
-      label: "Choose a company",
+      label: "Confirm company",
       description:
-        "Start with one manufacturer you care about. This creates the account you will evaluate, contact, and move through outreach.",
+        "Use companies as supporting context when an opportunity needs manufacturer fit or contact confirmation.",
       href: "/companies",
-      actionLabel: "Open company directory",
+      actionLabel: "Open companies",
       complete: companies > 0,
       icon: Building2,
     },
     {
       key: "product",
-      label: "Add the right product",
+      label: "Confirm product",
       description:
-        "Add one drug or product so the system can connect manufacturer ownership, market access, and whitespace in MENA.",
+        "Use product records to confirm identity, ownership, and evidence behind an opportunity.",
       href: "/drugs",
-      actionLabel: "Open product directory",
+      actionLabel: "Open products",
       complete: drugs > 0,
       icon: FileSearch,
     },
@@ -339,14 +339,14 @@ export function GuidedWorkspace() {
 
       <section className="space-y-4">
         <WorkflowCallout
-          eyebrow="Best Opportunities"
-          title="Where you should focus once the current step is done"
+          eyebrow="Opportunities"
+          title="Where you should focus next"
           description="These are the clearest opportunities in the system right now based on market need, route to market, and contact direction."
           href="/gaps"
           actionLabel="Open all opportunities"
         />
         <DecisionOpportunityCards
-          title="Best opportunities right now"
+          title="Opportunities right now"
           description="Shortlisted plays that are closest to a practical KEMEDICA move."
         />
       </section>

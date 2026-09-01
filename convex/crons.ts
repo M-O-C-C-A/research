@@ -1,0 +1,27 @@
+import { cronJobs } from "convex/server";
+import { internal } from "./_generated/api";
+
+const crons = cronJobs();
+
+crons.cron(
+  "weekly evidence-first lead scan",
+  "0 6 * * 1",
+  internal.leadScans.runWeeklyInternal,
+  {}
+);
+
+crons.cron(
+  "daily continuous opportunity source dispatcher",
+  "0 5 * * *",
+  internal.continuousOpportunityEngine.runDueSourceDispatcherInternal,
+  {}
+);
+
+crons.cron(
+  "daily continuous opportunity alert delivery",
+  "20 5 * * *",
+  internal.continuousOpportunityEngine.processPendingAlertDeliveriesInternal,
+  {}
+);
+
+export default crons;

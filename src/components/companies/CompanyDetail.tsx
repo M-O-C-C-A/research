@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/shared/EmptyState";
 import { FindDrugsButton } from "@/components/discovery/FindDrugsButton";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
+import { ResearchButton } from "@/components/research/ResearchPanel";
 import {
   Globe,
   MapPin,
@@ -348,6 +349,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            <ResearchButton target="company" targetId={companyId} />
             <Link
               href="/gaps"
               className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
@@ -388,7 +390,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                 Outreach Contact
               </p>
               <p className="mt-2 text-sm text-zinc-300">
-                Add one reachable person here so outreach readiness can clear without waiting for automated research.
+                Keep a reference contact here when useful. Source-backed contact research is required before a contact can qualify a lead.
               </p>
             </div>
             <Button
@@ -445,7 +447,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
             </div>
           </div>
           <p className="mt-3 text-xs text-zinc-500">
-            Add an email or LinkedIn URL to satisfy the contact-confirmed check.
+            Legacy contact fields are for reference. Use Evidence-first research below to create a source-backed contact that can qualify a lead.
           </p>
         </div>
 
@@ -472,8 +474,8 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
           <div className="mt-4">
             <EmptyState
               icon={<Building2 className="h-8 w-8" />}
-              title="No company research yet"
-              description="This company exists in the directory, but its profile has not been enriched yet. Research the company or add products to make this page useful."
+              title="No legacy company dossier yet"
+              description="Use Evidence-first research below to collect reviewed claims. The legacy dossier remains available here for historical context."
               action={
                 <div className="flex flex-wrap justify-center gap-3">
                   <FindDrugsButton companyId={companyId} label="Find products" />
@@ -486,10 +488,10 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                     {isDossierRunning ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Researching...
+                        Building dossier...
                       </>
                     ) : (
-                      "Research company"
+                      "Build legacy dossier"
                     )}
                   </Button>
                 </div>
@@ -875,7 +877,7 @@ export function CompanyDetail({ companyId }: CompanyDetailProps) {
                 {isDossierRunning ? (
                   <><Loader2 className="h-3 w-3 animate-spin mr-1.5" />Building dossier…</>
                 ) : (
-                  <><Zap className="h-3 w-3 mr-1.5" />Research this company</>
+                  <><Zap className="h-3 w-3 mr-1.5" />Build legacy dossier</>
                 )}
               </Button>
               <Button

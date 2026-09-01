@@ -8,12 +8,15 @@
  * @module
  */
 
+import type * as actionableLeads from "../actionableLeads.js";
 import type * as ai from "../ai.js";
 import type * as bdActivities from "../bdActivities.js";
 import type * as companies from "../companies.js";
 import type * as companyImportActions from "../companyImportActions.js";
 import type * as constants from "../constants.js";
+import type * as continuousOpportunityEngine from "../continuousOpportunityEngine.js";
 import type * as countryCapabilityProfiles from "../countryCapabilityProfiles.js";
+import type * as crons from "../crons.js";
 import type * as dashboard from "../dashboard.js";
 import type * as decisionOpportunities from "../decisionOpportunities.js";
 import type * as decisionOpportunityEngine from "../decisionOpportunityEngine.js";
@@ -24,6 +27,7 @@ import type * as drugEntityLinkUtils from "../drugEntityLinkUtils.js";
 import type * as drugEntityLinks from "../drugEntityLinks.js";
 import type * as drugs from "../drugs.js";
 import type * as evidenceEnrichment from "../evidenceEnrichment.js";
+import type * as evidenceResearch from "../evidenceResearch.js";
 import type * as fileProcessing from "../fileProcessing.js";
 import type * as files from "../files.js";
 import type * as gapAnalysis from "../gapAnalysis.js";
@@ -31,6 +35,11 @@ import type * as gapCompanyMatches from "../gapCompanyMatches.js";
 import type * as gapFlow from "../gapFlow.js";
 import type * as gapIdentity from "../gapIdentity.js";
 import type * as gapOpportunities from "../gapOpportunities.js";
+import type * as leadQualification from "../leadQualification.js";
+import type * as leadScans from "../leadScans.js";
+import type * as leadSourceParsers from "../leadSourceParsers.js";
+import type * as mandateOpportunityEngine from "../mandateOpportunityEngine.js";
+import type * as mandateOpportunityReports from "../mandateOpportunityReports.js";
 import type * as openaiResearch from "../openaiResearch.js";
 import type * as opportunities from "../opportunities.js";
 import type * as productIntelligence from "../productIntelligence.js";
@@ -41,8 +50,12 @@ import type * as registrationImportActions from "../registrationImportActions.js
 import type * as registrationImports from "../registrationImports.js";
 import type * as reports from "../reports.js";
 import type * as research from "../research.js";
+import type * as researchEvidencePolicy from "../researchEvidencePolicy.js";
 import type * as researchInputs from "../researchInputs.js";
 import type * as researchLifecycle from "../researchLifecycle.js";
+import type * as researchWorkflow from "../researchWorkflow.js";
+import type * as sustainableOpportunities from "../sustainableOpportunities.js";
+import type * as sustainableOpportunityQualification from "../sustainableOpportunityQualification.js";
 import type * as tavilyResearch from "../tavilyResearch.js";
 
 import type {
@@ -52,12 +65,15 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  actionableLeads: typeof actionableLeads;
   ai: typeof ai;
   bdActivities: typeof bdActivities;
   companies: typeof companies;
   companyImportActions: typeof companyImportActions;
   constants: typeof constants;
+  continuousOpportunityEngine: typeof continuousOpportunityEngine;
   countryCapabilityProfiles: typeof countryCapabilityProfiles;
+  crons: typeof crons;
   dashboard: typeof dashboard;
   decisionOpportunities: typeof decisionOpportunities;
   decisionOpportunityEngine: typeof decisionOpportunityEngine;
@@ -68,6 +84,7 @@ declare const fullApi: ApiFromModules<{
   drugEntityLinks: typeof drugEntityLinks;
   drugs: typeof drugs;
   evidenceEnrichment: typeof evidenceEnrichment;
+  evidenceResearch: typeof evidenceResearch;
   fileProcessing: typeof fileProcessing;
   files: typeof files;
   gapAnalysis: typeof gapAnalysis;
@@ -75,6 +92,11 @@ declare const fullApi: ApiFromModules<{
   gapFlow: typeof gapFlow;
   gapIdentity: typeof gapIdentity;
   gapOpportunities: typeof gapOpportunities;
+  leadQualification: typeof leadQualification;
+  leadScans: typeof leadScans;
+  leadSourceParsers: typeof leadSourceParsers;
+  mandateOpportunityEngine: typeof mandateOpportunityEngine;
+  mandateOpportunityReports: typeof mandateOpportunityReports;
   openaiResearch: typeof openaiResearch;
   opportunities: typeof opportunities;
   productIntelligence: typeof productIntelligence;
@@ -85,8 +107,12 @@ declare const fullApi: ApiFromModules<{
   registrationImports: typeof registrationImports;
   reports: typeof reports;
   research: typeof research;
+  researchEvidencePolicy: typeof researchEvidencePolicy;
   researchInputs: typeof researchInputs;
   researchLifecycle: typeof researchLifecycle;
+  researchWorkflow: typeof researchWorkflow;
+  sustainableOpportunities: typeof sustainableOpportunities;
+  sustainableOpportunityQualification: typeof sustainableOpportunityQualification;
   tavilyResearch: typeof tavilyResearch;
 }>;
 

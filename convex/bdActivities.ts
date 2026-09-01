@@ -16,9 +16,20 @@ export const list = query({
   },
 });
 
+export const listByLead = query({
+  args: { actionableLeadId: v.id("actionableLeads"), limit: v.optional(v.number()) },
+  handler: async (ctx, { actionableLeadId, limit }) =>
+    await ctx.db
+      .query("bdActivities")
+      .withIndex("by_actionable_lead", (q) => q.eq("actionableLeadId", actionableLeadId))
+      .order("desc")
+      .take(limit ?? 50),
+});
+
 export const create = mutation({
   args: {
     companyId: v.id("companies"),
+    actionableLeadId: v.optional(v.id("actionableLeads")),
     type: v.union(
       v.literal("note"),
       v.literal("email_sent"),

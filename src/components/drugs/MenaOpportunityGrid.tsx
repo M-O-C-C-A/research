@@ -4,9 +4,9 @@ import { useQuery } from "convex/react";
 import { api } from "../../../convex/_generated/api";
 import { Id } from "../../../convex/_generated/dataModel";
 import Link from "next/link";
-import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
+import { confidenceBadgeClass, statusBadgeClass } from "@/lib/decisionOpportunities";
 import { normalizeExternalUrl } from "@/lib/urlUtils";
-import { ArrowRight, ExternalLink, Globe2, Linkedin, Mail, Target } from "lucide-react";
+import { ArrowRight, Globe2, Linkedin, Mail, Target } from "lucide-react";
 
 interface MenaOpportunityGridProps {
   drugId: string;
@@ -32,7 +32,7 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
       <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-950/40 px-6 py-12 text-center">
         <Target className="mx-auto mb-3 h-8 w-8 text-zinc-700" />
         <p className="text-sm text-zinc-500">
-          This product does not have a promoted decision opportunity yet. Rebuild the opportunity engine after refreshing research.
+          This product does not have a promoted opportunity yet. Use the main opportunity list to decide what to pursue now.
         </p>
       </div>
     );
@@ -42,9 +42,13 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
     <div className="grid gap-4">
       {opportunities.map((item) => {
         const readyToSend = item.outreachReadiness?.readyToSend ?? false;
-        const websiteUrl = normalizeExternalUrl(item.companyWebsite);
-        const companyLinkedinUrl = normalizeExternalUrl(item.companyLinkedinUrl);
         const contactLinkedinUrl = normalizeExternalUrl(item.contactLinkedinUrl);
+        const primaryBlocker =
+          item.blockedFocusMarkets && item.blockedFocusMarkets.length > 0
+            ? `Already registered in ${item.blockedFocusMarkets.join(", ")}`
+            : readyToSend
+              ? "Ready for outreach"
+              : "Needs validation before outreach";
         return (
         <Link
           key={item._id}
@@ -78,13 +82,13 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
             </div>
             <div className="text-right">
               <p className="text-3xl font-bold text-white">{item.priorityScore.toFixed(1)}</p>
-              <p className="text-xs text-zinc-500">priority</p>
+              <p className="text-xs text-zinc-500">score</p>
             </div>
           </div>
 
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             <div>
-              <p className="text-xs uppercase tracking-wider text-zinc-500">Markets</p>
+              <p className="text-xs uppercase tracking-wider text-zinc-500">What to pursue</p>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {item.focusMarkets.map((country) => (
                   <span
@@ -98,27 +102,13 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
               </div>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider text-zinc-500">Route To Entry</p>
+              <p className="text-xs uppercase tracking-wider text-zinc-500">What blocks it</p>
               <p className="mt-2 text-sm text-zinc-300">
-                {entryStrategyLabel(item.entryStrategy)} · {item.timelineRange}
+                {primaryBlocker}
               </p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wider text-zinc-500">Company And Contact</p>
-              <div className="mt-2 flex flex-wrap gap-3 text-xs text-zinc-300">
-                {websiteUrl && (
-                  <span className="inline-flex items-center gap-1">
-                    <ExternalLink className="h-3 w-3" />
-                    Website
-                  </span>
-                )}
-                {companyLinkedinUrl && (
-                  <span className="inline-flex items-center gap-1">
-                    <Linkedin className="h-3 w-3" />
-                    Company LinkedIn
-                  </span>
-                )}
-              </div>
+              <p className="text-xs uppercase tracking-wider text-zinc-500">Who to approach</p>
               <p className="mt-2 text-sm text-zinc-300">
                 {item.contactName ?? item.targetRole}
               </p>
@@ -142,7 +132,7 @@ export function MenaOpportunityGrid({ drugId }: MenaOpportunityGridProps) {
           <p className="mt-4 text-sm text-zinc-400">{item.whyThisMarket}</p>
 
           <div className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-[var(--brand-300)]">
-            Open decision opportunity
+            Open opportunity
             <ArrowRight className="h-3 w-3" />
           </div>
         </Link>

@@ -12,6 +12,7 @@ import { DiscoverCompaniesButton } from "@/components/discovery/DiscoverCompanie
 import { EmptyState } from "@/components/shared/EmptyState";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
 import { CardGridSkeleton } from "@/components/shared/LoadingSkeleton";
+import { ResearchButton } from "@/components/research/ResearchPanel";
 import { Search, Building2, Globe, ArrowRight } from "lucide-react";
 
 export function CompanyList() {
@@ -21,8 +22,8 @@ export function CompanyList() {
   return (
     <div>
       <GuidedFlowBanner
-        hereLabel="Company directory"
-        helperText="Use this list to choose a manufacturer, then either research the company further or connect it to products and opportunities."
+        hereLabel="Companies"
+        helperText="Use this list to confirm the manufacturer, contact, and fit behind an opportunity."
       />
 
       <div className="mb-6 mt-6 flex flex-wrap gap-3">
@@ -41,17 +42,16 @@ export function CompanyList() {
 
       <div className="mb-6 rounded-xl border border-zinc-800 bg-zinc-900 p-4">
         <p className="text-sm text-zinc-300">
-          Use this page as your working directory of target manufacturers. A simple flow is:
-          choose a company, research it further if needed, find the relevant products, then move
-          into the best-opportunity and outreach flow.
+          Companies support the pursuit decision. Search here when you need to confirm who owns the
+          product, whether they fit KEMEDICA, and who should receive outreach.
         </p>
         <div className="mt-4 rounded-lg border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] p-4">
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--brand-300)]">
-            Can&apos;t find it?
+            Need a missing company?
           </p>
           <p className="mt-2 text-sm text-zinc-200">
-            If an EU manufacturer is missing from the directory, either research it now or add it
-            manually so the rest of the workflow can continue.
+            Add or research the manufacturer here, then return to Opportunities to decide whether it
+            is worth pursuing.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <ImportEmaCompaniesButton />
@@ -77,16 +77,15 @@ export function CompanyList() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {companies.map((company) => (
-            <Link
+            <article
               key={company._id}
-              href={`/companies/${company._id}`}
               className="group rounded-lg border border-zinc-800 bg-zinc-900 p-5 transition-all hover:border-zinc-700 hover:bg-zinc-800/50"
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-white truncate group-hover:text-zinc-100">
-                    {company.name}
-                  </h3>
+                  <Link href={`/companies/${company._id}`} className="font-semibold text-white hover:text-zinc-100">
+                    <h3 className="truncate">{company.name}</h3>
+                  </Link>
                   <div className="flex items-center gap-1.5 mt-1 text-sm text-zinc-500">
                     <Globe className="h-3.5 w-3.5 shrink-0" />
                     {company.country}
@@ -138,7 +137,10 @@ export function CompanyList() {
                   )}
                 </div>
               )}
-            </Link>
+              <div className="mt-4 border-t border-zinc-800 pt-3">
+                <ResearchButton target="company" targetId={company._id} className="border-zinc-700 bg-zinc-950 text-zinc-200 hover:bg-zinc-800" />
+              </div>
+            </article>
           ))}
         </div>
       )}

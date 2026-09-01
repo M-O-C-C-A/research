@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Geist_Mono, Montserrat } from "next/font/google";
 import "./globals.css";
 import { BRAND_NAME, BRAND_TAGLINE } from "@/lib/brand";
@@ -40,8 +41,13 @@ export default function RootLayout({
         <ConvexClientProvider>
           <NavBar />
           <div className="mt-16 flex-1">{children}</div>
-          <footer className="border-t border-zinc-800 bg-zinc-950 px-4 py-8 text-center text-sm text-zinc-500 sm:px-6">
-            © 2026 {BRAND_NAME}. {BRAND_TAGLINE}
+          <footer className="border-t border-zinc-800 bg-zinc-950 px-4 py-8 text-sm text-zinc-500 sm:px-6">
+            <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-4 gap-y-2 text-center">
+              <span>© 2026 {BRAND_NAME}. {BRAND_TAGLINE}</span>
+              <Link href="/guide" className="font-medium text-[var(--brand-300)] transition-colors hover:text-white">
+                How to use KEMEDICA
+              </Link>
+            </div>
           </footer>
         </ConvexClientProvider>
       </body>

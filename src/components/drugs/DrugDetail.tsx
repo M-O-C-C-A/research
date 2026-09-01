@@ -180,7 +180,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
             href={`/drugs/${drugId}?tab=report`}
             className="inline-flex items-center gap-1 rounded-lg border border-zinc-700 px-3 py-2 text-sm text-zinc-300 transition-colors hover:border-zinc-600 hover:text-white"
             >
-              Research this product
+              Open decision brief
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
@@ -247,8 +247,11 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
           </div>
         </div>
 
-        <div className="mt-4 border-t border-zinc-800 pt-4">
-          <p className="text-xs text-zinc-600 uppercase tracking-wider mb-2">Entity Map</p>
+        <details className="mt-4 border-t border-zinc-800 pt-4">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            Advanced entity map
+          </summary>
+          <div className="mt-3">
           {entityLinks === undefined ? (
             <div className="space-y-2">
               <Skeleton className="h-10 w-full bg-zinc-800" />
@@ -286,11 +289,15 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
               ))}
             </div>
           )}
-        </div>
+          </div>
+        </details>
 
         {(drug.productProfile || (drug.identityEvidenceItems?.length ?? 0) > 0) && (
-          <div className="mt-4 border-t border-zinc-800 pt-4">
-            <p className="text-xs text-zinc-600 uppercase tracking-wider mb-2">Product Identity</p>
+          <details className="mt-4 border-t border-zinc-800 pt-4">
+            <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Advanced product identity
+            </summary>
+            <div className="mt-3">
             {drug.productProfile && (
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 <div className="rounded-md border border-zinc-800 bg-zinc-950/60 px-3 py-2.5">
@@ -345,13 +352,17 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
                 ))}
               </div>
             )}
-          </div>
+            </div>
+          </details>
         )}
 
-        <div className="mt-4 border-t border-zinc-800 pt-4">
+        <details className="mt-4 border-t border-zinc-800 pt-4">
+          <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            Detailed market evidence
+          </summary>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs text-zinc-600 uppercase tracking-wider">
+              <p className="mt-3 text-xs text-zinc-600 uppercase tracking-wider">
                 Commercial Opportunity By Market
               </p>
               <p className="mt-1 text-sm text-zinc-400">
@@ -417,7 +428,7 @@ export function DrugDetail({ drugId }: DrugDetailProps) {
               </div>
             ))}
           </div>
-        </div>
+        </details>
       </div>
     </div>
   );

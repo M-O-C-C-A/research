@@ -220,6 +220,29 @@ function mergeCompanyContactDetails<T extends Doc<"decisionOpportunities">>(
   };
 }
 
+function summarizeRegionalEpidemiology(args: {
+  gap: Doc<"gapOpportunities"> | null;
+  analyses: Doc<"canonicalProductMarketAnalyses">[];
+}) {
+  const prevalence =
+    args.analyses.map((row) => row.prevalenceText).filter(Boolean)[0] ??
+    undefined;
+  const incidence =
+    args.analyses.map((row) => row.incidenceText).filter(Boolean)[0] ??
+    undefined;
+  const patientPopulation =
+    args.analyses.map((row) => row.patientPopulationText).filter(Boolean)[0] ??
+    undefined;
+  const burden = args.gap?.whoDiseaseBurden ?? args.gap?.demandEvidence;
+  return (
+    prevalence ??
+    incidence ??
+    patientPopulation ??
+    burden ??
+    "Prevalence/incidence not yet validated."
+  );
+}
+
 function chooseBestDrug(args: {
   company: Doc<"companies">;
   gap: Doc<"gapOpportunities">;
@@ -337,13 +360,58 @@ export const list = query({
       : await ctx.db.query("decisionOpportunities").collect();
 
     const companyIds = [...new Set(rows.map((row) => row.companyId).filter(Boolean))] as Id<"companies">[];
-    const companies = await Promise.all(companyIds.map((id) => ctx.db.get(id)));
+    const drugIds = [...new Set(rows.map((row) => row.drugId))] as Id<"drugs">[];
+    const gapIds = [...new Set(rows.map((row) => row.gapOpportunityId).filter(Boolean))] as Id<"gapOpportunities">[];
+    const [companies, drugs, gaps] = await Promise.all([
+      Promise.all(companyIds.map((id) => ctx.db.get(id))),
+      Promise.all(drugIds.map((id) => ctx.db.get(id))),
+      Promise.all(gapIds.map((id) => ctx.db.get(id))),
+    ]);
     const companiesById = new Map<Id<"companies">, Doc<"companies">>(
       companies.filter((item): item is Doc<"companies"> => item !== null).map((item) => [item._id, item])
     );
+    const drugsById = new Map<Id<"drugs">, Doc<"drugs">>(
+      drugs.filter((item): item is Doc<"drugs"> => item !== null).map((item) => [item._id, item])
+    );
+    const gapsById = new Map<Id<"gapOpportunities">, Doc<"gapOpportunities">>(
+      gaps.filter((item): item is Doc<"gapOpportunities"> => item !== null).map((item) => [item._id, item])
+    );
+    const canonicalProductIds = [
+      ...new Set(
+        drugs
+          .map((drug) => drug?.canonicalProductId)
+          .filter((id): id is Id<"canonicalProducts"> => Boolean(id))
+      ),
+    ];
+    const analysisGroups = await Promise.all(
+      canonicalProductIds.map(async (canonicalProductId) => ({
+        canonicalProductId,
+        rows: await ctx.db
+          .query("canonicalProductMarketAnalyses")
+          .withIndex("by_canonical_product", (q) => q.eq("canonicalProductId", canonicalProductId))
+          .collect(),
+      }))
+    );
+    const analysesByCanonicalProductId = new Map<
+      Id<"canonicalProducts">,
+      Doc<"canonicalProductMarketAnalyses">[]
+    >(analysisGroups.map((group) => [group.canonicalProductId, group.rows]));
 
     return rows
-      .map((row) => mergeCompanyContactDetails(row, row.companyId ? companiesById.get(row.companyId) ?? null : null))
+      .map((row) => {
+        const company = row.companyId ? companiesById.get(row.companyId) ?? null : null;
+        const drug = drugsById.get(row.drugId) ?? null;
+        const gap = row.gapOpportunityId ? gapsById.get(row.gapOpportunityId) ?? null : null;
+        const analyses = drug?.canonicalProductId
+          ? analysesByCanonicalProductId.get(drug.canonicalProductId) ?? []
+          : [];
+        return {
+          ...mergeCompanyContactDetails(row, company),
+          companyId: row.companyId,
+          mainIndication: drug?.indication ?? gap?.indication ?? "Main indication not yet validated.",
+          regionalPrevalenceIncidence: summarizeRegionalEpidemiology({ gap, analyses }),
+        };
+      })
       .filter((row) => !market || row.focusMarkets.includes(market))
       .sort((left, right) => {
         const leftRank = left.rankingPosition ?? 9999;

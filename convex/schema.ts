@@ -75,6 +75,102 @@ const evidenceConfidence = v.union(
   v.literal("inferred")
 );
 
+// Evidence-first lead engine. These records are deliberately separate from the
+// older opportunity tables so historical research cannot become an outreach lead
+// without passing the current source, ownership, and contact gates.
+const leadCountry = v.union(
+  v.literal("Saudi Arabia"),
+  v.literal("UAE"),
+  v.literal("Egypt")
+);
+
+const leadSourceSystem = v.union(
+  v.literal("sfda_current_shortage"),
+  v.literal("sfda_anticipated_shortage"),
+  v.literal("nupco_tenders"),
+  v.literal("nupco_tender_plan"),
+  v.literal("etimad"),
+  v.literal("mohap_import"),
+  v.literal("uae_public_procurement"),
+  v.literal("egypt_eprocurement")
+);
+
+const leadSignalType = v.union(
+  v.literal("shortage"),
+  v.literal("anticipated_shortage"),
+  v.literal("tender"),
+  v.literal("procurement"),
+  v.literal("registration")
+);
+
+const leadOrigin = v.union(
+  v.literal("sustainable_whitespace"),
+  v.literal("quick_win_signal")
+);
+
+const opportunityReadinessStatus = v.union(
+  v.literal("needs_contact"),
+  v.literal("outreach_ready"),
+  v.literal("blocked")
+);
+
+const actionableLeadStage = v.union(
+  v.literal("new"),
+  v.literal("working"),
+  v.literal("contacted"),
+  v.literal("replied"),
+  v.literal("won"),
+  v.literal("lost"),
+  v.literal("expired"),
+  v.literal("disqualified")
+);
+
+const leadContactRole = v.union(
+  v.literal("business_development"),
+  v.literal("international_markets"),
+  v.literal("licensing"),
+  v.literal("commercial"),
+  v.literal("executive")
+);
+
+const leadContactSourceKind = v.union(
+  v.literal("company_website"),
+  v.literal("company_press_release"),
+  v.literal("conference"),
+  v.literal("linkedin"),
+  v.literal("manual")
+);
+
+const researchTargetType = v.union(v.literal("product"), v.literal("company"));
+const researchRunStatus = v.union(
+  v.literal("running"),
+  v.literal("completed"),
+  v.literal("error")
+);
+const researchFindingKind = v.union(
+  v.literal("product_profile"),
+  v.literal("company_profile"),
+  v.literal("ownership"),
+  v.literal("registration"),
+  v.literal("market_signal"),
+  v.literal("partner"),
+  v.literal("contact")
+);
+const researchFindingStatus = v.union(
+  v.literal("pending"),
+  v.literal("approved"),
+  v.literal("rejected")
+);
+const researchSourceKind = v.union(
+  v.literal("official_registry"),
+  v.literal("official_signal"),
+  v.literal("company_website"),
+  v.literal("company_press_release"),
+  v.literal("conference"),
+  v.literal("linkedin"),
+  v.literal("public_web")
+);
+
 const companyRoleType = v.union(
   v.literal("business_development"),
   v.literal("international_markets"),
@@ -393,6 +489,193 @@ const companyFootprintStatus = v.union(
   v.literal("unclear_company_presence")
 );
 
+const mandateOpportunityType = v.union(
+  v.literal("NEW_MARKET_GAP"),
+  v.literal("UNMET_CLINICAL_NEED"),
+  v.literal("CURRENT_SHORTAGE"),
+  v.literal("ANTICIPATED_SHORTAGE"),
+  v.literal("SECOND_SOURCE"),
+  v.literal("TENDER_DEMAND"),
+  v.literal("REGULATORY_INCENTIVE"),
+  v.literal("PIPELINE_OPPORTUNITY")
+);
+
+const mandateDecision = v.union(
+  v.literal("PURSUE"),
+  v.literal("VALIDATE"),
+  v.literal("HOLD"),
+  v.literal("REJECT")
+);
+
+const mandateDiscoveryDirection = v.union(
+  v.literal("EU_TO_MIDDLE_EAST"),
+  v.literal("MENA_TO_EU")
+);
+
+const mandateReportStatus = v.union(
+  v.literal("ready"),
+  v.literal("needs_validation"),
+  v.literal("error")
+);
+
+const mandateSourceTier = v.union(
+  v.literal("Tier A"),
+  v.literal("Tier B"),
+  v.literal("Tier C"),
+  v.literal("Tier D"),
+  v.literal("Tier E")
+);
+
+const mandateAbsenceStatus = v.union(
+  v.literal("VERIFIED_ABSENT"),
+  v.literal("UNKNOWN"),
+  v.literal("NOT_APPLICABLE")
+);
+
+const mandateScoreBreakdown = v.object({
+  unmetNeed: v.number(),
+  marketEvidence: v.number(),
+  competitiveGap: v.number(),
+  regulatoryFeasibility: v.number(),
+  commercialAttractiveness: v.number(),
+  partnerability: v.number(),
+});
+
+const engineCountry = v.union(
+  v.literal("Saudi Arabia"),
+  v.literal("UAE"),
+  v.literal("Egypt"),
+  v.literal("Kuwait"),
+  v.literal("Qatar"),
+  v.literal("Algeria")
+);
+
+const sourceRegistryStatus = v.union(
+  v.literal("active"),
+  v.literal("paused"),
+  v.literal("stale"),
+  v.literal("blocked_by_robots"),
+  v.literal("structural_change"),
+  v.literal("error")
+);
+
+const sourceCadence = v.union(
+  v.literal("manual"),
+  v.literal("daily"),
+  v.literal("weekly")
+);
+
+const sourceStructureStatus = v.union(
+  v.literal("passed"),
+  v.literal("failed"),
+  v.literal("not_checked")
+);
+
+const opportunityRunStatus = v.union(
+  v.literal("running"),
+  v.literal("completed"),
+  v.literal("partial"),
+  v.literal("error")
+);
+
+const opportunityGateStatus = v.union(
+  v.literal("passed"),
+  v.literal("failed"),
+  v.literal("needs_review")
+);
+
+const changeEventType = v.union(
+  v.literal("new_home_market_approval"),
+  v.literal("target_market_registration"),
+  v.literal("withdrawal_or_suspension"),
+  v.literal("ownership_or_mah_change"),
+  v.literal("territory_rights_detected"),
+  v.literal("threshold_crossed_up"),
+  v.literal("threshold_crossed_down")
+);
+
+const reviewQueueItemType = v.union(
+  v.literal("substance_match"),
+  v.literal("ownership"),
+  v.literal("territory_rights"),
+  v.literal("registration_absence"),
+  v.literal("source_structure")
+);
+
+const reviewQueueStatus = v.union(
+  v.literal("open"),
+  v.literal("approved"),
+  v.literal("rejected"),
+  v.literal("merged")
+);
+
+const registrationFactStatus = v.union(
+  v.literal("registered"),
+  v.literal("not_registered"),
+  v.literal("not_found_unverified"),
+  v.literal("verified_absent"),
+  v.literal("under_registration"),
+  v.literal("pending"),
+  v.literal("withdrawn"),
+  v.literal("suspended"),
+  v.literal("unknown")
+);
+
+const dealModel = v.union(v.literal("MODEL_1_REGIONAL_AGENT"), v.literal("MODEL_4_BROKER_SUBLICENSE"));
+
+const engineSourceType = v.union(
+  v.literal("home_authorization"),
+  v.literal("target_registration"),
+  v.literal("shortage"),
+  v.literal("procurement"),
+  v.literal("company_rights"),
+  v.literal("manual_import"),
+  v.literal("patent_exclusivity"),
+  v.literal("orphan_register"),
+  v.literal("disease_burden")
+);
+
+const productClass = v.union(
+  v.literal("innovator"),
+  v.literal("on_patent"),
+  v.literal("orphan_rare_disease"),
+  v.literal("hybrid"),
+  v.literal("off_patent_biosimilar")
+);
+
+const sizingInputStatus = v.union(
+  v.literal("official_source"),
+  v.literal("company_release"),
+  v.literal("literature"),
+  v.literal("international_price_anchor"),
+  v.literal("practitioner_estimate"),
+  v.literal("unvalidated")
+);
+
+const opportunitySizingStatus = v.union(
+  v.literal("evidence_based"),
+  v.literal("practitioner_estimate"),
+  v.literal("unvalidated")
+);
+
+const registryStatusMatrix = v.object({
+  fda: registrationFactStatus,
+  ema: registrationFactStatus,
+  bfarm: registrationFactStatus,
+  sfda: registrationFactStatus,
+  mohap: registrationFactStatus,
+  eda: registrationFactStatus,
+});
+
+const exclusionFlags = v.object({
+  alreadyRegisteredTarget: v.boolean(),
+  top20Pharma: v.boolean(),
+  menaRightsLicensed: v.boolean(),
+  withdrawnOrSuspended: v.boolean(),
+  belowMarginFloor: v.boolean(),
+  distributionInfeasible: v.boolean(),
+});
+
 export default defineSchema({
   companies: defineTable({
     name: v.string(),
@@ -562,7 +845,15 @@ export default defineSchema({
     patentUrgencyScore: v.optional(v.number()),
     menaRegistrations: v.optional(v.array(v.object({
       country: v.string(),
-      status: v.union(v.literal("registered"), v.literal("not_found"), v.literal("unverified")),
+      status: v.union(
+        v.literal("registered"),
+        v.literal("under_registration"),
+        v.literal("verified_absent"),
+        v.literal("not_found"),
+        v.literal("not_found_unverified"),
+        v.literal("unverified"),
+        v.literal("unknown")
+      ),
       registrationNumber: v.optional(v.string()),
       source: v.string(),
       url: v.optional(v.string()),
@@ -1015,6 +1306,7 @@ export default defineSchema({
 
   bdActivities: defineTable({
     companyId: v.id("companies"),
+    actionableLeadId: v.optional(v.id("actionableLeads")),
     type: v.union(
       v.literal("note"),
       v.literal("email_sent"),
@@ -1038,6 +1330,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_company", ["companyId"])
+    .index("by_actionable_lead", ["actionableLeadId"])
     .index("by_created", ["createdAt"]),
 
   gapOpportunities: defineTable({
@@ -1344,6 +1637,748 @@ export default defineSchema({
   })
     .index("by_decision_opportunity", ["decisionOpportunityId"])
     .index("by_decision_opportunity_and_evidence_type", ["decisionOpportunityId", "evidenceType"]),
+
+  mandateOpportunityReports: defineTable({
+    decisionOpportunityId: v.id("decisionOpportunities"),
+    drugId: v.id("drugs"),
+    companyId: v.optional(v.id("companies")),
+    gapOpportunityId: v.optional(v.id("gapOpportunities")),
+    status: mandateReportStatus,
+    discoveryDirections: v.array(mandateDiscoveryDirection),
+    inn: v.string(),
+    brand: v.string(),
+    indication: v.string(),
+    strengthForm: v.string(),
+    route: v.string(),
+    mah: v.string(),
+    manufacturer: v.string(),
+    euRegulatoryStatus: v.string(),
+    thesis: v.string(),
+    opportunityTypes: v.array(mandateOpportunityType),
+    manufacturerFitCompany: v.string(),
+    manufacturerFitMenaPresence: v.string(),
+    manufacturerFitExistingPartners: v.string(),
+    manufacturerFitLicensingEvidence: v.string(),
+    manufacturerFitRelevantContact: v.string(),
+    manufacturerFitRationale: v.string(),
+    estimatedAddressablePatients: v.string(),
+    potentialUnits: v.string(),
+    priceEvidence: v.string(),
+    potentialRevenueRange: v.string(),
+    expectedMarginRange: v.string(),
+    economicsConfidence: v.union(
+      v.literal("high"),
+      v.literal("medium"),
+      v.literal("low"),
+      v.literal("UNVALIDATED")
+    ),
+    missingEconomicInformation: v.array(v.string()),
+    risks: v.array(v.string()),
+    scoreBreakdown: mandateScoreBreakdown,
+    totalScore: v.number(),
+    decision: mandateDecision,
+    rejectionReason: v.optional(v.string()),
+    validationNeeds: v.array(v.string()),
+    nextAction: v.string(),
+    generatedAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_drug", ["drugId"])
+    .index("by_company", ["companyId"])
+    .index("by_decision", ["decision"])
+    .index("by_total_score", ["totalScore"]),
+
+  mandateCountryAssessments: defineTable({
+    reportId: v.id("mandateOpportunityReports"),
+    decisionOpportunityId: v.id("decisionOpportunities"),
+    country: leadCountry,
+    registration: v.string(),
+    availability: v.string(),
+    shortage: v.string(),
+    anticipatedShortage: v.string(),
+    incentiveList: v.string(),
+    alternatives: v.string(),
+    competition: v.string(),
+    demandEvidence: v.string(),
+    procurementEvidence: v.string(),
+    regulatoryPath: v.string(),
+    commercialPotential: v.string(),
+    existingRepresentation: v.optional(v.string()),
+    unknowns: v.array(v.string()),
+    absenceStatus: mandateAbsenceStatus,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_report", ["reportId"])
+    .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_country", ["country"])
+    .index("by_report_and_country", ["reportId", "country"]),
+
+  mandateEvidenceClaims: defineTable({
+    reportId: v.id("mandateOpportunityReports"),
+    decisionOpportunityId: v.id("decisionOpportunities"),
+    country: v.optional(leadCountry),
+    claim: v.string(),
+    title: v.string(),
+    url: v.string(),
+    sourceTier: mandateSourceTier,
+    sourceType: v.string(),
+    publicationDate: v.optional(v.string()),
+    retrievalDate: v.string(),
+    excerpt: v.string(),
+    confidence: evidenceConfidence,
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_report", ["reportId"])
+    .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_country", ["country"])
+    .index("by_source_tier", ["sourceTier"]),
+
+  sourceRegistries: defineTable({
+    sourceRegistry: v.string(),
+    title: v.string(),
+    sourceType: engineSourceType,
+    baseUrl: v.string(),
+    robotsUrl: v.optional(v.string()),
+    cadence: sourceCadence,
+    status: sourceRegistryStatus,
+    parserVersion: v.string(),
+    structureSignature: v.optional(v.string()),
+    userAgent: v.string(),
+    contactEmail: v.string(),
+    rateLimitPerMinute: v.number(),
+    staleAfterMs: v.number(),
+    lastFetchedAt: v.optional(v.number()),
+    lastSuccessAt: v.optional(v.number()),
+    lastErrorAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    nextFetchAt: v.optional(v.number()),
+    staleAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_source_registry", ["sourceRegistry"])
+    .index("by_status_and_next_fetch_at", ["status", "nextFetchAt"])
+    .index("by_cadence", ["cadence"]),
+
+  sourceFetches: defineTable({
+    sourceRegistryId: v.id("sourceRegistries"),
+    sourceRegistry: v.string(),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceType: v.string(),
+    httpStatus: v.optional(v.number()),
+    ok: v.boolean(),
+    contentHash: v.string(),
+    rawPayload: v.string(),
+    parserVersion: v.string(),
+    structureStatus: sourceStructureStatus,
+    structureMessage: v.optional(v.string()),
+    robotsAllowed: v.boolean(),
+    errorMessage: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_source_registry_and_fetched_at", ["sourceRegistry", "fetchedAt"])
+    .index("by_source_registry_id_and_fetched_at", ["sourceRegistryId", "fetchedAt"])
+    .index("by_structure_status", ["structureStatus"]),
+
+  substanceFacts: defineTable({
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    drugId: v.optional(v.id("drugs")),
+    inn: v.string(),
+    normalizedInn: v.string(),
+    substanceKey: v.string(),
+    matchStatus: v.union(v.literal("resolved"), v.literal("ambiguous"), v.literal("unresolved")),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_substance_key", ["substanceKey"])
+    .index("by_normalized_inn", ["normalizedInn"])
+    .index("by_match_status", ["matchStatus"]),
+
+  substanceCrosswalks: defineTable({
+    substanceKey: v.string(),
+    sourceSystem: v.union(
+      v.literal("rxnorm"),
+      v.literal("atc"),
+      v.literal("inn"),
+      v.literal("internal")
+    ),
+    sourceCode: v.string(),
+    displayName: v.string(),
+    normalizedName: v.string(),
+    synonymType: v.union(v.literal("preferred"), v.literal("synonym"), v.literal("salt"), v.literal("combination")),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_substance_key", ["substanceKey"])
+    .index("by_source_system_and_source_code", ["sourceSystem", "sourceCode"])
+    .index("by_normalized_name", ["normalizedName"]),
+
+  authorizedProductFacts: defineTable({
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    drugId: v.optional(v.id("drugs")),
+    substanceFactId: v.optional(v.id("substanceFacts")),
+    brandName: v.string(),
+    inn: v.string(),
+    indication: v.string(),
+    dosageForm: v.string(),
+    strength: v.string(),
+    route: v.string(),
+    mah: v.string(),
+    manufacturer: v.string(),
+    authorizationMarket: v.union(v.literal("FDA"), v.literal("EMA"), v.literal("BfArM"), v.literal("EU_NATIONAL")),
+    authorizationStatus: v.union(v.literal("approved"), v.literal("under_review"), v.literal("withdrawn"), v.literal("suspended")),
+    authorizationDate: v.optional(v.string()),
+    sourceRecordId: v.optional(v.string()),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_drug", ["drugId"])
+    .index("by_canonical_product", ["canonicalProductId"])
+    .index("by_inn", ["inn"])
+    .index("by_authorization_market_and_status", ["authorizationMarket", "authorizationStatus"]),
+
+  registrationStatusFacts: defineTable({
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    drugId: v.optional(v.id("drugs")),
+    country: engineCountry,
+    productName: v.string(),
+    inn: v.string(),
+    dosageForm: v.optional(v.string()),
+    strength: v.optional(v.string()),
+    route: v.optional(v.string()),
+    mah: v.optional(v.string()),
+    manufacturer: v.optional(v.string()),
+    status: registrationFactStatus,
+    registrationNumber: v.optional(v.string()),
+    absenceSearchMetadata: v.optional(v.object({
+      searchedNames: v.array(v.string()),
+      searchedInnVariants: v.array(v.string()),
+      officialRegistry: v.string(),
+      searchedAt: v.number(),
+    })),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_drug_and_country", ["drugId", "country"])
+    .index("by_canonical_product_and_country", ["canonicalProductId", "country"])
+    .index("by_country_and_status", ["country", "status"])
+    .index("by_source_registry", ["sourceRegistry"]),
+
+  companyClassificationFacts: defineTable({
+    companyId: v.optional(v.id("companies")),
+    companyName: v.string(),
+    normalizedCompanyName: v.string(),
+    sizeBand: v.union(v.literal("sme"), v.literal("mid"), v.literal("large"), v.literal("unknown")),
+    isTop20Pharma: v.boolean(),
+    matchedTop20Parent: v.optional(v.string()),
+    confidence: evidenceConfidence,
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_company", ["companyId"])
+    .index("by_normalized_company_name", ["normalizedCompanyName"])
+    .index("by_is_top20_pharma", ["isTop20Pharma"]),
+
+  territoryRightsEvidence: defineTable({
+    companyId: v.optional(v.id("companies")),
+    drugId: v.optional(v.id("drugs")),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    productName: v.string(),
+    companyName: v.string(),
+    territory: v.string(),
+    rightsStatus: v.union(v.literal("confirmed"), v.literal("announced"), v.literal("unclear"), v.literal("unavailable")),
+    rightsHolder: v.optional(v.string()),
+    excerpt: v.string(),
+    confidence: evidenceConfidence,
+    needsReview: v.boolean(),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_drug", ["drugId"])
+    .index("by_company", ["companyId"])
+    .index("by_needs_review", ["needsReview"])
+    .index("by_territory", ["territory"]),
+
+  opportunityAssumptionSets: defineTable({
+    name: v.string(),
+    isActive: v.boolean(),
+    thresholdScore: v.number(),
+    minimumRiskAdjustedMargin: v.number(),
+    targetMarkets: v.array(engineCountry),
+    secondaryMarkets: v.array(engineCountry),
+    top20ExclusionEnabled: v.boolean(),
+    model1Assumptions: v.object({
+      grossMarginPct: v.number(),
+      tenderDiscountPct: v.number(),
+      registrationCostUsd: v.number(),
+      annualPvCostUsd: v.number(),
+      workingCapitalPct: v.number(),
+      probabilityOfSuccessPct: v.number(),
+    }),
+    model4Assumptions: v.object({
+      successFeePct: v.number(),
+      sublicenseRoyaltyPct: v.number(),
+      probabilityOfSuccessPct: v.number(),
+      operatingCostUsd: v.number(),
+    }),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_is_active", ["isActive"]),
+
+  opportunityRuns: defineTable({
+    assumptionSetId: v.id("opportunityAssumptionSets"),
+    status: opportunityRunStatus,
+    trigger: v.union(v.literal("manual"), v.literal("scheduled"), v.literal("source_change")),
+    candidateCount: v.number(),
+    passedGateCount: v.number(),
+    excludedTop20Count: v.number(),
+    targetRegisteredCount: v.number(),
+    warnings: v.array(v.string()),
+    errorMessage: v.optional(v.string()),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_started_at", ["startedAt"])
+    .index("by_status", ["status"]),
+
+  opportunityRunItems: defineTable({
+    runId: v.id("opportunityRuns"),
+    decisionOpportunityId: v.optional(v.id("decisionOpportunities")),
+    drugId: v.optional(v.id("drugs")),
+    companyId: v.optional(v.id("companies")),
+    productName: v.string(),
+    inn: v.string(),
+    companyName: v.string(),
+    primaryMarket: engineCountry,
+    targetMarkets: v.array(engineCountry),
+    productClass: v.optional(productClass),
+    indication: v.optional(v.string()),
+    registryStatusMatrix: v.optional(registryStatusMatrix),
+    gateStatus: opportunityGateStatus,
+    gateReasons: v.array(v.string()),
+    exclusionFlags: v.optional(exclusionFlags),
+    isTop20Excluded: v.boolean(),
+    registeredTargetMarkets: v.array(engineCountry),
+    homeAuthorizationStatus: v.string(),
+    approvalsSummary: v.optional(v.string()),
+    territoryRightsStatus: v.string(),
+    menaRightsSummary: v.optional(v.string()),
+    opportunityScore: v.number(),
+    riskAdjustedMargin: v.number(),
+    peakSalesUsd: v.optional(v.number()),
+    peakSalesByMarket: v.optional(v.record(v.string(), v.number())),
+    kemedicaMarginAtPeakUsd: v.optional(v.number()),
+    cascadeBasis: v.optional(v.string()),
+    sizingStatus: v.optional(opportunitySizingStatus),
+    model1ExpectedValue: v.number(),
+    model4ExpectedValue: v.number(),
+    rankingPosition: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_run", ["runId"])
+    .index("by_run_and_ranking_position", ["runId", "rankingPosition"])
+    .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_gate_status", ["gateStatus"])
+    .index("by_primary_market", ["primaryMarket"]),
+
+  opportunitySizingInputs: defineTable({
+    decisionOpportunityId: v.optional(v.id("decisionOpportunities")),
+    drugId: v.optional(v.id("drugs")),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    country: engineCountry,
+    eligiblePatients: v.number(),
+    diagnosedReachableRate: v.number(),
+    brandedTreatmentRate: v.number(),
+    kemedicaShareRate: v.number(),
+    netPricePerPatientYearUsd: v.number(),
+    marketMarginRate: v.number(),
+    licenseSignedProbability: v.number(),
+    registrationGrantedProbability: v.number(),
+    inputStatus: sizingInputStatus,
+    basis: v.string(),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_drug_and_country", ["drugId", "country"])
+    .index("by_canonical_product_and_country", ["canonicalProductId", "country"]),
+
+  changeEvents: defineTable({
+    eventType: changeEventType,
+    severity: v.union(v.literal("info"), v.literal("warning"), v.literal("critical")),
+    status: v.union(v.literal("new"), v.literal("acknowledged"), v.literal("resolved")),
+    title: v.string(),
+    summary: v.string(),
+    decisionOpportunityId: v.optional(v.id("decisionOpportunities")),
+    drugId: v.optional(v.id("drugs")),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    companyId: v.optional(v.id("companies")),
+    country: v.optional(engineCountry),
+    previousRunId: v.optional(v.id("opportunityRuns")),
+    currentRunId: v.optional(v.id("opportunityRuns")),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    acknowledgedAt: v.optional(v.number()),
+  })
+    .index("by_status_and_created_at", ["status", "createdAt"])
+    .index("by_event_type_and_created_at", ["eventType", "createdAt"])
+    .index("by_drug", ["drugId"])
+    .index("by_current_run", ["currentRunId"]),
+
+  alertDeliveries: defineTable({
+    changeEventId: v.id("changeEvents"),
+    channel: v.union(v.literal("in_app"), v.literal("email_digest"), v.literal("teams_webhook")),
+    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("skipped"), v.literal("failed")),
+    destination: v.string(),
+    retryCount: v.number(),
+    lastError: v.optional(v.string()),
+    sentAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_change_event", ["changeEventId"])
+    .index("by_status", ["status"])
+    .index("by_channel_and_status", ["channel", "status"]),
+
+  watchlistItems: defineTable({
+    drugId: v.optional(v.id("drugs")),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    substanceKey: v.string(),
+    inn: v.string(),
+    productName: v.optional(v.string()),
+    companyName: v.optional(v.string()),
+    targetMarkets: v.array(engineCountry),
+    status: v.union(v.literal("tracked"), v.literal("paused"), v.literal("closed")),
+    reason: v.string(),
+    alertOnRegistration: v.boolean(),
+    alertOnRights: v.boolean(),
+    alertOnThreshold: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status", ["status"])
+    .index("by_substance_key", ["substanceKey"])
+    .index("by_drug", ["drugId"]),
+
+  reviewQueueItems: defineTable({
+    itemType: reviewQueueItemType,
+    status: reviewQueueStatus,
+    title: v.string(),
+    summary: v.string(),
+    proposedAction: v.string(),
+    candidatePayload: v.record(v.string(), v.string()),
+    drugId: v.optional(v.id("drugs")),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    companyId: v.optional(v.id("companies")),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    reviewedBy: v.optional(v.string()),
+    reviewedAt: v.optional(v.number()),
+    reviewNote: v.optional(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_status_and_created_at", ["status", "createdAt"])
+    .index("by_item_type_and_status", ["itemType", "status"]),
+
+  dealEconomicsScenarios: defineTable({
+    decisionOpportunityId: v.optional(v.id("decisionOpportunities")),
+    runItemId: v.optional(v.id("opportunityRunItems")),
+    model: dealModel,
+    market: engineCountry,
+    netRevenueLowUsd: v.number(),
+    netRevenueHighUsd: v.number(),
+    expectedGrossMarginPct: v.number(),
+    operatingCostUsd: v.number(),
+    probabilityOfSuccessPct: v.number(),
+    expectedValueUsd: v.number(),
+    assumptions: v.array(v.string()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_run_item", ["runItemId"])
+    .index("by_model", ["model"]),
+
+  marketFiles: defineTable({
+    country: engineCountry,
+    registrationRoute: v.string(),
+    typicalTimeline: v.string(),
+    pricingRules: v.string(),
+    tenderCalendar: v.string(),
+    competitorRegistrationSummary: v.string(),
+    lastReviewedAt: v.number(),
+    sourceUrl: v.string(),
+    fetchedAt: v.number(),
+    sourceRegistry: v.string(),
+    sourceFetchId: v.id("sourceFetches"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_country", ["country"]),
+
+  sourceSnapshots: defineTable({
+    sourceSystem: leadSourceSystem,
+    sourceRecordId: v.string(),
+    sourceUrl: v.string(),
+    country: leadCountry,
+    title: v.optional(v.string()),
+    rawContent: v.string(),
+    contentHash: v.string(),
+    parserVersion: v.string(),
+    fetchedAt: v.number(),
+    httpStatus: v.optional(v.number()),
+  })
+    .index("by_source_system_and_source_record_id", ["sourceSystem", "sourceRecordId"])
+    .index("by_country_and_fetched_at", ["country", "fetchedAt"]),
+
+  marketSignals: defineTable({
+    sourceSnapshotId: v.id("sourceSnapshots"),
+    sourceSystem: leadSourceSystem,
+    externalId: v.string(),
+    country: leadCountry,
+    signalType: leadSignalType,
+    status: v.union(v.literal("open"), v.literal("closed"), v.literal("observed")),
+    title: v.string(),
+    productTerms: v.array(v.string()),
+    sourceUrl: v.string(),
+    publishedAt: v.optional(v.number()),
+    deadline: v.optional(v.number()),
+    observedAt: v.number(),
+    isOfficial: v.boolean(),
+    parsedFacts: v.record(v.string(), v.string()),
+    contentHash: v.string(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_source_system_and_external_id", ["sourceSystem", "externalId"])
+    .index("by_country_and_observed_at", ["country", "observedAt"])
+    .index("by_status_and_observed_at", ["status", "observedAt"]),
+
+  signalResolutions: defineTable({
+    signalId: v.id("marketSignals"),
+    productMatchStatus: v.union(
+      v.literal("matched"),
+      v.literal("not_relevant")
+    ),
+    drugId: v.optional(v.id("drugs")),
+    productMatchMethod: v.union(v.literal("manual"), v.literal("automatic_exact")),
+    ownershipCompanyId: v.optional(v.id("companies")),
+    ownershipEvidenceUrl: v.optional(v.string()),
+    ownershipEvidenceNote: v.optional(v.string()),
+    resolvedAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_signal", ["signalId"])
+    .index("by_drug", ["drugId"]),
+
+  researchRuns: defineTable({
+    targetType: researchTargetType,
+    drugId: v.optional(v.id("drugs")),
+    companyId: v.optional(v.id("companies")),
+    scopeCountries: v.array(leadCountry),
+    status: researchRunStatus,
+    provider: v.string(),
+    model: v.optional(v.string()),
+    rawOutput: v.optional(v.string()),
+    sourceCount: v.number(),
+    findingCount: v.number(),
+    errorMessage: v.optional(v.string()),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  })
+    .index("by_drug_and_started_at", ["drugId", "startedAt"])
+    .index("by_company_and_started_at", ["companyId", "startedAt"]),
+
+  researchFindings: defineTable({
+    researchRunId: v.id("researchRuns"),
+    targetType: researchTargetType,
+    drugId: v.optional(v.id("drugs")),
+    companyId: v.optional(v.id("companies")),
+    kind: researchFindingKind,
+    claim: v.string(),
+    excerpt: v.string(),
+    sourceUrl: v.string(),
+    sourceTitle: v.string(),
+    sourceKind: researchSourceKind,
+    confidence: evidenceConfidence,
+    retrievedAt: v.number(),
+    proposedCompanyId: v.optional(v.id("companies")),
+    proposedCompanyName: v.optional(v.string()),
+    relationshipType: v.optional(v.union(
+      v.literal("manufacturer"),
+      v.literal("market_authorization_holder")
+    )),
+    contactName: v.optional(v.string()),
+    contactTitle: v.optional(v.string()),
+    contactEmail: v.optional(v.string()),
+    contactLinkedinUrl: v.optional(v.string()),
+    country: v.optional(leadCountry),
+    registrationStatus: v.optional(v.union(
+      v.literal("registered"),
+      v.literal("not_found"),
+      v.literal("unverified")
+    )),
+    status: researchFindingStatus,
+    reviewedAt: v.optional(v.number()),
+  })
+    .index("by_research_run", ["researchRunId"])
+    .index("by_drug_and_status", ["drugId", "status"])
+    .index("by_company_and_status", ["companyId", "status"]),
+
+  approvedResearchEvidence: defineTable({
+    researchFindingId: v.id("researchFindings"),
+    drugId: v.optional(v.id("drugs")),
+    companyId: v.optional(v.id("companies")),
+    kind: researchFindingKind,
+    claim: v.string(),
+    excerpt: v.string(),
+    sourceUrl: v.string(),
+    sourceTitle: v.string(),
+    sourceKind: researchSourceKind,
+    country: v.optional(leadCountry),
+    approvedAt: v.number(),
+  })
+    .index("by_research_finding", ["researchFindingId"])
+    .index("by_drug_and_approved_at", ["drugId", "approvedAt"])
+    .index("by_company_and_approved_at", ["companyId", "approvedAt"]),
+
+  leadContacts: defineTable({
+    companyId: v.id("companies"),
+    name: v.string(),
+    title: v.string(),
+    role: leadContactRole,
+    email: v.optional(v.string()),
+    linkedinUrl: v.optional(v.string()),
+    sourceUrl: v.string(),
+    sourceKind: leadContactSourceKind,
+    verifiedAt: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_company_and_verified_at", ["companyId", "verifiedAt"])
+    .index("by_company_and_source_url", ["companyId", "sourceUrl"]),
+
+  actionableLeads: defineTable({
+    signalId: v.id("marketSignals"),
+    drugId: v.id("drugs"),
+    companyId: v.id("companies"),
+    leadContactId: v.id("leadContacts"),
+    country: leadCountry,
+    productName: v.string(),
+    genericName: v.string(),
+    approachEntityName: v.string(),
+    contactName: v.string(),
+    contactTitle: v.string(),
+    contactRoute: v.union(v.literal("email"), v.literal("linkedin")),
+    signalType: leadSignalType,
+    signalTitle: v.string(),
+    sourceUrl: v.string(),
+    deadline: v.optional(v.number()),
+    origin: v.optional(leadOrigin),
+    readinessStatus: v.optional(opportunityReadinessStatus),
+    rankRationale: v.optional(v.string()),
+    blockers: v.optional(v.array(v.string())),
+    stage: actionableLeadStage,
+    rankScore: v.number(),
+    qualificationReasons: v.array(v.string()),
+    lastQualifiedAt: v.number(),
+    staleAfter: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_stage_and_rank_score", ["stage", "rankScore"])
+    .index("by_company_and_stage", ["companyId", "stage"])
+    .index("by_signal_and_drug_and_company", ["signalId", "drugId", "companyId"])
+    .index("by_stale_after", ["staleAfter"])
+    .index("by_updated_at", ["updatedAt"]),
+
+  candidateOpportunities: defineTable({
+    origin: leadOrigin,
+    readinessStatus: opportunityReadinessStatus,
+    drugId: v.id("drugs"),
+    canonicalProductId: v.optional(v.id("canonicalProducts")),
+    companyId: v.id("companies"),
+    productName: v.string(),
+    genericName: v.string(),
+    approachEntityName: v.string(),
+    targetCountry: leadCountry,
+    targetCountries: v.array(leadCountry),
+    sourceSystems: v.array(productSourceSystem),
+    approvalDate: v.optional(v.string()),
+    approvedAt: v.optional(v.number()),
+    evidenceObservedAt: v.number(),
+    sourceUrl: v.string(),
+    rankScore: v.number(),
+    rankRationale: v.string(),
+    blockers: v.array(v.string()),
+    qualificationReasons: v.array(v.string()),
+    contactName: v.optional(v.string()),
+    contactTitle: v.optional(v.string()),
+    contactRoute: v.optional(v.union(v.literal("email"), v.literal("linkedin"))),
+    lastQualifiedAt: v.number(),
+    staleAfter: v.number(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_origin_and_rank_score", ["origin", "rankScore"])
+    .index("by_readiness_status_and_rank_score", ["readinessStatus", "rankScore"])
+    .index("by_drug_and_company_and_target_country", ["drugId", "companyId", "targetCountry"])
+    .index("by_stale_after", ["staleAfter"])
+    .index("by_updated_at", ["updatedAt"]),
+
+  leadScanRuns: defineTable({
+    trigger: v.union(v.literal("manual"), v.literal("scheduled")),
+    status: v.union(v.literal("running"), v.literal("completed"), v.literal("partial"), v.literal("error")),
+    sourceSystems: v.array(leadSourceSystem),
+    signalsFound: v.number(),
+    leadsPublished: v.number(),
+    leadsExpired: v.number(),
+    warnings: v.array(v.string()),
+    errorMessage: v.optional(v.string()),
+    startedAt: v.number(),
+    completedAt: v.optional(v.number()),
+  }).index("by_started_at", ["startedAt"]),
 
   registrationImports: defineTable({
     fileName: v.string(),

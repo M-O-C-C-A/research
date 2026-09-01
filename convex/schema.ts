@@ -635,6 +635,7 @@ const sizingInputStatus = v.union(
   v.literal("official_source"),
   v.literal("company_release"),
   v.literal("literature"),
+  v.literal("international_price_anchor"),
   v.literal("practitioner_estimate"),
   v.literal("unvalidated")
 );

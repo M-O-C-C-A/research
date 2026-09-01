@@ -344,10 +344,73 @@ export function calculateRiskAdjustedMargin(args: {
   );
 }
 
+const SCREENING_FX_TO_USD: Record<string, number> = {
+  USD: 1,
+  EUR: 1.08,
+  GBP: 1.27,
+  AED: 0.2723,
+  SAR: 0.2667,
+  EGP: 0.0207,
+  QAR: 0.2747,
+  KWD: 3.25,
+  DZD: 0.0075,
+};
+
+export function deriveInternationalPriceAnchorForTest(priceRows: Array<{
+  amount: number;
+  currency: string;
+  country: string;
+  priceType: string;
+  sourceCategory: string;
+}>) {
+  const eligibleTypes = new Set(["registered", "list", "tariff", "reimbursement", "hospital", "retail"]);
+  const anchors = priceRows
+    .filter((row) => eligibleTypes.has(row.priceType))
+    .map((row) => {
+      const fx = SCREENING_FX_TO_USD[row.currency.toUpperCase()];
+      if (!fx || row.amount <= 0) return null;
+      return {
+        amountUsd: row.amount * fx,
+        country: row.country,
+        currency: row.currency.toUpperCase(),
+        priceType: row.priceType,
+        sourceCategory: row.sourceCategory,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row !== null);
+  if (anchors.length === 0) return null;
+  const sorted = [...anchors].sort((left, right) => left.amountUsd - right.amountUsd);
+  const trimmed = sorted.length > 4 ? sorted.slice(1, -1) : sorted;
+  const averageUsd = Math.round(trimmed.reduce((sum, row) => sum + row.amountUsd, 0) / trimmed.length);
+  const countries = [...new Set(anchors.map((row) => row.country))].sort();
+  const currencies = [...new Set(anchors.map((row) => row.currency))].sort();
+  const officialCount = anchors.filter((row) => row.sourceCategory === "official").length;
+  return { averageUsd, count: anchors.length, countries, currencies, officialCount };
+}
+
+function deriveInternationalPriceAnchor(priceRows: Doc<"priceEvidence">[]) {
+  return deriveInternationalPriceAnchorForTest(priceRows);
+}
+
 function deriveSizingDefaults(args: {
   country: (typeof ENGINE_MARKETS)[number];
   opportunity: Doc<"decisionOpportunities">;
+  priceAnchor?: ReturnType<typeof deriveInternationalPriceAnchor>;
 }) {
+  if (args.priceAnchor && args.priceAnchor.averageUsd > 0) {
+    return {
+      eligiblePatients: 250,
+      diagnosedReachableRate: 45,
+      brandedTreatmentRate: 30,
+      kemedicaShareRate: 12,
+      netPricePerPatientYearUsd: args.priceAnchor.averageUsd,
+      marketMarginRate: defaultMarketMarginRate(args.country),
+      licenseSignedProbability: 35,
+      registrationGrantedProbability: 60,
+      inputStatus: "international_price_anchor" as const,
+      basis: `Average international registered/list price anchor: ${args.priceAnchor.count} record(s), ${args.priceAnchor.officialCount} official, currencies ${args.priceAnchor.currencies.join(", ")}, countries ${args.priceAnchor.countries.join(", ")}. Patient/reach/share rates remain practitioner estimates.`,
+    };
+  }
   return {
     eligiblePatients: 0,
     diagnosedReachableRate: 0,
@@ -1437,6 +1500,11 @@ export const createOpportunityRun = mutation({
         .query("opportunitySizingInputs")
         .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", opportunity._id))
         .take(20);
+      const priceRows = await ctx.db
+        .query("priceEvidence")
+        .withIndex("by_drug", (q) => q.eq("drugId", opportunity.drugId))
+        .take(100);
+      const priceAnchor = deriveInternationalPriceAnchor(priceRows);
       const targetMarkets = opportunity.focusMarkets
         .map(canonicalMarket)
         .filter((market): market is (typeof ENGINE_MARKETS)[number] => Boolean(market));
@@ -1447,14 +1515,19 @@ export const createOpportunityRun = mutation({
       let sizingStatus: "evidence_based" | "practitioner_estimate" | "unvalidated" = "unvalidated";
       for (const market of targetMarkets.length > 0 ? targetMarkets : TARGET_MARKETS) {
         const storedSizing = sizingInputs.find((row) => row.country === market);
-        const sizing = storedSizing ?? deriveSizingDefaults({ country: market, opportunity });
+        const sizing = storedSizing ?? deriveSizingDefaults({ country: market, opportunity, priceAnchor });
         if (storedSizing && storedSizing.inputStatus !== "unvalidated") {
           if (storedSizing.inputStatus === "practitioner_estimate") {
+            sizingStatus = sizingStatus === "evidence_based" ? "evidence_based" : "practitioner_estimate";
+          } else if (storedSizing.inputStatus === "international_price_anchor") {
             sizingStatus = sizingStatus === "evidence_based" ? "evidence_based" : "practitioner_estimate";
           } else {
             sizingStatus = "evidence_based";
           }
-        } else if (sizing.inputStatus === "practitioner_estimate" && sizingStatus !== "evidence_based") {
+        } else if (
+          (sizing.inputStatus === "practitioner_estimate" || sizing.inputStatus === "international_price_anchor") &&
+          sizingStatus !== "evidence_based"
+        ) {
           sizingStatus = "practitioner_estimate";
         }
         const peak = calculatePeakSales(sizing);

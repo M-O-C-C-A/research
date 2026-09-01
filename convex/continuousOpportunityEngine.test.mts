@@ -9,6 +9,7 @@ const {
   calculateRiskAdjustedMargin,
   canMarkVerifiedAbsent,
   defaultMarketMarginRate,
+  deriveInternationalPriceAnchorForTest,
   isTop20OwnerName,
 } = (await import(engineModulePath)) as typeof import("./continuousOpportunityEngine");
 
@@ -72,6 +73,43 @@ test("risk-adjusted margin applies market margin and two probabilities", () => {
   });
 
   assert.equal(riskAdjustedMargin, 480_000);
+});
+
+test("international price anchor averages convertible registered and list prices", () => {
+  const anchor = deriveInternationalPriceAnchorForTest([
+    {
+      amount: 1000,
+      currency: "USD",
+      country: "United States",
+      priceType: "registered",
+      sourceCategory: "official",
+    },
+    {
+      amount: 3673,
+      currency: "AED",
+      country: "UAE",
+      priceType: "list",
+      sourceCategory: "official",
+    },
+    {
+      amount: 99,
+      currency: "BTC",
+      country: "Nowhere",
+      priceType: "registered",
+      sourceCategory: "proxy",
+    },
+    {
+      amount: 500,
+      currency: "USD",
+      country: "Tenderland",
+      priceType: "tender",
+      sourceCategory: "official",
+    },
+  ]);
+
+  assert.equal(anchor?.averageUsd, 1000);
+  assert.equal(anchor?.count, 2);
+  assert.equal(anchor?.officialCount, 2);
 });
 
 test("verified absence requires authoritative registry search metadata", () => {

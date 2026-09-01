@@ -18,6 +18,7 @@ const INPUT_STATUS = [
   ["official_source", "Official source"],
   ["company_release", "Company release"],
   ["literature", "Literature"],
+  ["international_price_anchor", "International price anchor"],
   ["practitioner_estimate", "Practitioner estimate"],
   ["unvalidated", "Unvalidated"],
 ] as const;

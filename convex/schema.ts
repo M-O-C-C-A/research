@@ -639,6 +639,12 @@ const sizingInputStatus = v.union(
   v.literal("unvalidated")
 );
 
+const opportunitySizingStatus = v.union(
+  v.literal("evidence_based"),
+  v.literal("practitioner_estimate"),
+  v.literal("unvalidated")
+);
+
 const registryStatusMatrix = v.object({
   fda: registrationFactStatus,
   ema: registrationFactStatus,
@@ -1973,6 +1979,7 @@ export default defineSchema({
     peakSalesByMarket: v.optional(v.record(v.string(), v.number())),
     kemedicaMarginAtPeakUsd: v.optional(v.number()),
     cascadeBasis: v.optional(v.string()),
+    sizingStatus: v.optional(opportunitySizingStatus),
     model1ExpectedValue: v.number(),
     model4ExpectedValue: v.number(),
     rankingPosition: v.optional(v.number()),

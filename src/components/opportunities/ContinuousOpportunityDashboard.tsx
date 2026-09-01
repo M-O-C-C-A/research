@@ -53,7 +53,7 @@ function formatMoney(value?: number) {
 }
 
 function shortMoney(value?: number) {
-  if (!value) return "UNVALIDATED";
+  if (value === undefined || value === null || value <= 0) return "UNVALIDATED";
   if (Math.abs(value) >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(1)}bn`;
   if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(value >= 10_000_000 ? 0 : 1)}m`;
   if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}k`;
@@ -241,6 +241,7 @@ export function ContinuousOpportunityDashboard() {
                   ([market, value]) => [market, Number(value)] as const
                 );
                 const maxMarketSales = Math.max(...markets.map(([, value]) => value), 1);
+                const sizingIsValidated = item.sizingStatus && item.sizingStatus !== "unvalidated";
                 return (
                   <article
                     key={item._id}
@@ -264,11 +265,15 @@ export function ContinuousOpportunityDashboard() {
                       </div>
                       <div>
                         <p className="text-2xl font-bold text-white">{shortMoney(item.peakSalesUsd)}</p>
-                        <p className="mt-1 font-mono text-xs uppercase tracking-[0.22em] text-zinc-400">Peak sales</p>
+                        <p className="mt-1 font-mono text-xs uppercase tracking-[0.22em] text-zinc-400">
+                          {sizingIsValidated ? "Peak sales" : "Sizing"}
+                        </p>
                       </div>
                       <div>
                         <p className="text-2xl font-bold text-white">{shortMoney(item.riskAdjustedMargin)}</p>
-                        <p className="mt-1 font-mono text-xs uppercase tracking-[0.22em] text-zinc-400">Risk-adj.</p>
+                        <p className="mt-1 font-mono text-xs uppercase tracking-[0.22em] text-zinc-400">
+                          {sizingIsValidated ? "Risk-adj." : "Risk-adj."}
+                        </p>
                       </div>
                     </div>
 
@@ -277,14 +282,20 @@ export function ContinuousOpportunityDashboard() {
                         Peak in-market sales by market
                       </p>
                       <div className="space-y-3">
-                        {markets.map(([market, value]) => (
+                        {markets.length === 0 ? (
+                          <div className="rounded-md border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">
+                            UNVALIDATED: open the Asset File and add sizing inputs for each target market.
+                          </div>
+                        ) : markets.map(([market, value]) => (
                           <div key={market} className="grid grid-cols-[9rem_minmax(0,1fr)_5rem] items-center gap-3">
                             <p className="text-sm font-semibold text-white">{market}</p>
                             <div className="h-3 rounded bg-zinc-800">
-                              <div
-                                className="h-3 rounded bg-emerald-300/70"
-                                style={{ width: `${Math.max(4, Math.min(100, (value / maxMarketSales) * 100))}%` }}
-                              />
+                              {value > 0 && (
+                                <div
+                                  className="h-3 rounded bg-emerald-300/70"
+                                  style={{ width: `${Math.max(4, Math.min(100, (value / maxMarketSales) * 100))}%` }}
+                                />
+                              )}
                             </div>
                             <p className="text-right text-sm text-white">{shortMoney(value)}</p>
                           </div>
@@ -308,6 +319,8 @@ export function ContinuousOpportunityDashboard() {
                       <p className="text-zinc-300">{item.menaRightsSummary ?? item.territoryRightsStatus}</p>
                       <p className="font-mono uppercase tracking-[0.18em] text-zinc-400">KEM margin</p>
                       <p className="text-zinc-300">{shortMoney(item.kemedicaMarginAtPeakUsd)} at peak</p>
+                      <p className="font-mono uppercase tracking-[0.18em] text-zinc-400">Sizing basis</p>
+                      <p className="text-zinc-300">{item.sizingStatus?.replaceAll("_", " ") ?? "legacy run"}</p>
                     </div>
                   </article>
                 );

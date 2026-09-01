@@ -348,20 +348,17 @@ function deriveSizingDefaults(args: {
   country: (typeof ENGINE_MARKETS)[number];
   opportunity: Doc<"decisionOpportunities">;
 }) {
-  const range = parseRevenueRange(args.opportunity.marketSizeEstimate);
-  const netPricePerPatientYearUsd = range.high > 0 ? Math.max(1000, Math.round(((range.low + range.high) / 2) / 500)) : 20000;
-  const eligiblePatients = Math.max(100, args.opportunity.marketSizeEstimate ? 500 : 1000);
   return {
-    eligiblePatients,
-    diagnosedReachableRate: 45,
-    brandedTreatmentRate: 30,
-    kemedicaShareRate: 12,
-    netPricePerPatientYearUsd,
+    eligiblePatients: 0,
+    diagnosedReachableRate: 0,
+    brandedTreatmentRate: 0,
+    kemedicaShareRate: 0,
+    netPricePerPatientYearUsd: 0,
     marketMarginRate: defaultMarketMarginRate(args.country),
-    licenseSignedProbability: 35,
-    registrationGrantedProbability: 60,
-    inputStatus: "practitioner_estimate" as const,
-    basis: "Practitioner-estimate cascade pending product-specific epidemiology and price validation.",
+    licenseSignedProbability: 0,
+    registrationGrantedProbability: 0,
+    inputStatus: "unvalidated" as const,
+    basis: "UNVALIDATED: no product-specific eligible patient, rate, share, and net-price sizing row is stored yet.",
   };
 }
 
@@ -1447,10 +1444,19 @@ export const createOpportunityRun = mutation({
       let peakSalesUsd = 0;
       let kemedicaMarginAtPeakUsd = 0;
       const cascadeBasisParts: string[] = [];
+      let sizingStatus: "evidence_based" | "practitioner_estimate" | "unvalidated" = "unvalidated";
       for (const market of targetMarkets.length > 0 ? targetMarkets : TARGET_MARKETS) {
-        const sizing =
-          sizingInputs.find((row) => row.country === market) ??
-          deriveSizingDefaults({ country: market, opportunity });
+        const storedSizing = sizingInputs.find((row) => row.country === market);
+        const sizing = storedSizing ?? deriveSizingDefaults({ country: market, opportunity });
+        if (storedSizing && storedSizing.inputStatus !== "unvalidated") {
+          if (storedSizing.inputStatus === "practitioner_estimate") {
+            sizingStatus = sizingStatus === "evidence_based" ? "evidence_based" : "practitioner_estimate";
+          } else {
+            sizingStatus = "evidence_based";
+          }
+        } else if (sizing.inputStatus === "practitioner_estimate" && sizingStatus !== "evidence_based") {
+          sizingStatus = "practitioner_estimate";
+        }
         const peak = calculatePeakSales(sizing);
         const riskAdjusted = calculateRiskAdjustedMargin({
           peakSalesUsd: peak,
@@ -1462,10 +1468,13 @@ export const createOpportunityRun = mutation({
         peakSalesUsd += peak;
         kemedicaMarginAtPeakUsd += riskAdjusted;
         cascadeBasisParts.push(
-          `${market}: ${sizing.eligiblePatients.toLocaleString()} eligible; ${sizing.diagnosedReachableRate}% reachable; ${sizing.brandedTreatmentRate}% branded; ${sizing.kemedicaShareRate}% KEMEDICA share; ${sizing.inputStatus.replaceAll("_", " ")}.`
+          sizing.inputStatus === "unvalidated"
+            ? `${market}: UNVALIDATED sizing; add eligible patients, rates, share, and net price in the Asset File.`
+            : `${market}: ${sizing.eligiblePatients.toLocaleString()} eligible; ${sizing.diagnosedReachableRate}% reachable; ${sizing.brandedTreatmentRate}% branded; ${sizing.kemedicaShareRate}% KEMEDICA share; ${sizing.inputStatus.replaceAll("_", " ")}.`
         );
       }
-      const belowMarginFloor = kemedicaMarginAtPeakUsd < assumptionSet.minimumRiskAdjustedMargin;
+      const belowMarginFloor =
+        sizingStatus !== "unvalidated" && kemedicaMarginAtPeakUsd < assumptionSet.minimumRiskAdjustedMargin;
       const distributionInfeasible = opportunity.entryStrategy === "watch";
       const reasons = gateReasons({
         opportunity,
@@ -1534,6 +1543,7 @@ export const createOpportunityRun = mutation({
         peakSalesByMarket,
         kemedicaMarginAtPeakUsd,
         cascadeBasis: cascadeBasisParts.join(" "),
+        sizingStatus,
         model1ExpectedValue,
         model4ExpectedValue,
         createdAt: now,

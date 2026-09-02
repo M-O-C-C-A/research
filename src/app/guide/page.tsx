@@ -101,7 +101,7 @@ export default function GuidePage() {
           <div>
             <h3 className="text-base font-semibold text-white">Source hierarchy and AI&apos;s role</h3>
             <p className="mt-2 text-sm leading-relaxed text-zinc-400">
-              Official Saudi and Egyptian regulator and procurement sources come first. UAE registration status is accepted only from the authorized MoHAP import workflow; Egyptian registration claims need an authorized record because the public EDA search is access-controlled. Company sites, press releases, conference listings, public work emails, and direct LinkedIn profiles can support ownership and contacts. General public pages provide context, never a shortcut around missing official proof.
+              Official Saudi and Egyptian regulator and procurement sources come first, including EDA and the DrugEye Egypt medicine reference. UAE registration status is accepted only from the authorized MoHAP import workflow; Egyptian registration claims need an authorized record because public registry searches can be access-controlled. Company sites, press releases, conference listings, public work emails, and direct LinkedIn profiles can support ownership and contacts. General public pages provide context, never a shortcut around missing official proof.
             </p>
             <p className="mt-3 text-sm leading-relaxed text-zinc-400">
               AI can search, extract, classify, and summarize the sources it returns. It cannot invent a source, infer a missing registration, or publish a lead. A web-research registration claim for the UAE is discarded; the authorized import is the record of truth.

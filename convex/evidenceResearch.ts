@@ -79,7 +79,7 @@ function normalizeUrl(value?: string | null) {
 function sourceKind(url: string, companyWebsite?: string) {
   const hostname = new URL(url).hostname.toLowerCase();
   if (/eps-gags\.gov\.eg|upa\.gov\.eg/.test(hostname)) return "official_signal" as const;
-  if (/sfda\.gov\.sa|mohap\.gov\.ae|nupco\.com|etimad\.sa|edaegypt\.gov\.eg/.test(hostname)) return "official_registry" as const;
+  if (/sfda\.gov\.sa|mohap\.gov\.ae|nupco\.com|etimad\.sa|edaegypt\.gov\.eg|pharorg\.com/.test(hostname)) return "official_registry" as const;
   if (hostname.includes("linkedin.com")) return "linkedin" as const;
   if (companyWebsite && normalizeUrl(companyWebsite) === normalizeUrl(url)) return "company_website" as const;
   if (/press|news|media|release/.test(url)) return "company_press_release" as const;
@@ -160,8 +160,8 @@ export const runProductResearch = action({
         .map((link) => `${link.relationshipType}: ${link.entityName ?? knownCompanies.find((company) => company._id === link.companyId)?.name ?? "unknown"}`)
         .join("; ");
       const response = await createStructuredWebSearchResponse<{ findings: FindingDraft[] }>(client, {
-        instructions: "You are an evidence researcher for Saudi Arabia, the UAE, and Egypt. Return only concise, source-backed facts. A sourceUrl must be one of the web sources you actually used. Never infer a missing registration, ownership, partner, or contact. Only propose ownership for a company named in the supplied known-owner list. UAE registration status comes only from authorized MoHAP imports, so never return a UAE registration finding from web search. Egypt's registration search may be access-controlled, so do not claim Egyptian registration unless an authorized record is supplied. Return no finding when the source does not support it.",
-        input: `Research product: ${context.drug.name} (${context.drug.genericName}).\nKnown owners/links: ${linkedOwners || "none"}.\nKnown companies: ${knownCompanies.map((company) => company.name).join("; ") || "none"}.\nFocus: Saudi Arabia, UAE, and Egypt. Find product identity, manufacturer/MAH confirmation, current official market context, authorized registry evidence only, conflicting local partners, and named public BD/licensing/export contacts. Existing official signal titles: ${context.matchingSignals.map((signal) => signal.title).join("; ") || "none"}.`,
+        instructions: "You are an evidence researcher for Saudi Arabia, the UAE, and Egypt. Return only concise, source-backed facts. A sourceUrl must be one of the web sources you actually used. Never infer a missing registration, ownership, partner, or contact. Only propose ownership for a company named in the supplied known-owner list. UAE registration status comes only from authorized MoHAP imports, so never return a UAE registration finding from web search. For Egypt, prefer EDA or DrugEye Egypt medicine reference records; do not claim Egyptian registration unless an authorized record is supplied. Return no finding when the source does not support it.",
+        input: `Research product: ${context.drug.name} (${context.drug.genericName}).\nKnown owners/links: ${linkedOwners || "none"}.\nKnown companies: ${knownCompanies.map((company) => company.name).join("; ") || "none"}.\nFocus: Saudi Arabia, UAE, and Egypt. Find product identity, manufacturer/MAH confirmation, current official market context, authorized registry evidence only, conflicting local partners, and named public BD/licensing/export contacts. For Egyptian references include DrugEye: https://drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx. Existing official signal titles: ${context.matchingSignals.map((signal) => signal.title).join("; ") || "none"}.`,
         formatName: "product_research_findings",
         schema: RESEARCH_FINDINGS_SCHEMA,
         maxOutputTokens: 3_000,

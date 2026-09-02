@@ -175,6 +175,15 @@ const DEFAULT_SOURCES = [
     structureSignature: "EDASearch",
   },
   {
+    sourceRegistry: "egypt_drugeye",
+    title: "DrugEye Egypt medicine reference",
+    sourceType: "target_registration" as const,
+    baseUrl: "https://drugeye.pharorg.com/drugeyeapp/android-search/drugeye-android-live-go.aspx",
+    cadence: "manual" as const,
+    parserVersion: "egypt-drugeye-manual-v1",
+    structureSignature: "drugeye-android-live-go",
+  },
+  {
     sourceRegistry: "company_rights_sources",
     title: "Company BD pages, press releases, and filings",
     sourceType: "company_rights" as const,

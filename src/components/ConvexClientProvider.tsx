@@ -1,8 +1,7 @@
 "use client";
 
 import { ReactNode, useMemo } from "react";
-import { ConvexReactClient } from "convex/react";
-import { ConvexAuthProvider } from "@convex-dev/auth/react";
+import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { AuthenticationGate } from "@/components/auth/AuthenticationGate";
 
 export default function ConvexClientProvider({
@@ -38,9 +37,5 @@ export default function ConvexClientProvider({
     );
   }
 
-  return (
-    <ConvexAuthProvider client={client}>
-      <AuthenticationGate>{children}</AuthenticationGate>
-    </ConvexAuthProvider>
-  );
+  return <ConvexProvider client={client}><AuthenticationGate>{children}</AuthenticationGate></ConvexProvider>;
 }

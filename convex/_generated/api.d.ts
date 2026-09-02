@@ -9,7 +9,6 @@
  */
 
 import type * as actionableLeads from "../actionableLeads.js";
-import type * as auth from "../auth.js";
 import type * as authz from "../authz.js";
 import type * as ai from "../ai.js";
 import type * as bdActivities from "../bdActivities.js";
@@ -71,7 +70,6 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   actionableLeads: typeof actionableLeads;
-  auth: typeof auth;
   authz: typeof authz;
   ai: typeof ai;
   bdActivities: typeof bdActivities;

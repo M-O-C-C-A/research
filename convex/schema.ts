@@ -1,6 +1,5 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
-import { authTables } from "@convex-dev/auth/server";
 
 const logEntry = v.object({
   timestamp: v.number(),
@@ -715,10 +714,9 @@ const exclusionFlags = v.object({
 });
 
 export default defineSchema({
-  ...authTables,
-
   workspaceMembers: defineTable({
-    userId: v.id("users"),
+    userId: v.optional(v.string()),
+    openKey: v.optional(v.string()),
     email: v.string(),
     name: v.optional(v.string()),
     role: workspaceRole,
@@ -727,6 +725,7 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_user", ["userId"])
+    .index("by_open_key", ["openKey"])
     .index("by_email", ["email"])
     .index("by_role_and_active", ["role", "active"]),
 

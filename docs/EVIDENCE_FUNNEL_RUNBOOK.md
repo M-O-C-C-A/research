@@ -11,16 +11,15 @@ A public search returning no match must be recorded as `not_found_unverified`. O
 This checkout currently has no `CONVEX_DEPLOYMENT`, so code generation, deployment, authentication keys, and data migration cannot be completed locally until the deployment is connected.
 
 1. Connect the intended Convex development deployment with `npx convex dev`.
-2. Run `npx @convex-dev/auth` to generate the deployment secrets used by the invisible anonymous-session configuration.
-3. Confirm `NEXT_PUBLIC_CONVEX_URL` is present in the web environment.
-4. Run `npx convex codegen` and commit the generated component API types.
-5. Deploy the backend with `npm run deploy:backend`.
-6. Run the two tracked migrations:
+2. Confirm `NEXT_PUBLIC_CONVEX_URL` is present in the web environment.
+3. Run `npx convex codegen` and commit the generated component API types.
+4. Deploy the backend with `npm run deploy:backend`.
+5. Run the two tracked migrations:
    - `npx convex run migrations:candidateOpportunitiesToCanonical`
    - `npx convex run migrations:actionableLeadsToCanonical`
-7. Run each command again and confirm it reports completion without creating duplicate canonical records or country assessments.
+6. Run each command again and confirm it reports completion without creating duplicate canonical records or country assessments.
 
-The link is intentionally open: there is no login or invitation screen. Convex creates an invisible anonymous identity per browser only to preserve task assignment and activity attribution. Open-link users currently receive administrator capability; this is convenience, not an access-control boundary.
+The link is intentionally open: there is no authentication, login, invitation, or browser identity. The app uses one shared `Open workspace` administrator record for task assignment and activity attribution. This is convenience, not an access-control boundary.
 
 ## Daily workflow
 

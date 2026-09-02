@@ -1,4 +1,3 @@
-import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireMember } from "./authz";
@@ -13,24 +12,19 @@ export const ensureCurrent = mutation({
     email: v.string(),
   }),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("Authentication required");
     const existing = await ctx.db
       .query("workspaceMembers")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_open_key", (q) => q.eq("openKey", "default"))
       .unique();
     if (existing) return { memberId: existing._id, role: existing.role, email: existing.email };
 
-    const user = await ctx.db.get(userId);
-    const email = user?.email?.trim().toLowerCase() ?? `open-${userId}@kemedica.local`;
-    // The private link is intentionally open. Anonymous identities exist only
-    // so assignments and activity attribution keep working without a login UI.
+    const email = "open@kemedica.local";
     const assignedRole = "admin" as const;
     const now = Date.now();
     const memberId = await ctx.db.insert("workspaceMembers", {
-      userId,
+      openKey: "default",
       email,
-      name: user?.name ?? "Open workspace user",
+      name: "Open workspace",
       role: assignedRole,
       active: true,
       createdAt: now,
@@ -52,11 +46,9 @@ export const current = query({
     }),
   ),
   handler: async (ctx) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) return null;
     const member = await ctx.db
       .query("workspaceMembers")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .withIndex("by_open_key", (q) => q.eq("openKey", "default"))
       .unique();
     if (!member || !member.active) return null;
     return { memberId: member._id, role: member.role, email: member.email, name: member.name };

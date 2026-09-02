@@ -62,7 +62,7 @@ const DEFAULT_SOURCES = [
     title: "FDA Orange Book patent and exclusivity data",
     sourceType: "patent_exclusivity" as const,
     baseUrl: "https://www.fda.gov/drugs/drug-approvals-and-databases/orange-book-data-files",
-    cadence: "weekly" as const,
+    cadence: "monthly" as const,
     parserVersion: "orange-book-v1",
     structureSignature: "Orange Book",
   },
@@ -71,7 +71,7 @@ const DEFAULT_SOURCES = [
     title: "FDA Purple Book biologics data",
     sourceType: "patent_exclusivity" as const,
     baseUrl: "https://purplebooksearch.fda.gov/downloads",
-    cadence: "weekly" as const,
+    cadence: "monthly" as const,
     parserVersion: "purple-book-v1",
     structureSignature: "Purple Book",
   },
@@ -94,6 +94,33 @@ const DEFAULT_SOURCES = [
     structureSignature: "orphan",
   },
   {
+    sourceRegistry: "ema_article_57",
+    title: "EMA Article 57 EEA-authorised medicines",
+    sourceType: "home_authorization" as const,
+    baseUrl: "https://www.ema.europa.eu/en/human-regulatory-overview/post-authorisation/data-medicines-iso-idmp-standards-post-authorisation/public-data-article-57-database",
+    cadence: "weekly" as const,
+    parserVersion: "ema-article57-v1",
+    structureSignature: "Article 57",
+  },
+  {
+    sourceRegistry: "ema_sme_register",
+    title: "EMA SME register",
+    sourceType: "company_rights" as const,
+    baseUrl: "https://fmapps.ema.europa.eu/SME/reg_companies.php",
+    cadence: "weekly" as const,
+    parserVersion: "ema-sme-v1",
+    structureSignature: "SME",
+  },
+  {
+    sourceRegistry: "mhra_products",
+    title: "MHRA authorised products",
+    sourceType: "home_authorization" as const,
+    baseUrl: "https://products.mhra.gov.uk/",
+    cadence: "weekly" as const,
+    parserVersion: "mhra-products-v1",
+    structureSignature: "MHRA",
+  },
+  {
     sourceRegistry: "ema_withdrawals",
     title: "EMA withdrawals and refusals",
     sourceType: "home_authorization" as const,
@@ -103,19 +130,10 @@ const DEFAULT_SOURCES = [
     structureSignature: "withdrawn",
   },
   {
-    sourceRegistry: "bfarm_pharmnet",
-    title: "BfArM / PharmNet.Bund authorizations",
-    sourceType: "home_authorization" as const,
-    baseUrl: "https://www.pharmnet-bund.de",
-    cadence: "weekly" as const,
-    parserVersion: "bfarm-pharmnet-v1",
-    structureSignature: "PharmNet",
-  },
-  {
     sourceRegistry: "sfda_registered_drugs",
     title: "SFDA registered-drug service",
     sourceType: "target_registration" as const,
-    baseUrl: "https://www.sfda.gov.sa/en/drug-search",
+    baseUrl: "https://www.sfda.gov.sa/en/drugs-list",
     cadence: "daily" as const,
     parserVersion: "sfda-registered-v1",
     structureSignature: "drug",
@@ -139,40 +157,67 @@ const DEFAULT_SOURCES = [
     structureSignature: "shortage",
   },
   {
-    sourceRegistry: "mohap_registered_products",
-    title: "MOHAP registered product directory",
+    sourceRegistry: "nupco_tenders",
+    title: "NUPCO tenders",
+    sourceType: "procurement" as const,
+    baseUrl: "https://www.nupco.com/tenders/tenders-list/",
+    cadence: "daily" as const,
+    parserVersion: "nupco-tenders-v1",
+    structureSignature: "tender",
+  },
+  {
+    sourceRegistry: "uae_ede_directory",
+    title: "UAE EDE registered product directory",
     sourceType: "target_registration" as const,
-    baseUrl: "https://mohap.gov.ae/en/services/registered-medical-product-directory",
+    baseUrl: "https://services.ede.gov.ae/drugdirectory?lang=en-US",
+    cadence: "daily" as const,
+    parserVersion: "ede-directory-v1",
+    structureSignature: "drugdirectory",
+  },
+  {
+    sourceRegistry: "abu_dhabi_drug_authorization",
+    title: "Abu Dhabi approved and specially authorised drugs",
+    sourceType: "procurement" as const,
+    baseUrl: "https://www.doh.gov.ae/en/research/Dashboard/Drug-Authorization",
     cadence: "weekly" as const,
-    parserVersion: "mohap-directory-v1",
-    structureSignature: "registered",
+    parserVersion: "doh-special-authorisation-v1",
+    structureSignature: "Drug Authorization",
   },
   {
-    sourceRegistry: "uae_price_list",
-    title: "UAE official medicine price list",
+    sourceRegistry: "dha_drug_price_list",
+    title: "DHA medicine price list",
     sourceType: "target_registration" as const,
-    baseUrl: "https://mohap.gov.ae/en/open-data",
+    baseUrl: "https://www.dha.gov.ae/ar/HealthRegulationSector/DrugControl",
     cadence: "weekly" as const,
-    parserVersion: "uae-price-list-v1",
-    structureSignature: "price",
+    parserVersion: "dha-price-list-v1",
+    structureSignature: "DrugControl",
   },
   {
-    sourceRegistry: "uae_ede_mohap_manual",
-    title: "UAE EDE/MOHAP registration and price evidence",
-    sourceType: "target_registration" as const,
-    baseUrl: "https://www.ede.gov.ae",
-    cadence: "manual" as const,
-    parserVersion: "uae-manual-import-v1",
-    structureSignature: "ede",
-  },
-  {
-    sourceRegistry: "egypt_eda_manual",
-    title: "Egypt EDA registration search evidence",
+    sourceRegistry: "egypt_eda_public_search",
+    title: "Egypt EDA public registration lookup (targeted checks only)",
     sourceType: "target_registration" as const,
     baseUrl: "https://eservices.edaegypt.gov.eg/EDASearch/SearchRegDrugs.aspx",
     cadence: "manual" as const,
-    parserVersion: "egypt-eda-manual-v1",
+    parserVersion: "egypt-eda-targeted-v1",
     structureSignature: "EDASearch",
+  },
+  {
+    sourceRegistry: "egypt_eda_authorized_export",
+    title: "Authorized EDA / Pharma Data Hub registration export",
+    sourceType: "manual_import" as const,
+    baseUrl: "https://edaegypt.gov.eg/en/publications-reports-and-eda-in-numbers/eda-publications/periodic-lists/",
+    cadence: "manual" as const,
+    parserVersion: "egypt-authorized-import-v1",
+    structureSignature: "periodic",
+  },
+  {
+    sourceRegistry: "egypt_eoneps",
+    title: "Egypt public procurement opportunities",
+    sourceType: "procurement" as const,
+    baseUrl: "https://www.eps-gags.gov.eg/pt/sys/movePtIntroduceDetail.do",
+    cadence: "daily" as const,
+    parserVersion: "egypt-eoneps-v1",
+    structureSignature: "procurement",
   },
   {
     sourceRegistry: "company_rights_sources",
@@ -206,7 +251,7 @@ const sourceTypeValidator = v.union(
   v.literal("disease_burden")
 );
 
-const cadenceValidator = v.union(v.literal("manual"), v.literal("daily"), v.literal("weekly"));
+const cadenceValidator = v.union(v.literal("manual"), v.literal("daily"), v.literal("weekly"), v.literal("monthly"));
 const marketValidator = v.union(
   v.literal("Saudi Arabia"),
   v.literal("UAE"),
@@ -250,9 +295,10 @@ function canonicalMarket(value: string): (typeof ENGINE_MARKETS)[number] | null 
   return ENGINE_MARKETS.find((market) => normalize(market) === normalize(value)) ?? null;
 }
 
-function nextFetchAt(cadence: "manual" | "daily" | "weekly", now: number) {
+function nextFetchAt(cadence: "manual" | "daily" | "weekly" | "monthly", now: number) {
   if (cadence === "manual") return undefined;
-  return now + (cadence === "daily" ? 24 : 7 * 24) * 60 * 60 * 1000;
+  const days = cadence === "daily" ? 1 : cadence === "weekly" ? 7 : 30;
+  return now + days * 24 * 60 * 60 * 1000;
 }
 
 function userAgent() {
@@ -581,7 +627,11 @@ export const seedSourceRegistry = mutation({
         userAgent: userAgent(),
         contactEmail: process.env.KEMEDICA_CRAWLER_CONTACT_EMAIL ?? "research@kemedica.com",
         rateLimitPerMinute: 12,
-        staleAfterMs: (source.cadence === "weekly" ? 14 : 3) * 24 * 60 * 60 * 1000,
+        staleAfterMs: (
+          source.cadence === "monthly" ? 45 :
+            source.cadence === "weekly" ? 14 :
+              source.cadence === "manual" ? 30 : 3
+        ) * 24 * 60 * 60 * 1000,
         nextFetchAt: nextFetchAt(source.cadence, now),
         updatedAt: now,
       };
@@ -1399,6 +1449,27 @@ export const recordAutomatedFetch = internalMutation({
       staleAt: !args.ok || args.structureStatus === "failed" ? now : undefined,
       updatedAt: now,
     });
+    if (args.structureStatus === "failed") {
+      await ctx.db.insert("reviewQueueItems", {
+        itemType: "source_structure",
+        status: "open",
+        title: `${registry.title} source structure changed`,
+        summary: args.structureMessage ?? "The expected source structure was not detected.",
+        proposedAction: "Inspect the retained payload, update and fixture-test the parser, then approve the source before resuming automated classifications.",
+        candidatePayload: {
+          sourceRegistry: args.sourceRegistry,
+          parserVersion: args.parserVersion,
+          httpStatus: String(args.httpStatus ?? "unknown"),
+          lastValidSnapshotAt: registry.lastSuccessAt ? new Date(registry.lastSuccessAt).toISOString() : "none",
+        },
+        sourceUrl: args.sourceUrl,
+        fetchedAt: now,
+        sourceRegistry: args.sourceRegistry,
+        sourceFetchId: fetchId,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
     return fetchId;
   },
 });

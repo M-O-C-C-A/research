@@ -9,6 +9,8 @@
  */
 
 import type * as actionableLeads from "../actionableLeads.js";
+import type * as auth from "../auth.js";
+import type * as authz from "../authz.js";
 import type * as ai from "../ai.js";
 import type * as bdActivities from "../bdActivities.js";
 import type * as companies from "../companies.js";
@@ -27,6 +29,7 @@ import type * as drugEntityLinkUtils from "../drugEntityLinkUtils.js";
 import type * as drugEntityLinks from "../drugEntityLinks.js";
 import type * as drugs from "../drugs.js";
 import type * as evidenceEnrichment from "../evidenceEnrichment.js";
+import type * as evidenceFunnel from "../evidenceFunnel.js";
 import type * as evidenceResearch from "../evidenceResearch.js";
 import type * as fileProcessing from "../fileProcessing.js";
 import type * as files from "../files.js";
@@ -40,6 +43,7 @@ import type * as leadScans from "../leadScans.js";
 import type * as leadSourceParsers from "../leadSourceParsers.js";
 import type * as mandateOpportunityEngine from "../mandateOpportunityEngine.js";
 import type * as mandateOpportunityReports from "../mandateOpportunityReports.js";
+import type * as migrations from "../migrations.js";
 import type * as openaiResearch from "../openaiResearch.js";
 import type * as opportunities from "../opportunities.js";
 import type * as productIntelligence from "../productIntelligence.js";
@@ -57,6 +61,7 @@ import type * as researchWorkflow from "../researchWorkflow.js";
 import type * as sustainableOpportunities from "../sustainableOpportunities.js";
 import type * as sustainableOpportunityQualification from "../sustainableOpportunityQualification.js";
 import type * as tavilyResearch from "../tavilyResearch.js";
+import type * as workspaceMembers from "../workspaceMembers.js";
 
 import type {
   ApiFromModules,
@@ -66,6 +71,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   actionableLeads: typeof actionableLeads;
+  auth: typeof auth;
+  authz: typeof authz;
   ai: typeof ai;
   bdActivities: typeof bdActivities;
   companies: typeof companies;
@@ -84,6 +91,7 @@ declare const fullApi: ApiFromModules<{
   drugEntityLinks: typeof drugEntityLinks;
   drugs: typeof drugs;
   evidenceEnrichment: typeof evidenceEnrichment;
+  evidenceFunnel: typeof evidenceFunnel;
   evidenceResearch: typeof evidenceResearch;
   fileProcessing: typeof fileProcessing;
   files: typeof files;
@@ -97,6 +105,7 @@ declare const fullApi: ApiFromModules<{
   leadSourceParsers: typeof leadSourceParsers;
   mandateOpportunityEngine: typeof mandateOpportunityEngine;
   mandateOpportunityReports: typeof mandateOpportunityReports;
+  migrations: typeof migrations;
   openaiResearch: typeof openaiResearch;
   opportunities: typeof opportunities;
   productIntelligence: typeof productIntelligence;
@@ -114,6 +123,7 @@ declare const fullApi: ApiFromModules<{
   sustainableOpportunities: typeof sustainableOpportunities;
   sustainableOpportunityQualification: typeof sustainableOpportunityQualification;
   tavilyResearch: typeof tavilyResearch;
+  workspaceMembers: typeof workspaceMembers;
 }>;
 
 /**
@@ -142,4 +152,4 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: {};
+export declare const components: any;

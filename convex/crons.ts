@@ -24,4 +24,11 @@ crons.cron(
   {}
 );
 
+crons.cron(
+  "daily stale evidence demotion",
+  "40 5 * * *",
+  internal.evidenceFunnel.expireStaleUncontactedInternal,
+  {}
+);
+
 export default crons;

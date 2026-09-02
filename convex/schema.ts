@@ -1,5 +1,6 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { authTables } from "@convex-dev/auth/server";
 
 const logEntry = v.object({
   timestamp: v.number(),
@@ -74,6 +75,42 @@ const evidenceConfidence = v.union(
   v.literal("likely"),
   v.literal("inferred")
 );
+
+const workspaceRole = v.union(
+  v.literal("admin"),
+  v.literal("analyst"),
+  v.literal("bd")
+);
+
+const funnelStage = v.union(
+  v.literal("needs_evidence"),
+  v.literal("qualified"),
+  v.literal("contact_ready"),
+  v.literal("assigned"),
+  v.literal("contacted"),
+  v.literal("engaged"),
+  v.literal("diligence"),
+  v.literal("negotiating"),
+  v.literal("won"),
+  v.literal("watching"),
+  v.literal("disqualified"),
+  v.literal("lost")
+);
+
+const assessmentCountry = v.union(
+  v.literal("UAE"),
+  v.literal("Saudi Arabia"),
+  v.literal("Egypt")
+);
+
+const assessmentScoreBreakdown = v.object({
+  gapValidity: v.number(),
+  commercialValue: v.number(),
+  urgencyDemand: v.number(),
+  regulatoryFeasibility: v.number(),
+  partnerRightsReachability: v.number(),
+  evidenceConfidence: v.number(),
+});
 
 // Evidence-first lead engine. These records are deliberately separate from the
 // older opportunity tables so historical research cannot become an outreach lead
@@ -562,7 +599,8 @@ const sourceRegistryStatus = v.union(
 const sourceCadence = v.union(
   v.literal("manual"),
   v.literal("daily"),
-  v.literal("weekly")
+  v.literal("weekly"),
+  v.literal("monthly")
 );
 
 const sourceStructureStatus = v.union(
@@ -677,6 +715,21 @@ const exclusionFlags = v.object({
 });
 
 export default defineSchema({
+  ...authTables,
+
+  workspaceMembers: defineTable({
+    userId: v.id("users"),
+    email: v.string(),
+    name: v.optional(v.string()),
+    role: workspaceRole,
+    active: v.boolean(),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_email", ["email"])
+    .index("by_role_and_active", ["role", "active"]),
+
   companies: defineTable({
     name: v.string(),
     country: v.string(),
@@ -1307,6 +1360,8 @@ export default defineSchema({
   bdActivities: defineTable({
     companyId: v.id("companies"),
     actionableLeadId: v.optional(v.id("actionableLeads")),
+    decisionOpportunityId: v.optional(v.id("decisionOpportunities")),
+    performedByMemberId: v.optional(v.id("workspaceMembers")),
     type: v.union(
       v.literal("note"),
       v.literal("email_sent"),
@@ -1331,6 +1386,7 @@ export default defineSchema({
   })
     .index("by_company", ["companyId"])
     .index("by_actionable_lead", ["actionableLeadId"])
+    .index("by_decision_opportunity", ["decisionOpportunityId"])
     .index("by_created", ["createdAt"]),
 
   gapOpportunities: defineTable({
@@ -1604,6 +1660,17 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
     lastPromotedAt: v.number(),
+    funnelStage: v.optional(funnelStage),
+    assignedMemberId: v.optional(v.id("workspaceMembers")),
+    assignmentAcceptedAt: v.optional(v.number()),
+    lastQualifiedAt: v.optional(v.number()),
+    lastContactedAt: v.optional(v.number()),
+    staleAfter: v.optional(v.number()),
+    migrationKey: v.optional(v.string()),
+    legacySource: v.optional(v.union(
+      v.literal("candidate_opportunity"),
+      v.literal("actionable_lead")
+    )),
   })
     .index("by_status", ["status"])
     .index("by_priority_score", ["priorityScore"])
@@ -1612,7 +1679,113 @@ export default defineSchema({
     .index("by_company", ["companyId"])
     .index("by_gap_opportunity", ["gapOpportunityId"])
     .index("by_drug_and_company", ["drugId", "companyId"])
-    .index("by_drug_and_gap_opportunity", ["drugId", "gapOpportunityId"]),
+    .index("by_drug_and_gap_opportunity", ["drugId", "gapOpportunityId"])
+    .index("by_funnel_stage", ["funnelStage"])
+    .index("by_funnel_stage_and_score", ["funnelStage", "priorityScore"])
+    .index("by_funnel_stage_and_last_qualified", ["funnelStage", "lastQualifiedAt"])
+    .index("by_migration_key", ["migrationKey"]),
+
+  opportunityMarketAssessments: defineTable({
+    decisionOpportunityId: v.id("decisionOpportunities"),
+    country: assessmentCountry,
+    stage: funnelStage,
+    productIdentityConfirmed: v.boolean(),
+    ownerConfirmed: v.boolean(),
+    registrationStatus: v.union(
+      v.literal("registered"),
+      v.literal("under_registration"),
+      v.literal("verified_absent"),
+      v.literal("not_found_unverified"),
+      v.literal("unverified")
+    ),
+    registrationEvidence: v.string(),
+    rightsStatus: v.union(
+      v.literal("clear_no_conflict_found"),
+      v.literal("conflict"),
+      v.literal("unknown"),
+      v.literal("needs_review")
+    ),
+    presenceStatement: v.string(),
+    agentPartnerEvidence: v.string(),
+    demandStrength: v.union(
+      v.literal("strong"),
+      v.literal("medium"),
+      v.literal("weak"),
+      v.literal("none")
+    ),
+    strongSignalCount: v.number(),
+    mediumSignalCount: v.number(),
+    demandSummary: v.string(),
+    competitionSummary: v.string(),
+    economicsStatus: v.union(
+      v.literal("evidence_backed"),
+      v.literal("conservative_range"),
+      v.literal("unvalidated")
+    ),
+    economicsSummary: v.string(),
+    feasibilityReviewed: v.boolean(),
+    feasibilitySummary: v.string(),
+    blockers: v.array(v.string()),
+    scoreBreakdown: assessmentScoreBreakdown,
+    weightedScore: v.number(),
+    criticalReviewOpen: v.boolean(),
+    evidenceObservedAt: v.number(),
+    staleAfter: v.number(),
+    reviewedByMemberId: v.optional(v.id("workspaceMembers")),
+    reviewedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_opportunity", ["decisionOpportunityId"])
+    .index("by_opportunity_and_country", ["decisionOpportunityId", "country"])
+    .index("by_country_and_stage", ["country", "stage"])
+    .index("by_stage_and_score", ["stage", "weightedScore"])
+    .index("by_stale_after", ["staleAfter"]),
+
+  opportunitySignalLinks: defineTable({
+    decisionOpportunityId: v.id("decisionOpportunities"),
+    assessmentId: v.optional(v.id("opportunityMarketAssessments")),
+    marketSignalId: v.optional(v.id("marketSignals")),
+    sourceFetchId: v.optional(v.id("sourceFetches")),
+    title: v.string(),
+    sourceUrl: v.string(),
+    sourceType: v.string(),
+    evidenceStrength: v.union(v.literal("strong"), v.literal("medium"), v.literal("supporting")),
+    observedAt: v.number(),
+    parserVersion: v.string(),
+    confidence: evidenceConfidence,
+    reviewState: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    reviewedByMemberId: v.optional(v.id("workspaceMembers")),
+    reviewedAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
+    .index("by_opportunity", ["decisionOpportunityId"])
+    .index("by_assessment", ["assessmentId"])
+    .index("by_assessment_and_review_state", ["assessmentId", "reviewState"]),
+
+  outreachTasks: defineTable({
+    decisionOpportunityId: v.id("decisionOpportunities"),
+    companyId: v.id("companies"),
+    contactId: v.optional(v.id("leadContacts")),
+    assignedMemberId: v.id("workspaceMembers"),
+    sequenceDay: v.union(v.literal(0), v.literal(3), v.literal(7), v.literal(14), v.literal(30)),
+    channel: v.union(v.literal("email"), v.literal("call"), v.literal("linkedin")),
+    title: v.string(),
+    draft: v.optional(v.string()),
+    dueAt: v.number(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("completed"),
+      v.literal("skipped"),
+      v.literal("cancelled")
+    ),
+    completedAt: v.optional(v.number()),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index("by_opportunity", ["decisionOpportunityId"])
+    .index("by_assignee_and_status_and_due", ["assignedMemberId", "status", "dueAt"])
+    .index("by_opportunity_and_sequence_day", ["decisionOpportunityId", "sequenceDay"]),
 
   opportunityEvidence: defineTable({
     decisionOpportunityId: v.id("decisionOpportunities"),
@@ -2235,6 +2408,7 @@ export default defineSchema({
     targetType: researchTargetType,
     drugId: v.optional(v.id("drugs")),
     companyId: v.optional(v.id("companies")),
+    decisionOpportunityId: v.optional(v.id("decisionOpportunities")),
     kind: researchFindingKind,
     claim: v.string(),
     excerpt: v.string(),
@@ -2264,12 +2438,14 @@ export default defineSchema({
   })
     .index("by_research_run", ["researchRunId"])
     .index("by_drug_and_status", ["drugId", "status"])
-    .index("by_company_and_status", ["companyId", "status"]),
+    .index("by_company_and_status", ["companyId", "status"])
+    .index("by_decision_opportunity_and_status", ["decisionOpportunityId", "status"]),
 
   approvedResearchEvidence: defineTable({
     researchFindingId: v.id("researchFindings"),
     drugId: v.optional(v.id("drugs")),
     companyId: v.optional(v.id("companies")),
+    decisionOpportunityId: v.optional(v.id("decisionOpportunities")),
     kind: researchFindingKind,
     claim: v.string(),
     excerpt: v.string(),
@@ -2281,7 +2457,8 @@ export default defineSchema({
   })
     .index("by_research_finding", ["researchFindingId"])
     .index("by_drug_and_approved_at", ["drugId", "approvedAt"])
-    .index("by_company_and_approved_at", ["companyId", "approvedAt"]),
+    .index("by_company_and_approved_at", ["companyId", "approvedAt"])
+    .index("by_decision_opportunity_and_approved_at", ["decisionOpportunityId", "approvedAt"]),
 
   leadContacts: defineTable({
     companyId: v.id("companies"),

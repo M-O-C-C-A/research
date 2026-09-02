@@ -7,17 +7,24 @@
     "build": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx convex deploy --yes --cmd 'next build' --cmd-url-env-var-name NEXT_PUBLIC_CONVEX_URL; else next build; fi",
     "deploy:backend": "npx convex deploy --yes",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:policy && npm run test:legacy",
+    "test:policy": "vitest run",
+    "test:legacy": "tsx --test convex/*.test.mts"
   },
   "dependencies": {
+    "@auth/core": "^0.41.3",
     "@base-ui/react": "^1.3.0",
+    "@convex-dev/auth": "^0.0.95",
+    "@convex-dev/migrations": "^0.3.6",
     "@react-pdf/renderer": "^4.9.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "convex": "^1.34.0",
     "jszip": "^3.10.1",
     "lucide-react": "^0.577.0",
-    "next": "16.2.0",
+    "next": "16.3.4",
     "openai": "^6.32.0",
     "pdfjs-dist": "^5.5.207",
     "react": "19.2.4",
@@ -35,9 +42,11 @@
     "@types/react-dom": "^19",
     "@types/xlsx": "^0.0.35",
     "eslint": "^9",
-    "eslint-config-next": "16.2.0",
+    "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
+    "tsx": "^4.23.13",
     "typescript": "^5",
+    "vitest": "^4.1.11",
     "xlsx": "^0.18.5"
   }
 }

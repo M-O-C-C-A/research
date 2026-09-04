@@ -111,6 +111,36 @@ function toCanonicalRow(
   return canonicalRow;
 }
 
+function detectedSheetRange(sheet: XLSX.WorkSheet) {
+  const used = XLSX.utils.decode_range(sheet["!ref"] ?? "A1:A1");
+  const probeEndColumn = Math.min(used.e.c, 255);
+  const probe = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+    header: 1,
+    defval: "",
+    raw: false,
+    range: {
+      s: { r: used.s.r, c: used.s.c },
+      e: { r: Math.min(used.e.r, used.s.r + 24), c: probeEndColumn },
+    },
+  });
+  const relativeHeaderRow = detectRegistrationHeaderRow(probe);
+  const headerRow = used.s.r + relativeHeaderRow;
+  const headerValues = probe[relativeHeaderRow] ?? [];
+  let lastHeaderColumn = used.s.c;
+  for (let index = 0; index < headerValues.length; index += 1) {
+    if (canonicalizeHeader(String(headerValues[index] ?? ""))) {
+      lastHeaderColumn = used.s.c + index;
+    }
+  }
+  return {
+    headerRow,
+    range: {
+      s: { r: headerRow, c: used.s.c },
+      e: { r: used.e.r, c: lastHeaderColumn },
+    },
+  };
+}
+
 function workbookLooksLikeMohapCompleteList(workbook: XLSX.WorkBook) {
   const requiredHeaders = [
     "source",
@@ -123,16 +153,11 @@ function workbookLooksLikeMohapCompleteList(workbook: XLSX.WorkBook) {
   return workbook.SheetNames.some((sheetName) => {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) return false;
-    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-      header: 1,
-      defval: "",
-      raw: false,
-    });
-    const headerRow = detectRegistrationHeaderRow(matrix);
+    const { headerRow, range } = detectedSheetRange(sheet);
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       defval: "",
       raw: false,
-      range: headerRow,
+      range,
     });
     const firstRow = rows[0];
     if (!firstRow) return false;
@@ -156,18 +181,12 @@ function parseWorkbookRows(
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
-    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
-      header: 1,
-      defval: "",
-      raw: false,
-      dateNF: "yyyy-mm-dd",
-    });
-    const headerRow = detectRegistrationHeaderRow(matrix);
+    const { headerRow, range } = detectedSheetRange(sheet);
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       defval: "",
       raw: false,
       dateNF: "yyyy-mm-dd",
-      range: headerRow,
+      range,
     });
 
     rows.forEach((rawRow, index) => {

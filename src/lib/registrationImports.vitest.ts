@@ -3,6 +3,7 @@ import {
   canonicalizeHeader,
   detectRegistrationHeaderRow,
   GENERIC_NAME_HEADERS,
+  getRowValue,
   MAH_HEADERS,
   normalizeRegistrationStatus,
   PRODUCT_NAME_HEADERS,
@@ -38,5 +39,19 @@ describe("registration import header detection", () => {
       ) as never,
     );
     expect(normalizeRegistrationStatus("Authorised")).toBe("registered");
+  });
+
+  it("prefers an EMA INN over its boolean Generic classification", () => {
+    expect(
+      getRowValue(
+        {
+          [canonicalizeHeader(
+            "International non-proprietary name (INN) / common name",
+          )]: "azacitidine",
+          [canonicalizeHeader("Generic")]: "No",
+        },
+        GENERIC_NAME_HEADERS,
+      ),
+    ).toBe("azacitidine");
   });
 });

@@ -133,9 +133,11 @@ export const GENERIC_NAME_HEADERS = [
   "active ingredient",
   "ingredients",
   "molecule",
-  "generic",
   "international non proprietary name inn common name",
   "active substance",
+  // Keep the ambiguous `Generic` label last. In EMA exports it is a Yes/No
+  // classification flag alongside the authoritative INN/common-name column.
+  "generic",
 ] as const;
 
 export const MANUFACTURER_HEADERS = [

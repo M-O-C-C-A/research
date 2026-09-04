@@ -82,6 +82,13 @@ type MatchResult = {
   validationIssues: string[];
 };
 
+const TARGET_SNAPSHOT_SOURCE_TYPES = new Set([
+  "sfda_registered_drugs",
+  "uae_official_directory",
+  "mohap_uae_complete_product_list",
+  "egypt_eda_authorized_export",
+]);
+
 function rowHasData(row: Record<string, string>) {
   return Object.values(row).some((value) => value.trim().length > 0);
 }
@@ -651,6 +658,20 @@ function summarizeRows(
 
 export const parseImport = action({
   args: { importId: v.id("registrationImports") },
+  returns: v.object({
+    status: v.union(
+      v.literal("parsed"),
+      v.literal("needs_review"),
+      v.literal("ready"),
+    ),
+    sheetNames: v.array(v.string()),
+    totalRows: v.number(),
+    matchedRows: v.number(),
+    unresolvedRows: v.number(),
+    ambiguousRows: v.number(),
+    skippedRows: v.number(),
+    parseErrorCount: v.number(),
+  }),
   handler: async (ctx, { importId }) => {
     try {
       const importDetail: {
@@ -718,7 +739,19 @@ export const parseImport = action({
       );
 
       const stagedRows = parsedRows.map((row) => {
-        const match = matchParsedRow(row, snapshot);
+        // Target registries are comparison universes, not candidate-to-catalog
+        // matching jobs. Running fuzzy entity matching over a complete 17k-row
+        // snapshot is both misleading and too slow for an action. Preserve and
+        // normalize every row; exact presentation matching happens later via
+        // the compound index.
+        const match = TARGET_SNAPSHOT_SOURCE_TYPES.has(sourceType ?? "")
+          ? {
+              matchStatus: "unmatched" as const,
+              matchExplanation:
+                "Stored as a target-registry row for exact presentation comparison.",
+              validationIssues: row.validationIssues,
+            }
+          : matchParsedRow(row, snapshot);
         const normalizedInn = normalizeEvidenceText(row.genericName ?? "");
         const normalizedDosageForm = normalizeDosageForm(row.form ?? "");
         const normalizedStrength = normalizeStrength(row.strength ?? "");

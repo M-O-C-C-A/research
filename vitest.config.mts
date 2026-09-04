@@ -3,6 +3,6 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     environment: "node",
-    include: ["convex/**/*.vitest.ts"],
+    include: ["convex/**/*.vitest.ts", "src/**/*.vitest.ts"],
   },
 });

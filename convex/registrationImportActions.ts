@@ -17,6 +17,7 @@ import {
   COUNTRY_HEADERS,
   COUNTRY_OF_ORIGIN_HEADERS,
   DISPENSING_MODE_HEADERS,
+  detectRegistrationHeaderRow,
   FORM_HEADERS,
   GENERIC_NAME_HEADERS,
   getRowValue,
@@ -122,10 +123,16 @@ function workbookLooksLikeMohapCompleteList(workbook: XLSX.WorkBook) {
   return workbook.SheetNames.some((sheetName) => {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) return false;
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
+      defval: "",
+      raw: false,
+    });
+    const headerRow = detectRegistrationHeaderRow(matrix);
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       defval: "",
       raw: false,
-      range: 0,
+      range: headerRow,
     });
     const firstRow = rows[0];
     if (!firstRow) return false;
@@ -149,10 +156,18 @@ function parseWorkbookRows(
   for (const sheetName of workbook.SheetNames) {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) continue;
+    const matrix = XLSX.utils.sheet_to_json<unknown[]>(sheet, {
+      header: 1,
+      defval: "",
+      raw: false,
+      dateNF: "yyyy-mm-dd",
+    });
+    const headerRow = detectRegistrationHeaderRow(matrix);
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       defval: "",
       raw: false,
       dateNF: "yyyy-mm-dd",
+      range: headerRow,
     });
 
     rows.forEach((rawRow, index) => {
@@ -261,7 +276,7 @@ function parseWorkbookRows(
         matchExplanation: options?.matchExplanationPrefix,
         sourceNote,
         sourceSheet: sheetName,
-        sourceRowNumber: index + 2,
+        sourceRowNumber: index + headerRow + 2,
         validationIssues,
         rawRow: canonicalRow,
       });
@@ -699,11 +714,17 @@ export const parseImport = action({
         workbookLooksLikeMohapCompleteList(workbook);
       const defaultCountry = looksLikeMohapWorkbook
         ? "UAE"
-        : ["UAE", "Saudi Arabia", "Egypt"].includes(
-              importDetail.importDoc.sourceMarket ?? "",
-            )
-          ? importDetail.importDoc.sourceMarket
-          : undefined;
+        : importDetail.importDoc.sourceType === "ema_medicine_downloads"
+          ? "European Union"
+          : importDetail.importDoc.sourceType === "drugs_fda"
+            ? "United States"
+            : importDetail.importDoc.sourceType === "mhra_products"
+              ? "United Kingdom"
+              : ["UAE", "Saudi Arabia", "Egypt"].includes(
+                    importDetail.importDoc.sourceMarket ?? "",
+                  )
+                ? importDetail.importDoc.sourceMarket
+                : undefined;
       const detectedSourceType =
         importDetail.importDoc.sourceMarket === "UAE" && looksLikeMohapWorkbook
           ? "mohap_uae_complete_product_list"

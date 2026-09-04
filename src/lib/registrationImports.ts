@@ -77,6 +77,8 @@ const COUNTRY_ALIASES: Record<string, string> = {
 const REGISTERED_ALIASES = new Set([
   "registered",
   "approved",
+  "authorised",
+  "authorized",
   "marketed",
   "available",
   "listed",
@@ -110,6 +112,7 @@ const UNVERIFIED_ALIASES = new Set([
 
 export const PRODUCT_NAME_HEADERS = [
   "product name",
+  "name of medicine",
   "brand name",
   "brand",
   "product",
@@ -121,6 +124,7 @@ export const SOURCE_RECORD_ID_HEADERS = [
   "source id",
   "source record id",
   "record id",
+  "ema product number",
 ] as const;
 
 export const GENERIC_NAME_HEADERS = [
@@ -130,6 +134,8 @@ export const GENERIC_NAME_HEADERS = [
   "ingredients",
   "molecule",
   "generic",
+  "international non proprietary name inn common name",
+  "active substance",
 ] as const;
 
 export const MANUFACTURER_HEADERS = [
@@ -146,6 +152,7 @@ export const MAH_HEADERS = [
   "license holder",
   "commercial owner",
   "supplier name",
+  "marketing authorisation developer applicant holder",
 ] as const;
 
 export const SUPPLIER_HEADERS = [
@@ -172,6 +179,7 @@ export const STATUS_HEADERS = [
   "registration status",
   "approval status",
   "market status",
+  "medicine status",
 ] as const;
 
 export const REGISTRATION_NUMBER_HEADERS = [
@@ -185,12 +193,17 @@ export const APPROVAL_DATE_HEADERS = [
   "approval date",
   "registration date",
   "date approved",
+  "marketing authorisation date",
 ] as const;
 
 export const STRENGTH_HEADERS = ["strength"] as const;
 export const FORM_HEADERS = ["form", "dosage form"] as const;
 export const PACK_SIZE_HEADERS = ["pack size", "presentation", "pack"] as const;
-export const PRICE_AED_HEADERS = ["price aed", "price (aed)", "uae price"] as const;
+export const PRICE_AED_HEADERS = [
+  "price aed",
+  "price (aed)",
+  "uae price",
+] as const;
 export const CLASSIFICATION_HEADERS = ["classification"] as const;
 export const DISPENSING_MODE_HEADERS = ["dispensing mode"] as const;
 export const COUNTRY_OF_ORIGIN_HEADERS = [
@@ -202,7 +215,37 @@ export const BODY_SYSTEM_HEADERS = ["body system"] as const;
 export const THERAPEUTIC_GROUP_HEADERS = [
   "therapeutic group",
   "therapeutic class",
+  "therapeutic area mesh",
 ] as const;
+
+export function detectRegistrationHeaderRow(
+  rows: Array<Array<unknown>>,
+  maxRows = 25,
+) {
+  const productHeaders = new Set<string>(PRODUCT_NAME_HEADERS);
+  const evidenceHeaders = new Set<string>([
+    ...GENERIC_NAME_HEADERS,
+    ...STRENGTH_HEADERS,
+    ...FORM_HEADERS,
+    ...STATUS_HEADERS,
+  ]);
+  const boundary = Math.min(rows.length, Math.max(1, maxRows));
+  for (let index = 0; index < boundary; index += 1) {
+    const headers = new Set(
+      rows[index]
+        .map((value) => canonicalizeHeader(String(value ?? "")))
+        .filter(Boolean),
+    );
+    const hasProduct = Array.from(productHeaders).some((header) =>
+      headers.has(header),
+    );
+    const hasEvidence = Array.from(evidenceHeaders).some((header) =>
+      headers.has(header),
+    );
+    if (hasProduct && hasEvidence) return index;
+  }
+  return 0;
+}
 
 export const SOURCE_NOTE_HEADERS = [
   "notes",
@@ -220,12 +263,16 @@ export function normalizeText(value: string | null | undefined): string {
     .trim();
 }
 
-export function compactText(value: string | null | undefined): string | undefined {
+export function compactText(
+  value: string | null | undefined,
+): string | undefined {
   const trimmed = value?.trim();
   return trimmed ? trimmed : undefined;
 }
 
-export function normalizeCountry(value: string | null | undefined): string | undefined {
+export function normalizeCountry(
+  value: string | null | undefined,
+): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
   const normalized = normalizeText(trimmed);
@@ -233,7 +280,7 @@ export function normalizeCountry(value: string | null | undefined): string | und
 }
 
 export function normalizeRegistrationStatus(
-  value: string | null | undefined
+  value: string | null | undefined,
 ): RegistrationStatus {
   const normalized = normalizeText(value);
   if (REGISTERED_ALIASES.has(normalized)) return "registered";
@@ -242,7 +289,9 @@ export function normalizeRegistrationStatus(
   return "unverified";
 }
 
-export function normalizeIngredients(value: string | null | undefined): string | undefined {
+export function normalizeIngredients(
+  value: string | null | undefined,
+): string | undefined {
   const trimmed = value?.trim();
   if (!trimmed) return undefined;
   const parts = trimmed
@@ -251,7 +300,7 @@ export function normalizeIngredients(value: string | null | undefined): string |
       part
         .replace(/\([^)]*\)/g, " ")
         .replace(/\s+/g, " ")
-        .trim()
+        .trim(),
     )
     .filter(Boolean);
   if (parts.length === 0) return undefined;
@@ -281,7 +330,8 @@ export function classifyImportedProduct(args: {
 export function stringifyCell(value: unknown): string {
   if (value == null) return "";
   if (typeof value === "string") return value.trim();
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   return String(value).trim();
 }
@@ -292,7 +342,7 @@ export function canonicalizeHeader(value: string): string {
 
 export function getRowValue(
   row: Record<string, string>,
-  candidates: readonly string[]
+  candidates: readonly string[],
 ): string | undefined {
   for (const candidate of candidates) {
     const value = row[canonicalizeHeader(candidate)];

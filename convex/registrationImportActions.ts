@@ -674,6 +674,7 @@ function summarizeRows(
   rows: Array<{
     matchStatus: "matched" | "unmatched" | "ambiguous" | "skipped";
     validationIssues: string[];
+    normalizedPresentationKey?: string;
   }>,
 ) {
   return {
@@ -687,6 +688,9 @@ function summarizeRows(
     skippedRows: rows.filter((row) => row.matchStatus === "skipped").length,
     parseErrorCount: rows.filter((row) => row.validationIssues.length > 0)
       .length,
+    presentationCompleteRows: rows.filter((row) =>
+      Boolean(row.normalizedPresentationKey),
+    ).length,
   };
 }
 
@@ -705,6 +709,7 @@ export const parseImport = action({
     ambiguousRows: v.number(),
     skippedRows: v.number(),
     parseErrorCount: v.number(),
+    presentationCompleteRows: v.number(),
   }),
   handler: async (ctx, { importId }) => {
     try {

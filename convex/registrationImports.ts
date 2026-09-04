@@ -39,6 +39,12 @@ const applyStateValidator = v.union(
   v.literal("skipped"),
 );
 
+const REFERENCE_SNAPSHOT_SOURCE_TYPES = new Set([
+  "drugs_fda",
+  "ema_medicine_downloads",
+  "mhra_products",
+]);
+
 const importRowValidator = v.object({
   source: v.optional(v.string()),
   sourceRecordId: v.optional(v.string()),
@@ -202,6 +208,7 @@ export const createImport = mutation({
       skippedRows: 0,
       appliedRows: 0,
       parseErrorCount: 0,
+      presentationCompleteRows: 0,
       createdAt: now,
       updatedAt: now,
     });
@@ -612,6 +619,7 @@ export const clearImportRowsBatch = internalMutation({
         skippedRows: 0,
         appliedRows: 0,
         parseErrorCount: 0,
+        presentationCompleteRows: 0,
         updatedAt: Date.now(),
       });
     }
@@ -664,6 +672,7 @@ export const finalizeParsedImport = internalMutation({
       ambiguousRows: v.number(),
       skippedRows: v.number(),
       parseErrorCount: v.number(),
+      presentationCompleteRows: v.number(),
     }),
   },
   returns: v.null(),
@@ -736,6 +745,7 @@ export const finalizeParsedImport = internalMutation({
         rawPayload: JSON.stringify({
           fileName: importDoc.fileName,
           rowCount: summary.totalRows,
+          presentationCompleteRows: summary.presentationCompleteRows,
           storageId: importDoc.storageId,
         }),
         storageId: importDoc.storageId,
@@ -760,6 +770,7 @@ export const finalizeParsedImport = internalMutation({
       ambiguousRows: summary.ambiguousRows,
       skippedRows: summary.skippedRows,
       parseErrorCount: summary.parseErrorCount,
+      presentationCompleteRows: summary.presentationCompleteRows,
       appliedRows: 0,
       lastError: undefined,
       sourceFetchId,
@@ -780,6 +791,14 @@ export const approveInitialSnapshot = mutation({
       throw new Error("Parsed evidence snapshot not found");
     if (!args.reviewNote.trim())
       throw new Error("Record the coverage review basis");
+    if (
+      REFERENCE_SNAPSHOT_SOURCE_TYPES.has(importDoc.sourceType ?? "") &&
+      (importDoc.presentationCompleteRows ?? 0) === 0
+    ) {
+      throw new Error(
+        "Reference snapshot approval blocked: no row contains the exact INN, dosage form, and strength required to compare a presentation.",
+      );
+    }
     const fetch = await ctx.db.get(importDoc.sourceFetchId);
     if (
       !fetch ||

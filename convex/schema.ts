@@ -2906,6 +2906,7 @@ export default defineSchema({
     skippedRows: v.number(),
     appliedRows: v.number(),
     parseErrorCount: v.number(),
+    presentationCompleteRows: v.optional(v.number()),
     lastError: v.optional(v.string()),
     parsedAt: v.optional(v.number()),
     applyRequestedAt: v.optional(v.number()),

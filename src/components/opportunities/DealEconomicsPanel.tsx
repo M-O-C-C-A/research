@@ -26,11 +26,13 @@ function modelLabel(model: string) {
 
 function modelDescription(model: string) {
   return model === "MODEL_1_REGIONAL_AGENT"
-    ? "KEMEDICA carries registration, importation, distribution, tender, PV, and working-capital assumptions."
-    : "KEMEDICA earns a lower-burden broker or sub-license economics case if direct MAH/distribution is not optimal.";
+    ? "Provisional local-applicant scenario. KEMEDICA is coordinator/advisor unless a named regulated applicant and approved role are recorded."
+    : "Provisional broker or sub-license scenario; no fee or right is presented as agreed.";
 }
 
-export function DealEconomicsPanel({ decisionOpportunityId }: DealEconomicsPanelProps) {
+export function DealEconomicsPanel({
+  decisionOpportunityId,
+}: DealEconomicsPanelProps) {
   const scenarios = useQuery(api.continuousOpportunityEngine.getDealEconomics, {
     decisionOpportunityId: decisionOpportunityId as Id<"decisionOpportunities">,
   });
@@ -46,7 +48,8 @@ export function DealEconomicsPanel({ decisionOpportunityId }: DealEconomicsPanel
             Compare KEMEDICA Model 1 and Model 4
           </h3>
           <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-            Values are generated from the latest immutable opportunity run. Rebuild the continuous engine if this panel is empty.
+            Values are generated from the latest immutable opportunity run.
+            Rebuild the continuous engine if this panel is empty.
           </p>
         </div>
         <BadgeDollarSign className="h-5 w-5 text-[var(--brand-300)]" />
@@ -59,11 +62,16 @@ export function DealEconomicsPanel({ decisionOpportunityId }: DealEconomicsPanel
       ) : (
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           {scenarios.map((scenario) => (
-            <div key={scenario._id} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
+            <div
+              key={scenario._id}
+              className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4"
+            >
               <div className="flex items-start gap-3">
                 <Handshake className="mt-0.5 h-4 w-4 text-[var(--brand-300)]" />
                 <div>
-                  <h4 className="text-sm font-semibold text-white">{modelLabel(scenario.model)}</h4>
+                  <h4 className="text-sm font-semibold text-white">
+                    {modelLabel(scenario.model)}
+                  </h4>
                   <p className="mt-1 text-xs leading-relaxed text-zinc-400">
                     {modelDescription(scenario.model)}
                   </p>
@@ -75,31 +83,53 @@ export function DealEconomicsPanel({ decisionOpportunityId }: DealEconomicsPanel
                   <p className="mt-1 text-zinc-200">{scenario.market}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-zinc-400">Expected value</p>
-                  <p className="mt-1 font-semibold text-white">{formatMoney(scenario.expectedValueUsd)}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-zinc-400">Revenue range</p>
-                  <p className="mt-1 text-zinc-200">
-                    {formatMoney(scenario.netRevenueLowUsd)} - {formatMoney(scenario.netRevenueHighUsd)}
+                  <p className="text-xs font-medium text-zinc-400">
+                    Expected value
+                  </p>
+                  <p className="mt-1 font-semibold text-white">
+                    {formatMoney(scenario.expectedValueUsd)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-zinc-400">Success probability</p>
-                  <p className="mt-1 text-zinc-200">{scenario.probabilityOfSuccessPct}%</p>
+                  <p className="text-xs font-medium text-zinc-400">
+                    Revenue range
+                  </p>
+                  <p className="mt-1 text-zinc-200">
+                    {formatMoney(scenario.netRevenueLowUsd)} -{" "}
+                    {formatMoney(scenario.netRevenueHighUsd)}
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-zinc-400">Margin / fee</p>
-                  <p className="mt-1 text-zinc-200">{scenario.expectedGrossMarginPct}%</p>
+                  <p className="text-xs font-medium text-zinc-400">
+                    Success probability
+                  </p>
+                  <p className="mt-1 text-zinc-200">
+                    {scenario.probabilityOfSuccessPct}%
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-zinc-400">Operating cost</p>
-                  <p className="mt-1 text-zinc-200">{formatMoney(scenario.operatingCostUsd)}</p>
+                  <p className="text-xs font-medium text-zinc-400">
+                    Margin / fee
+                  </p>
+                  <p className="mt-1 text-zinc-200">
+                    {scenario.expectedGrossMarginPct}%
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-zinc-400">
+                    Operating cost
+                  </p>
+                  <p className="mt-1 text-zinc-200">
+                    {formatMoney(scenario.operatingCostUsd)}
+                  </p>
                 </div>
               </div>
               <div className="mt-4 space-y-1 border-t border-zinc-800 pt-3">
                 {scenario.assumptions.map((assumption) => (
-                  <p key={assumption} className="text-xs leading-relaxed text-zinc-400">
+                  <p
+                    key={assumption}
+                    className="text-xs leading-relaxed text-zinc-400"
+                  >
                     {assumption}
                   </p>
                 ))}

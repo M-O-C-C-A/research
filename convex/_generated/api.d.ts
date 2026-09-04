@@ -9,8 +9,8 @@
  */
 
 import type * as actionableLeads from "../actionableLeads.js";
-import type * as authz from "../authz.js";
 import type * as ai from "../ai.js";
+import type * as authz from "../authz.js";
 import type * as bdActivities from "../bdActivities.js";
 import type * as companies from "../companies.js";
 import type * as companyImportActions from "../companyImportActions.js";
@@ -27,11 +27,14 @@ import type * as distributorFit from "../distributorFit.js";
 import type * as drugEntityLinkUtils from "../drugEntityLinkUtils.js";
 import type * as drugEntityLinks from "../drugEntityLinks.js";
 import type * as drugs from "../drugs.js";
+import type * as evidenceEngineV11 from "../evidenceEngineV11.js";
+import type * as evidenceEngineV11Policy from "../evidenceEngineV11Policy.js";
 import type * as evidenceEnrichment from "../evidenceEnrichment.js";
 import type * as evidenceFunnel from "../evidenceFunnel.js";
 import type * as evidenceResearch from "../evidenceResearch.js";
 import type * as fileProcessing from "../fileProcessing.js";
 import type * as files from "../files.js";
+import type * as funnelPolicy from "../funnelPolicy.js";
 import type * as gapAnalysis from "../gapAnalysis.js";
 import type * as gapCompanyMatches from "../gapCompanyMatches.js";
 import type * as gapFlow from "../gapFlow.js";
@@ -70,8 +73,8 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   actionableLeads: typeof actionableLeads;
-  authz: typeof authz;
   ai: typeof ai;
+  authz: typeof authz;
   bdActivities: typeof bdActivities;
   companies: typeof companies;
   companyImportActions: typeof companyImportActions;
@@ -88,11 +91,14 @@ declare const fullApi: ApiFromModules<{
   drugEntityLinkUtils: typeof drugEntityLinkUtils;
   drugEntityLinks: typeof drugEntityLinks;
   drugs: typeof drugs;
+  evidenceEngineV11: typeof evidenceEngineV11;
+  evidenceEngineV11Policy: typeof evidenceEngineV11Policy;
   evidenceEnrichment: typeof evidenceEnrichment;
   evidenceFunnel: typeof evidenceFunnel;
   evidenceResearch: typeof evidenceResearch;
   fileProcessing: typeof fileProcessing;
   files: typeof files;
+  funnelPolicy: typeof funnelPolicy;
   gapAnalysis: typeof gapAnalysis;
   gapCompanyMatches: typeof gapCompanyMatches;
   gapFlow: typeof gapFlow;
@@ -150,4 +156,6 @@ export declare const internal: FilterApi<
   FunctionReference<any, "internal">
 >;
 
-export declare const components: any;
+export declare const components: {
+  migrations: import("@convex-dev/migrations/_generated/component.js").ComponentApi<"migrations">;
+};

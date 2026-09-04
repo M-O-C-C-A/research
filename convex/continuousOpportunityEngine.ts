@@ -1,10 +1,25 @@
-import { action, internalAction, internalMutation, internalQuery, mutation, MutationCtx, query } from "./_generated/server";
+import {
+  action,
+  internalAction,
+  internalMutation,
+  internalQuery,
+  mutation,
+  MutationCtx,
+  query,
+} from "./_generated/server";
 import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import { Doc, Id } from "./_generated/dataModel";
 import { contentHash } from "./leadSourceParsers";
 
-export const ENGINE_MARKETS = ["Saudi Arabia", "UAE", "Egypt", "Kuwait", "Qatar", "Algeria"] as const;
+export const ENGINE_MARKETS = [
+  "Saudi Arabia",
+  "UAE",
+  "Egypt",
+  "Kuwait",
+  "Qatar",
+  "Algeria",
+] as const;
 export const TARGET_MARKETS = ["Saudi Arabia", "UAE", "Egypt"] as const;
 
 const TOP_20_PHARMA = [
@@ -61,7 +76,8 @@ const DEFAULT_SOURCES = [
     sourceRegistry: "orange_book",
     title: "FDA Orange Book patent and exclusivity data",
     sourceType: "patent_exclusivity" as const,
-    baseUrl: "https://www.fda.gov/drugs/drug-approvals-and-databases/orange-book-data-files",
+    baseUrl:
+      "https://www.fda.gov/drugs/drug-approvals-and-databases/orange-book-data-files",
     cadence: "monthly" as const,
     parserVersion: "orange-book-v1",
     structureSignature: "Orange Book",
@@ -88,7 +104,8 @@ const DEFAULT_SOURCES = [
     sourceRegistry: "ema_orphan_register",
     title: "EMA orphan designation register",
     sourceType: "orphan_register" as const,
-    baseUrl: "https://www.ema.europa.eu/en/medicines/download-medicine-data#orphan-designations-section",
+    baseUrl:
+      "https://www.ema.europa.eu/en/medicines/download-medicine-data#orphan-designations-section",
     cadence: "weekly" as const,
     parserVersion: "ema-orphan-v1",
     structureSignature: "orphan",
@@ -97,7 +114,8 @@ const DEFAULT_SOURCES = [
     sourceRegistry: "ema_article_57",
     title: "EMA Article 57 EEA-authorised medicines",
     sourceType: "home_authorization" as const,
-    baseUrl: "https://www.ema.europa.eu/en/human-regulatory-overview/post-authorisation/data-medicines-iso-idmp-standards-post-authorisation/public-data-article-57-database",
+    baseUrl:
+      "https://www.ema.europa.eu/en/human-regulatory-overview/post-authorisation/data-medicines-iso-idmp-standards-post-authorisation/public-data-article-57-database",
     cadence: "weekly" as const,
     parserVersion: "ema-article57-v1",
     structureSignature: "Article 57",
@@ -124,7 +142,8 @@ const DEFAULT_SOURCES = [
     sourceRegistry: "ema_withdrawals",
     title: "EMA withdrawals and refusals",
     sourceType: "home_authorization" as const,
-    baseUrl: "https://www.ema.europa.eu/en/medicines/download-medicine-data#withdrawn-applications-section",
+    baseUrl:
+      "https://www.ema.europa.eu/en/medicines/download-medicine-data#withdrawn-applications-section",
     cadence: "weekly" as const,
     parserVersion: "ema-withdrawals-v1",
     structureSignature: "withdrawn",
@@ -205,7 +224,8 @@ const DEFAULT_SOURCES = [
     sourceRegistry: "egypt_eda_authorized_export",
     title: "Authorized EDA / Pharma Data Hub registration export",
     sourceType: "manual_import" as const,
-    baseUrl: "https://edaegypt.gov.eg/en/publications-reports-and-eda-in-numbers/eda-publications/periodic-lists/",
+    baseUrl:
+      "https://edaegypt.gov.eg/en/publications-reports-and-eda-in-numbers/eda-publications/periodic-lists/",
     cadence: "manual" as const,
     parserVersion: "egypt-authorized-import-v1",
     structureSignature: "periodic",
@@ -248,23 +268,28 @@ const sourceTypeValidator = v.union(
   v.literal("manual_import"),
   v.literal("patent_exclusivity"),
   v.literal("orphan_register"),
-  v.literal("disease_burden")
+  v.literal("disease_burden"),
 );
 
-const cadenceValidator = v.union(v.literal("manual"), v.literal("daily"), v.literal("weekly"), v.literal("monthly"));
+const cadenceValidator = v.union(
+  v.literal("manual"),
+  v.literal("daily"),
+  v.literal("weekly"),
+  v.literal("monthly"),
+);
 const marketValidator = v.union(
   v.literal("Saudi Arabia"),
   v.literal("UAE"),
   v.literal("Egypt"),
   v.literal("Kuwait"),
   v.literal("Qatar"),
-  v.literal("Algeria")
+  v.literal("Algeria"),
 );
 const reviewStatusValidator = v.union(
   v.literal("open"),
   v.literal("approved"),
   v.literal("rejected"),
-  v.literal("merged")
+  v.literal("merged"),
 );
 
 const productClassValidator = v.union(
@@ -272,7 +297,7 @@ const productClassValidator = v.union(
   v.literal("on_patent"),
   v.literal("orphan_rare_disease"),
   v.literal("hybrid"),
-  v.literal("off_patent_biosimilar")
+  v.literal("off_patent_biosimilar"),
 );
 
 const sizingInputStatusValidator = v.union(
@@ -280,7 +305,7 @@ const sizingInputStatusValidator = v.union(
   v.literal("company_release"),
   v.literal("literature"),
   v.literal("practitioner_estimate"),
-  v.literal("unvalidated")
+  v.literal("unvalidated"),
 );
 
 function normalize(value?: string | null) {
@@ -291,18 +316,27 @@ function normalize(value?: string | null) {
     .trim();
 }
 
-function canonicalMarket(value: string): (typeof ENGINE_MARKETS)[number] | null {
-  return ENGINE_MARKETS.find((market) => normalize(market) === normalize(value)) ?? null;
+function canonicalMarket(
+  value: string,
+): (typeof ENGINE_MARKETS)[number] | null {
+  return (
+    ENGINE_MARKETS.find((market) => normalize(market) === normalize(value)) ??
+    null
+  );
 }
 
-function nextFetchAt(cadence: "manual" | "daily" | "weekly" | "monthly", now: number) {
+function nextFetchAt(
+  cadence: "manual" | "daily" | "weekly" | "monthly",
+  now: number,
+) {
   if (cadence === "manual") return undefined;
   const days = cadence === "daily" ? 1 : cadence === "weekly" ? 7 : 30;
   return now + days * 24 * 60 * 60 * 1000;
 }
 
 function userAgent() {
-  const contact = process.env.KEMEDICA_CRAWLER_CONTACT_EMAIL ?? "research@kemedica.com";
+  const contact =
+    process.env.KEMEDICA_CRAWLER_CONTACT_EMAIL ?? "research@kemedica.com";
   return `KEMEDICA-market-access-bot/1.0 (mailto:${contact})`;
 }
 
@@ -311,11 +345,15 @@ function isTop20Company(companyName?: string | null) {
   if (!normalizedCompany) return { isTop20: false };
   const parent = TOP_20_PHARMA.find((name) => {
     const normalizedParent = normalize(name);
-    return normalizedCompany === normalizedParent || normalizedCompany.includes(normalizedParent);
+    return (
+      normalizedCompany === normalizedParent ||
+      normalizedCompany.includes(normalizedParent)
+    );
   });
   if (parent) return { isTop20: true, parent };
-  const aliasParent = Object.entries(TOP_20_PHARMA_ALIASES).find(([, aliases]) =>
-    aliases.some((alias) => normalizedCompany.includes(normalize(alias)))
+  const aliasParent = Object.entries(TOP_20_PHARMA_ALIASES).find(
+    ([, aliases]) =>
+      aliases.some((alias) => normalizedCompany.includes(normalize(alias))),
   )?.[0];
   return { isTop20: Boolean(aliasParent), parent: aliasParent };
 }
@@ -340,7 +378,9 @@ export function canMarkVerifiedAbsent(args: {
 
 function parseRevenueRange(value?: string | null) {
   const text = value ?? "";
-  const numbers = [...text.matchAll(/(\d+(?:\.\d+)?)/g)].map((match) => Number(match[1]));
+  const numbers = [...text.matchAll(/(\d+(?:\.\d+)?)/g)].map((match) =>
+    Number(match[1]),
+  );
   if (numbers.length === 0) return { low: 0, high: 0 };
   const multiplier = /(?:\d\s*bn\b|\bbillion\b)/i.test(text)
     ? 1_000_000_000
@@ -372,7 +412,7 @@ export function calculatePeakSales(args: {
       (args.diagnosedReachableRate / 100) *
       (args.brandedTreatmentRate / 100) *
       (args.kemedicaShareRate / 100) *
-      args.netPricePerPatientYearUsd
+      args.netPricePerPatientYearUsd,
   );
 }
 
@@ -386,7 +426,7 @@ export function calculateRiskAdjustedMargin(args: {
     args.peakSalesUsd *
       (args.marketMarginRate / 100) *
       (args.licenseSignedProbability / 100) *
-      (args.registrationGrantedProbability / 100)
+      (args.registrationGrantedProbability / 100),
   );
 }
 
@@ -402,14 +442,23 @@ const SCREENING_FX_TO_USD: Record<string, number> = {
   DZD: 0.0075,
 };
 
-export function deriveInternationalPriceAnchorForTest(priceRows: Array<{
-  amount: number;
-  currency: string;
-  country: string;
-  priceType: string;
-  sourceCategory: string;
-}>) {
-  const eligibleTypes = new Set(["registered", "list", "tariff", "reimbursement", "hospital", "retail"]);
+export function deriveInternationalPriceAnchorForTest(
+  priceRows: Array<{
+    amount: number;
+    currency: string;
+    country: string;
+    priceType: string;
+    sourceCategory: string;
+  }>,
+) {
+  const eligibleTypes = new Set([
+    "registered",
+    "list",
+    "tariff",
+    "reimbursement",
+    "hospital",
+    "retail",
+  ]);
   const anchors = priceRows
     .filter((row) => eligibleTypes.has(row.priceType))
     .map((row) => {
@@ -425,13 +474,25 @@ export function deriveInternationalPriceAnchorForTest(priceRows: Array<{
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
   if (anchors.length === 0) return null;
-  const sorted = [...anchors].sort((left, right) => left.amountUsd - right.amountUsd);
+  const sorted = [...anchors].sort(
+    (left, right) => left.amountUsd - right.amountUsd,
+  );
   const trimmed = sorted.length > 4 ? sorted.slice(1, -1) : sorted;
-  const averageUsd = Math.round(trimmed.reduce((sum, row) => sum + row.amountUsd, 0) / trimmed.length);
+  const averageUsd = Math.round(
+    trimmed.reduce((sum, row) => sum + row.amountUsd, 0) / trimmed.length,
+  );
   const countries = [...new Set(anchors.map((row) => row.country))].sort();
   const currencies = [...new Set(anchors.map((row) => row.currency))].sort();
-  const officialCount = anchors.filter((row) => row.sourceCategory === "official").length;
-  return { averageUsd, count: anchors.length, countries, currencies, officialCount };
+  const officialCount = anchors.filter(
+    (row) => row.sourceCategory === "official",
+  ).length;
+  return {
+    averageUsd,
+    count: anchors.length,
+    countries,
+    currencies,
+    officialCount,
+  };
 }
 
 function deriveInternationalPriceAnchor(priceRows: Doc<"priceEvidence">[]) {
@@ -467,7 +528,8 @@ function deriveSizingDefaults(args: {
     licenseSignedProbability: 0,
     registrationGrantedProbability: 0,
     inputStatus: "unvalidated" as const,
-    basis: "UNVALIDATED: no product-specific eligible patient, rate, share, and net-price sizing row is stored yet.",
+    basis:
+      "UNVALIDATED: no product-specific eligible patient, rate, share, and net-price sizing row is stored yet.",
   };
 }
 
@@ -477,12 +539,17 @@ function classifyProduct(args: {
   evidenceText: string;
 }) {
   const text = normalize(
-    `${args.drug?.category ?? ""} ${args.drug?.productProfile?.productFamily ?? ""} ${args.drug?.therapeuticArea ?? ""} ${args.evidenceText}`
+    `${args.drug?.category ?? ""} ${args.drug?.productProfile?.productFamily ?? ""} ${args.drug?.therapeuticArea ?? ""} ${args.evidenceText}`,
   );
   if (/orphan|rare/.test(text)) return "orphan_rare_disease" as const;
-  if (/biosimilar|off patent|off-patent/.test(text)) return "off_patent_biosimilar" as const;
+  if (/biosimilar|off patent|off-patent/.test(text))
+    return "off_patent_biosimilar" as const;
   if (/hybrid/.test(text)) return "hybrid" as const;
-  if (args.drug?.patentExpiryYear && args.drug.patentExpiryYear >= new Date().getFullYear()) return "on_patent" as const;
+  if (
+    args.drug?.patentExpiryYear &&
+    args.drug.patentExpiryYear >= new Date().getFullYear()
+  )
+    return "on_patent" as const;
   return "innovator" as const;
 }
 
@@ -490,15 +557,28 @@ function registryStatusMatrix(drug: Doc<"drugs"> | null) {
   const hasRegistration = (country: string) =>
     (drug?.menaRegistrations ?? []).some(
       (registration) =>
-        normalize(registration.country) === normalize(country) && registration.status === "registered"
+        normalize(registration.country) === normalize(country) &&
+        registration.status === "registered",
     );
   return {
-    fda: drug?.approvalStatus === "approved" ? ("registered" as const) : ("unknown" as const),
-    ema: drug?.emaApprovalDate || drug?.approvalDate ? ("registered" as const) : ("unknown" as const),
+    fda:
+      drug?.approvalStatus === "approved"
+        ? ("registered" as const)
+        : ("unknown" as const),
+    ema:
+      drug?.emaApprovalDate || drug?.approvalDate
+        ? ("registered" as const)
+        : ("unknown" as const),
     bfarm: "unknown" as const,
-    sfda: hasRegistration("Saudi Arabia") ? ("registered" as const) : ("unknown" as const),
-    mohap: hasRegistration("UAE") ? ("registered" as const) : ("unknown" as const),
-    eda: hasRegistration("Egypt") ? ("registered" as const) : ("unknown" as const),
+    sfda: hasRegistration("Saudi Arabia")
+      ? ("registered" as const)
+      : ("unknown" as const),
+    mohap: hasRegistration("UAE")
+      ? ("registered" as const)
+      : ("unknown" as const),
+    eda: hasRegistration("Egypt")
+      ? ("registered" as const)
+      : ("unknown" as const),
   };
 }
 
@@ -515,8 +595,13 @@ export function calculateModel1ExpectedValue(args: {
   const midpoint = (range.low + range.high) / 2;
   const discountedRevenue = midpoint * (1 - args.tenderDiscountPct / 100);
   const grossProfit = discountedRevenue * (args.grossMarginPct / 100);
-  const workingCapitalCharge = discountedRevenue * (args.workingCapitalPct / 100);
-  const operatingProfit = grossProfit - args.registrationCostUsd - args.annualPvCostUsd - workingCapitalCharge;
+  const workingCapitalCharge =
+    discountedRevenue * (args.workingCapitalPct / 100);
+  const operatingProfit =
+    grossProfit -
+    args.registrationCostUsd -
+    args.annualPvCostUsd -
+    workingCapitalCharge;
   return Math.round(operatingProfit * (args.probabilityOfSuccessPct / 100));
 }
 
@@ -529,19 +614,36 @@ export function calculateModel4ExpectedValue(args: {
 }) {
   const range = parseRevenueRange(args.annualOpportunityRange);
   const midpoint = (range.low + range.high) / 2;
-  const revenueShare = midpoint * ((args.successFeePct + args.sublicenseRoyaltyPct) / 100);
-  return Math.round((revenueShare - args.operatingCostUsd) * (args.probabilityOfSuccessPct / 100));
+  const revenueShare =
+    midpoint * ((args.successFeePct + args.sublicenseRoyaltyPct) / 100);
+  return Math.round(
+    (revenueShare - args.operatingCostUsd) *
+      (args.probabilityOfSuccessPct / 100),
+  );
 }
 
-function targetRegisteredMarkets(drug: Doc<"drugs"> | null, opportunity: Doc<"decisionOpportunities">) {
+function targetRegisteredMarkets(
+  drug: Doc<"drugs"> | null,
+  opportunity: Doc<"decisionOpportunities">,
+) {
   const fromDrug = (drug?.menaRegistrations ?? [])
     .filter((registration) => registration.status === "registered")
     .map((registration) => canonicalMarket(registration.country))
-    .filter((market): market is (typeof ENGINE_MARKETS)[number] => Boolean(market));
+    .filter((market): market is (typeof ENGINE_MARKETS)[number] =>
+      Boolean(market),
+    );
   const blocked = (opportunity.blockedFocusMarkets ?? [])
     .map(canonicalMarket)
-    .filter((market): market is (typeof ENGINE_MARKETS)[number] => Boolean(market));
-  return [...new Set([...fromDrug, ...blocked].filter((market) => TARGET_MARKETS.includes(market as never)))];
+    .filter((market): market is (typeof ENGINE_MARKETS)[number] =>
+      Boolean(market),
+    );
+  return [
+    ...new Set(
+      [...fromDrug, ...blocked].filter((market) =>
+        TARGET_MARKETS.includes(market as never),
+      ),
+    ),
+  ];
 }
 
 function gateReasons(args: {
@@ -558,25 +660,42 @@ function gateReasons(args: {
   const hasHomeAuthorization =
     args.drug?.approvalStatus === "approved" ||
     Boolean(args.drug?.approvalDate || args.drug?.emaApprovalDate);
-  const companyKnown = Boolean(args.company || args.opportunity.approachEntityName || args.opportunity.manufacturerName);
-  const demandEvidence = Boolean(args.opportunity.demandProxy || args.opportunity.marketSizeEstimate);
-  if (!hasHomeAuthorization) reasons.push("Home authorization is not yet validated from FDA/EMA/BfArM evidence.");
+  const companyKnown = Boolean(
+    args.company ||
+    args.opportunity.approachEntityName ||
+    args.opportunity.manufacturerName,
+  );
+  const demandEvidence = Boolean(
+    args.opportunity.demandProxy || args.opportunity.marketSizeEstimate,
+  );
+  if (!hasHomeAuthorization)
+    reasons.push(
+      "Home authorization is not yet validated from FDA/EMA/BfArM evidence.",
+    );
   if (!companyKnown) reasons.push("Owner, manufacturer, or MAH is not known.");
-  if (args.isTop20) reasons.push("Owner matches the maintained top-20 pharma exclusion list.");
-  if (args.menaRightsLicensed) reasons.push("MENA rights already appear licensed or unavailable.");
-  if (args.drug?.approvalStatus === "withdrawn") reasons.push("Product is withdrawn or suspended.");
+  if (args.isTop20)
+    reasons.push("Owner matches the maintained top-20 pharma exclusion list.");
+  if (args.menaRightsLicensed)
+    reasons.push("MENA rights already appear licensed or unavailable.");
+  if (args.drug?.approvalStatus === "withdrawn")
+    reasons.push("Product is withdrawn or suspended.");
   if (args.registeredTargetMarkets.length > 0) {
-    reasons.push(`Already registered in ${args.registeredTargetMarkets.join(", ")}.`);
+    reasons.push(
+      `Already registered in ${args.registeredTargetMarkets.join(", ")}.`,
+    );
   }
-  if (args.belowMarginFloor) reasons.push("Risk-adjusted margin is below the active floor.");
-  if (args.distributionInfeasible) reasons.push("Distribution or market-entry route is currently infeasible.");
-  if (!demandEvidence) reasons.push("Demand evidence or commercial sizing signal is missing.");
+  if (args.belowMarginFloor)
+    reasons.push("Risk-adjusted margin is below the active floor.");
+  if (args.distributionInfeasible)
+    reasons.push("Distribution or market-entry route is currently infeasible.");
+  if (!demandEvidence)
+    reasons.push("Demand evidence or commercial sizing signal is missing.");
   return reasons;
 }
 
 async function insertChangeEventWithInAppDelivery(
   ctx: MutationCtx,
-  event: Omit<Doc<"changeEvents">, "_id" | "_creationTime">
+  event: Omit<Doc<"changeEvents">, "_id" | "_creationTime">,
 ) {
   const eventId = await ctx.db.insert("changeEvents", event);
   const now = Date.now();
@@ -593,8 +712,12 @@ async function insertChangeEventWithInAppDelivery(
   await ctx.db.insert("alertDeliveries", {
     changeEventId: eventId,
     channel: "email_digest",
-    status: process.env.KEMEDICA_EMAIL_DIGEST_WEBHOOK_URL ? "pending" : "skipped",
-    destination: process.env.KEMEDICA_EMAIL_DIGEST_WEBHOOK_URL ? "configured email digest webhook" : "not configured",
+    status: process.env.KEMEDICA_EMAIL_DIGEST_WEBHOOK_URL
+      ? "pending"
+      : "skipped",
+    destination: process.env.KEMEDICA_EMAIL_DIGEST_WEBHOOK_URL
+      ? "configured email digest webhook"
+      : "not configured",
     retryCount: 0,
     createdAt: now,
     updatedAt: now,
@@ -603,7 +726,9 @@ async function insertChangeEventWithInAppDelivery(
     changeEventId: eventId,
     channel: "teams_webhook",
     status: process.env.KEMEDICA_TEAMS_WEBHOOK_URL ? "pending" : "skipped",
-    destination: process.env.KEMEDICA_TEAMS_WEBHOOK_URL ? "configured Teams webhook" : "not configured",
+    destination: process.env.KEMEDICA_TEAMS_WEBHOOK_URL
+      ? "configured Teams webhook"
+      : "not configured",
     retryCount: 0,
     createdAt: now,
     updatedAt: now,
@@ -619,19 +744,29 @@ export const seedSourceRegistry = mutation({
     for (const source of DEFAULT_SOURCES) {
       const existing = await ctx.db
         .query("sourceRegistries")
-        .withIndex("by_source_registry", (q) => q.eq("sourceRegistry", source.sourceRegistry))
+        .withIndex("by_source_registry", (q) =>
+          q.eq("sourceRegistry", source.sourceRegistry),
+        )
         .unique();
       const doc = {
         ...source,
         status: "active" as const,
         userAgent: userAgent(),
-        contactEmail: process.env.KEMEDICA_CRAWLER_CONTACT_EMAIL ?? "research@kemedica.com",
+        contactEmail:
+          process.env.KEMEDICA_CRAWLER_CONTACT_EMAIL ?? "research@kemedica.com",
         rateLimitPerMinute: 12,
-        staleAfterMs: (
-          source.cadence === "monthly" ? 45 :
-            source.cadence === "weekly" ? 14 :
-              source.cadence === "manual" ? 30 : 3
-        ) * 24 * 60 * 60 * 1000,
+        staleAfterMs:
+          (source.cadence === "monthly"
+            ? 45
+            : source.cadence === "weekly"
+              ? 14
+              : source.cadence === "manual"
+                ? 30
+                : 3) *
+          24 *
+          60 *
+          60 *
+          1000,
         nextFetchAt: nextFetchAt(source.cadence, now),
         updatedAt: now,
       };
@@ -639,7 +774,9 @@ export const seedSourceRegistry = mutation({
         await ctx.db.patch(existing._id, doc);
         seeded.push(existing._id);
       } else {
-        seeded.push(await ctx.db.insert("sourceRegistries", { ...doc, createdAt: now }));
+        seeded.push(
+          await ctx.db.insert("sourceRegistries", { ...doc, createdAt: now }),
+        );
       }
     }
     return { seeded: seeded.length };
@@ -649,35 +786,72 @@ export const seedSourceRegistry = mutation({
 export const listSourceHealth = query({
   args: {},
   handler: async (ctx) =>
-    await ctx.db.query("sourceRegistries").withIndex("by_source_registry").take(100),
+    await ctx.db
+      .query("sourceRegistries")
+      .withIndex("by_source_registry")
+      .take(100),
 });
 
 export const listChangeEvents = query({
-  args: { status: v.optional(v.union(v.literal("new"), v.literal("acknowledged"), v.literal("resolved"))), limit: v.optional(v.number()) },
+  args: {
+    status: v.optional(
+      v.union(
+        v.literal("new"),
+        v.literal("acknowledged"),
+        v.literal("resolved"),
+      ),
+    ),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) => {
     const rows = args.status
       ? await ctx.db
           .query("changeEvents")
-          .withIndex("by_status_and_created_at", (q) => q.eq("status", args.status!))
+          .withIndex("by_status_and_created_at", (q) =>
+            q.eq("status", args.status!),
+          )
           .order("desc")
           .take(args.limit ?? 50)
-      : await ctx.db.query("changeEvents").withIndex("by_status_and_created_at").order("desc").take(args.limit ?? 50);
+      : await ctx.db
+          .query("changeEvents")
+          .withIndex("by_status_and_created_at")
+          .order("desc")
+          .take(args.limit ?? 50);
     return rows;
   },
 });
 
 export const listAlertDeliveries = query({
-  args: { status: v.optional(v.union(v.literal("pending"), v.literal("sent"), v.literal("skipped"), v.literal("failed"))), limit: v.optional(v.number()) },
+  args: {
+    status: v.optional(
+      v.union(
+        v.literal("pending"),
+        v.literal("sent"),
+        v.literal("skipped"),
+        v.literal("failed"),
+      ),
+    ),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) =>
     args.status
-      ? await ctx.db.query("alertDeliveries").withIndex("by_status", (q) => q.eq("status", args.status!)).take(args.limit ?? 50)
-      : await ctx.db.query("alertDeliveries").withIndex("by_status").take(args.limit ?? 50),
+      ? await ctx.db
+          .query("alertDeliveries")
+          .withIndex("by_status", (q) => q.eq("status", args.status!))
+          .take(args.limit ?? 50)
+      : await ctx.db
+          .query("alertDeliveries")
+          .withIndex("by_status")
+          .take(args.limit ?? 50),
 });
 
 export const listPendingAlertDeliveries = internalQuery({
   args: {},
   handler: async (ctx) =>
-    await ctx.db.query("alertDeliveries").withIndex("by_status", (q) => q.eq("status", "pending")).take(20),
+    await ctx.db
+      .query("alertDeliveries")
+      .withIndex("by_status", (q) => q.eq("status", "pending"))
+      .take(20),
 });
 
 export const getChangeEventForDelivery = internalQuery({
@@ -688,7 +862,11 @@ export const getChangeEventForDelivery = internalQuery({
 export const markAlertDelivery = internalMutation({
   args: {
     id: v.id("alertDeliveries"),
-    status: v.union(v.literal("sent"), v.literal("skipped"), v.literal("failed")),
+    status: v.union(
+      v.literal("sent"),
+      v.literal("skipped"),
+      v.literal("failed"),
+    ),
     lastError: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
@@ -697,7 +875,8 @@ export const markAlertDelivery = internalMutation({
     await ctx.db.patch(args.id, {
       status: args.status,
       lastError: args.lastError,
-      retryCount: args.status === "failed" ? current.retryCount + 1 : current.retryCount,
+      retryCount:
+        args.status === "failed" ? current.retryCount + 1 : current.retryCount,
       sentAt: args.status === "sent" ? Date.now() : current.sentAt,
       updatedAt: Date.now(),
     });
@@ -707,7 +886,10 @@ export const markAlertDelivery = internalMutation({
 export const listWatchlist = query({
   args: {},
   handler: async (ctx) =>
-    await ctx.db.query("watchlistItems").withIndex("by_status", (q) => q.eq("status", "tracked")).take(100),
+    await ctx.db
+      .query("watchlistItems")
+      .withIndex("by_status", (q) => q.eq("status", "tracked"))
+      .take(100),
 });
 
 export const trackSubstance = mutation({
@@ -737,11 +919,16 @@ export const trackSubstance = mutation({
 });
 
 export const listReviewQueue = query({
-  args: { status: v.optional(reviewStatusValidator), limit: v.optional(v.number()) },
+  args: {
+    status: v.optional(reviewStatusValidator),
+    limit: v.optional(v.number()),
+  },
   handler: async (ctx, args) =>
     await ctx.db
       .query("reviewQueueItems")
-      .withIndex("by_status_and_created_at", (q) => q.eq("status", args.status ?? "open"))
+      .withIndex("by_status_and_created_at", (q) =>
+        q.eq("status", args.status ?? "open"),
+      )
       .order("desc")
       .take(args.limit ?? 50),
 });
@@ -767,9 +954,21 @@ export const resolveReviewItem = mutation({
 export const getLatestRunDashboard = query({
   args: {},
   handler: async (ctx) => {
-    const run = (await ctx.db.query("opportunityRuns").withIndex("by_started_at").order("desc").take(1))[0] ?? null;
+    const run =
+      (
+        await ctx.db
+          .query("opportunityRuns")
+          .withIndex("by_started_at")
+          .order("desc")
+          .take(1)
+      )[0] ?? null;
     const items = run
-      ? await ctx.db.query("opportunityRunItems").withIndex("by_run_and_ranking_position", (q) => q.eq("runId", run._id)).take(50)
+      ? await ctx.db
+          .query("opportunityRunItems")
+          .withIndex("by_run_and_ranking_position", (q) =>
+            q.eq("runId", run._id),
+          )
+          .take(50)
       : [];
     return { run, items };
   },
@@ -779,19 +978,31 @@ export const getScreeningDashboard = query({
   args: {
     targetMarket: v.optional(marketValidator),
     productClass: v.optional(productClassValidator),
-    exclusions: v.optional(v.object({
-      alreadyRegisteredTarget: v.boolean(),
-      top20Pharma: v.boolean(),
-      menaRightsLicensed: v.boolean(),
-      withdrawnOrSuspended: v.boolean(),
-      belowMarginFloor: v.boolean(),
-      distributionInfeasible: v.boolean(),
-    })),
+    exclusions: v.optional(
+      v.object({
+        alreadyRegisteredTarget: v.boolean(),
+        top20Pharma: v.boolean(),
+        menaRightsLicensed: v.boolean(),
+        withdrawnOrSuspended: v.boolean(),
+        belowMarginFloor: v.boolean(),
+        distributionInfeasible: v.boolean(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
-    const run = (await ctx.db.query("opportunityRuns").withIndex("by_started_at").order("desc").take(1))[0] ?? null;
+    const run =
+      (
+        await ctx.db
+          .query("opportunityRuns")
+          .withIndex("by_started_at")
+          .order("desc")
+          .take(1)
+      )[0] ?? null;
     const items = run
-      ? await ctx.db.query("opportunityRunItems").withIndex("by_run", (q) => q.eq("runId", run._id)).take(500)
+      ? await ctx.db
+          .query("opportunityRunItems")
+          .withIndex("by_run", (q) => q.eq("runId", run._id))
+          .take(500)
       : [];
     const defaults = {
       alreadyRegisteredTarget: true,
@@ -805,7 +1016,8 @@ export const getScreeningDashboard = query({
       item.exclusionFlags ?? {
         alreadyRegisteredTarget: item.registeredTargetMarkets.length > 0,
         top20Pharma: item.isTop20Excluded,
-        menaRightsLicensed: item.territoryRightsStatus === "LICENSED_OR_UNAVAILABLE",
+        menaRightsLicensed:
+          item.territoryRightsStatus === "LICENSED_OR_UNAVAILABLE",
         withdrawnOrSuspended: false,
         belowMarginFloor: false,
         distributionInfeasible: false,
@@ -821,33 +1033,82 @@ export const getScreeningDashboard = query({
       candidateUniverse: items.length,
       afterMarketFilter: marketFiltered.length,
       afterProductClassFilter: classFiltered.length,
-      removedAlreadyRegistered: classFiltered.filter((item) => itemExclusionFlags(item).alreadyRegisteredTarget).length,
-      removedTop20: classFiltered.filter((item) => itemExclusionFlags(item).top20Pharma).length,
-      removedRightsLicensed: classFiltered.filter((item) => itemExclusionFlags(item).menaRightsLicensed).length,
-      removedWithdrawnSuspended: classFiltered.filter((item) => itemExclusionFlags(item).withdrawnOrSuspended).length,
-      removedBelowMarginFloor: classFiltered.filter((item) => itemExclusionFlags(item).belowMarginFloor).length,
-      removedDistributionInfeasible: classFiltered.filter((item) => itemExclusionFlags(item).distributionInfeasible).length,
+      removedAlreadyRegistered: classFiltered.filter(
+        (item) => itemExclusionFlags(item).alreadyRegisteredTarget,
+      ).length,
+      removedTop20: classFiltered.filter(
+        (item) => itemExclusionFlags(item).top20Pharma,
+      ).length,
+      removedRightsLicensed: classFiltered.filter(
+        (item) => itemExclusionFlags(item).menaRightsLicensed,
+      ).length,
+      removedWithdrawnSuspended: classFiltered.filter(
+        (item) => itemExclusionFlags(item).withdrawnOrSuspended,
+      ).length,
+      removedBelowMarginFloor: classFiltered.filter(
+        (item) => itemExclusionFlags(item).belowMarginFloor,
+      ).length,
+      removedDistributionInfeasible: classFiltered.filter(
+        (item) => itemExclusionFlags(item).distributionInfeasible,
+      ).length,
     };
     const filtered = classFiltered
-      .filter((item) => !exclusions.alreadyRegisteredTarget || !itemExclusionFlags(item).alreadyRegisteredTarget)
-      .filter((item) => !exclusions.top20Pharma || !itemExclusionFlags(item).top20Pharma)
-      .filter((item) => !exclusions.menaRightsLicensed || !itemExclusionFlags(item).menaRightsLicensed)
-      .filter((item) => !exclusions.withdrawnOrSuspended || !itemExclusionFlags(item).withdrawnOrSuspended)
-      .filter((item) => !exclusions.belowMarginFloor || !itemExclusionFlags(item).belowMarginFloor)
-      .filter((item) => !exclusions.distributionInfeasible || !itemExclusionFlags(item).distributionInfeasible)
+      .filter(
+        (item) =>
+          !exclusions.alreadyRegisteredTarget ||
+          !itemExclusionFlags(item).alreadyRegisteredTarget,
+      )
+      .filter(
+        (item) =>
+          !exclusions.top20Pharma || !itemExclusionFlags(item).top20Pharma,
+      )
+      .filter(
+        (item) =>
+          !exclusions.menaRightsLicensed ||
+          !itemExclusionFlags(item).menaRightsLicensed,
+      )
+      .filter(
+        (item) =>
+          !exclusions.withdrawnOrSuspended ||
+          !itemExclusionFlags(item).withdrawnOrSuspended,
+      )
+      .filter(
+        (item) =>
+          !exclusions.belowMarginFloor ||
+          !itemExclusionFlags(item).belowMarginFloor,
+      )
+      .filter(
+        (item) =>
+          !exclusions.distributionInfeasible ||
+          !itemExclusionFlags(item).distributionInfeasible,
+      )
       .sort((left, right) => right.riskAdjustedMargin - left.riskAdjustedMargin)
       .slice(0, 50);
-    return { run, cascade: { ...cascade, visible: filtered.length }, items: filtered };
+    return {
+      run,
+      cascade: { ...cascade, visible: filtered.length },
+      items: filtered,
+    };
   },
 });
 
 export const getDealEconomics = query({
   args: { decisionOpportunityId: v.id("decisionOpportunities") },
-  handler: async (ctx, args) =>
-    await ctx.db
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
       .query("dealEconomicsScenarios")
-      .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", args.decisionOpportunityId))
-      .take(20),
+      .withIndex("by_decision_opportunity", (q) =>
+        q.eq("decisionOpportunityId", args.decisionOpportunityId),
+      )
+      .order("desc")
+      .take(50);
+    const latest = new Map<string, (typeof rows)[number]>();
+    for (const row of rows) {
+      const key = `${row.market}|${row.model}`;
+      if (!latest.has(key)) latest.set(key, row);
+    }
+    return [...latest.values()];
+  },
 });
 
 export const getAssetExportPayload = query({
@@ -855,31 +1116,67 @@ export const getAssetExportPayload = query({
   handler: async (ctx, args) => {
     const opportunity = await ctx.db.get(args.decisionOpportunityId);
     if (!opportunity) return null;
-    const [drug, company, reportData, sizingInputs, dealScenarios, runItems, evidence] = await Promise.all([
+    const [
+      drug,
+      company,
+      reportData,
+      sizingInputs,
+      dealScenarios,
+      runItems,
+      evidence,
+      assessments,
+      evidenceSignals,
+    ] = await Promise.all([
       ctx.db.get(opportunity.drugId),
       opportunity.companyId ? ctx.db.get(opportunity.companyId) : null,
       ctx.db
         .query("mandateOpportunityReports")
-        .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", args.decisionOpportunityId))
+        .withIndex("by_decision_opportunity", (q) =>
+          q.eq("decisionOpportunityId", args.decisionOpportunityId),
+        )
         .unique(),
       ctx.db
         .query("opportunitySizingInputs")
-        .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", args.decisionOpportunityId))
+        .withIndex("by_decision_opportunity", (q) =>
+          q.eq("decisionOpportunityId", args.decisionOpportunityId),
+        )
         .take(20),
       ctx.db
         .query("dealEconomicsScenarios")
-        .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", args.decisionOpportunityId))
+        .withIndex("by_decision_opportunity", (q) =>
+          q.eq("decisionOpportunityId", args.decisionOpportunityId),
+        )
         .take(20),
       ctx.db
         .query("opportunityRunItems")
-        .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", args.decisionOpportunityId))
+        .withIndex("by_decision_opportunity", (q) =>
+          q.eq("decisionOpportunityId", args.decisionOpportunityId),
+        )
         .take(20),
       ctx.db
         .query("opportunityEvidence")
-        .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", args.decisionOpportunityId))
+        .withIndex("by_decision_opportunity", (q) =>
+          q.eq("decisionOpportunityId", args.decisionOpportunityId),
+        )
         .take(20),
+      ctx.db
+        .query("opportunityMarketAssessments")
+        .withIndex("by_opportunity", (q) =>
+          q.eq("decisionOpportunityId", args.decisionOpportunityId),
+        )
+        .take(3),
+      ctx.db
+        .query("opportunitySignalLinks")
+        .withIndex("by_opportunity", (q) =>
+          q.eq("decisionOpportunityId", args.decisionOpportunityId),
+        )
+        .order("desc")
+        .take(100),
     ]);
-    const runItem = [...runItems].sort((left, right) => right.createdAt - left.createdAt)[0] ?? null;
+    const runItem =
+      [...runItems].sort(
+        (left, right) => right.createdAt - left.createdAt,
+      )[0] ?? null;
     return {
       opportunity,
       drug,
@@ -890,6 +1187,8 @@ export const getAssetExportPayload = query({
       runItem,
       latestRunItem: runItem,
       evidence,
+      assessments,
+      evidenceSignals,
       generatedAt: Date.now(),
     };
   },
@@ -898,21 +1197,33 @@ export const getAssetExportPayload = query({
 export const getMarketFile = query({
   args: { country: marketValidator },
   handler: async (ctx, args) =>
-    await ctx.db.query("marketFiles").withIndex("by_country", (q) => q.eq("country", args.country)).unique(),
+    await ctx.db
+      .query("marketFiles")
+      .withIndex("by_country", (q) => q.eq("country", args.country))
+      .unique(),
 });
 
 export const listMarketFiles = query({
   args: {},
-  handler: async (ctx) => await ctx.db.query("marketFiles").withIndex("by_country").take(20),
+  handler: async (ctx) =>
+    await ctx.db.query("marketFiles").withIndex("by_country").take(20),
 });
 
 export const listSizingInputs = query({
   args: { decisionOpportunityId: v.id("decisionOpportunities") },
-  handler: async (ctx, args) =>
-    await ctx.db
+  handler: async (ctx, args) => {
+    const rows = await ctx.db
       .query("opportunitySizingInputs")
-      .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", args.decisionOpportunityId))
-      .take(20),
+      .withIndex("by_decision_opportunity", (q) =>
+        q.eq("decisionOpportunityId", args.decisionOpportunityId),
+      )
+      .order("desc")
+      .take(50);
+    const latest = new Map<string, (typeof rows)[number]>();
+    for (const row of rows)
+      if (!latest.has(row.country)) latest.set(row.country, row);
+    return [...latest.values()];
+  },
 });
 
 export const upsertSizingInput = mutation({
@@ -936,7 +1247,9 @@ export const upsertSizingInput = mutation({
     const now = Date.now();
     let registry = await ctx.db
       .query("sourceRegistries")
-      .withIndex("by_source_registry", (q) => q.eq("sourceRegistry", "manual_sizing_inputs"))
+      .withIndex("by_source_registry", (q) =>
+        q.eq("sourceRegistry", "manual_sizing_inputs"),
+      )
       .unique();
     if (!registry) {
       const registryId = await ctx.db.insert("sourceRegistries", {
@@ -974,9 +1287,14 @@ export const upsertSizingInput = mutation({
     const existing = (
       await ctx.db
         .query("opportunitySizingInputs")
-        .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", args.decisionOpportunityId))
-        .take(20)
-    ).find((row) => row.country === args.country);
+        .withIndex("by_decision_opportunity_and_country", (q) =>
+          q
+            .eq("decisionOpportunityId", args.decisionOpportunityId)
+            .eq("country", args.country),
+        )
+        .order("desc")
+        .take(1)
+    )[0];
     const doc = {
       decisionOpportunityId: args.decisionOpportunityId,
       drugId: opportunity.drugId,
@@ -1001,30 +1319,48 @@ export const upsertSizingInput = mutation({
       await ctx.db.patch(existing._id, doc);
       return existing._id;
     }
-    return await ctx.db.insert("opportunitySizingInputs", { ...doc, createdAt: now });
+    return await ctx.db.insert("opportunitySizingInputs", {
+      ...doc,
+      createdAt: now,
+    });
   },
 });
 
 export const importSubstanceCrosswalk = mutation({
   args: {
-    rows: v.array(v.object({
-      substanceKey: v.string(),
-      sourceSystem: v.union(v.literal("rxnorm"), v.literal("atc"), v.literal("inn"), v.literal("internal")),
-      sourceCode: v.string(),
-      displayName: v.string(),
-      normalizedName: v.string(),
-      synonymType: v.union(v.literal("preferred"), v.literal("synonym"), v.literal("salt"), v.literal("combination")),
-    })),
+    rows: v.array(
+      v.object({
+        substanceKey: v.string(),
+        sourceSystem: v.union(
+          v.literal("rxnorm"),
+          v.literal("atc"),
+          v.literal("inn"),
+          v.literal("internal"),
+        ),
+        sourceCode: v.string(),
+        displayName: v.string(),
+        normalizedName: v.string(),
+        synonymType: v.union(
+          v.literal("preferred"),
+          v.literal("synonym"),
+          v.literal("salt"),
+          v.literal("combination"),
+        ),
+      }),
+    ),
     sourceRegistry: v.optional(v.string()),
     sourceUrl: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const now = Date.now();
-    const sourceRegistryName = args.sourceRegistry ?? "manual_substance_crosswalk";
+    const sourceRegistryName =
+      args.sourceRegistry ?? "manual_substance_crosswalk";
     const sourceUrl = args.sourceUrl ?? "internal://manual-substance-crosswalk";
     let registry = await ctx.db
       .query("sourceRegistries")
-      .withIndex("by_source_registry", (q) => q.eq("sourceRegistry", sourceRegistryName))
+      .withIndex("by_source_registry", (q) =>
+        q.eq("sourceRegistry", sourceRegistryName),
+      )
       .unique();
     if (!registry) {
       const registryId = await ctx.db.insert("sourceRegistries", {
@@ -1065,7 +1401,9 @@ export const importSubstanceCrosswalk = mutation({
       const existing = await ctx.db
         .query("substanceCrosswalks")
         .withIndex("by_source_system_and_source_code", (q) =>
-          q.eq("sourceSystem", row.sourceSystem).eq("sourceCode", row.sourceCode)
+          q
+            .eq("sourceSystem", row.sourceSystem)
+            .eq("sourceCode", row.sourceCode),
         )
         .unique();
       const doc = {
@@ -1100,13 +1438,17 @@ export const listSubstanceCrosswalks = query({
     if (args.substanceKey) {
       return await ctx.db
         .query("substanceCrosswalks")
-        .withIndex("by_substance_key", (q) => q.eq("substanceKey", normalize(args.substanceKey!)))
+        .withIndex("by_substance_key", (q) =>
+          q.eq("substanceKey", normalize(args.substanceKey!)),
+        )
         .take(args.limit ?? 50);
     }
     if (args.normalizedName) {
       return await ctx.db
         .query("substanceCrosswalks")
-        .withIndex("by_normalized_name", (q) => q.eq("normalizedName", normalize(args.normalizedName!)))
+        .withIndex("by_normalized_name", (q) =>
+          q.eq("normalizedName", normalize(args.normalizedName!)),
+        )
         .take(args.limit ?? 50);
     }
     return await ctx.db.query("substanceCrosswalks").take(args.limit ?? 50);
@@ -1136,12 +1478,30 @@ export const getRegistryStatusBySubstance = query({
       substanceKey: key,
       crosswalks,
       matrix: {
-        fda: statuses.find((status) => status.registry.includes("fda"))?.status ?? "UNKNOWN",
-        ema: statuses.find((status) => status.registry.includes("ema"))?.status ?? "UNKNOWN",
-        bfarm: statuses.find((status) => status.registry.includes("bfarm"))?.status ?? "UNKNOWN",
-        sfda: statuses.find((status) => status.registry.includes("sfda"))?.status ?? "UNKNOWN",
-        mohap: statuses.find((status) => status.registry.includes("mohap") || status.registry.includes("uae"))?.status ?? "UNKNOWN",
-        eda: statuses.find((status) => status.registry.includes("eda") || status.registry.includes("egypt"))?.status ?? "UNKNOWN",
+        fda:
+          statuses.find((status) => status.registry.includes("fda"))?.status ??
+          "UNKNOWN",
+        ema:
+          statuses.find((status) => status.registry.includes("ema"))?.status ??
+          "UNKNOWN",
+        bfarm:
+          statuses.find((status) => status.registry.includes("bfarm"))
+            ?.status ?? "UNKNOWN",
+        sfda:
+          statuses.find((status) => status.registry.includes("sfda"))?.status ??
+          "UNKNOWN",
+        mohap:
+          statuses.find(
+            (status) =>
+              status.registry.includes("mohap") ||
+              status.registry.includes("uae"),
+          )?.status ?? "UNKNOWN",
+        eda:
+          statuses.find(
+            (status) =>
+              status.registry.includes("eda") ||
+              status.registry.includes("egypt"),
+          )?.status ?? "UNKNOWN",
       },
       statuses,
     };
@@ -1154,7 +1514,9 @@ export const ensureMarketFiles = mutation({
     const now = Date.now();
     let registry = await ctx.db
       .query("sourceRegistries")
-      .withIndex("by_source_registry", (q) => q.eq("sourceRegistry", "internal_market_files"))
+      .withIndex("by_source_registry", (q) =>
+        q.eq("sourceRegistry", "internal_market_files"),
+      )
       .unique();
     if (!registry) {
       const registryId = await ctx.db.insert("sourceRegistries", {
@@ -1191,56 +1553,85 @@ export const ensureMarketFiles = mutation({
     });
     const defaults = {
       "Saudi Arabia": {
-        registrationRoute: "SFDA product registration with local authorized representation, dossier review, pricing, and import controls to validate by product class.",
-        typicalTimeline: "Timeline requires current SFDA validation; use this as a planning placeholder only.",
-        pricingRules: "Regulated pricing and public tender dynamics should be modeled before outreach.",
+        registrationRoute:
+          "SFDA product registration with local authorized representation, dossier review, pricing, and import controls to validate by product class.",
+        typicalTimeline:
+          "Timeline requires current SFDA validation; use this as a planning placeholder only.",
+        pricingRules:
+          "Regulated pricing and public tender dynamics should be modeled before outreach.",
         tenderCalendar: "NUPCO and Etimad monitoring are priority signals.",
-        competitorRegistrationSummary: "Use SFDA registration and shortage evidence before marking a gap.",
+        competitorRegistrationSummary:
+          "Use SFDA registration and shortage evidence before marking a gap.",
       },
       UAE: {
-        registrationRoute: "EDE/MOHAP registration or official import/price-list evidence is required; web search is context only.",
-        typicalTimeline: "Timeline requires local RA validation for product category and dossier route.",
-        pricingRules: "Official UAE price-list evidence should anchor list price assumptions where available.",
-        tenderCalendar: "Hospital/import routes may matter alongside public purchasing signals.",
-        competitorRegistrationSummary: "Accept official EDE/MOHAP registry or price-list evidence as registration truth.",
+        registrationRoute:
+          "EDE/MOHAP registration or official import/price-list evidence is required; web search is context only.",
+        typicalTimeline:
+          "Timeline requires local RA validation for product category and dossier route.",
+        pricingRules:
+          "Official UAE price-list evidence should anchor list price assumptions where available.",
+        tenderCalendar:
+          "Hospital/import routes may matter alongside public purchasing signals.",
+        competitorRegistrationSummary:
+          "Accept official EDE/MOHAP registry or price-list evidence as registration truth.",
       },
       Egypt: {
-        registrationRoute: "EDA registration path with conservative manual-review support for legacy registry checks.",
-        typicalTimeline: "Timeline requires product-class and pricing-route validation.",
-        pricingRules: "Pricing and currency sensitivity should be treated as a high-risk commercial assumption.",
-        tenderCalendar: "Egypt e-procurement monitoring is a priority demand signal.",
-        competitorRegistrationSummary: "Use EDA registry evidence before marking verified absence.",
+        registrationRoute:
+          "EDA registration path with conservative manual-review support for legacy registry checks.",
+        typicalTimeline:
+          "Timeline requires product-class and pricing-route validation.",
+        pricingRules:
+          "Pricing and currency sensitivity should be treated as a high-risk commercial assumption.",
+        tenderCalendar:
+          "Egypt e-procurement monitoring is a priority demand signal.",
+        competitorRegistrationSummary:
+          "Use EDA registry evidence before marking verified absence.",
       },
       Kuwait: {
-        registrationRoute: "National registration with local partner and public/private access route validation.",
+        registrationRoute:
+          "National registration with local partner and public/private access route validation.",
         typicalTimeline: "Timeline requires local regulatory validation.",
-        pricingRules: "Reference pricing and institutional procurement assumptions need validation.",
+        pricingRules:
+          "Reference pricing and institutional procurement assumptions need validation.",
         tenderCalendar: "Monitor as secondary follow-on market.",
-        competitorRegistrationSummary: "Secondary-market competitor checks remain manual in MVP.",
+        competitorRegistrationSummary:
+          "Secondary-market competitor checks remain manual in MVP.",
       },
       Qatar: {
-        registrationRoute: "National registration and institutional access route validation.",
+        registrationRoute:
+          "National registration and institutional access route validation.",
         typicalTimeline: "Timeline requires local regulatory validation.",
-        pricingRules: "Pricing assumptions should be benchmarked against GCC evidence.",
+        pricingRules:
+          "Pricing assumptions should be benchmarked against GCC evidence.",
         tenderCalendar: "Monitor as secondary follow-on market.",
-        competitorRegistrationSummary: "Secondary-market competitor checks remain manual in MVP.",
+        competitorRegistrationSummary:
+          "Secondary-market competitor checks remain manual in MVP.",
       },
       Algeria: {
-        registrationRoute: "National registration and pricing access route validation.",
+        registrationRoute:
+          "National registration and pricing access route validation.",
         typicalTimeline: "Timeline requires local regulatory validation.",
-        pricingRules: "Pricing and import economics require country-specific validation.",
+        pricingRules:
+          "Pricing and import economics require country-specific validation.",
         tenderCalendar: "Monitor as secondary follow-on market.",
-        competitorRegistrationSummary: "Secondary-market competitor checks remain manual in MVP.",
+        competitorRegistrationSummary:
+          "Secondary-market competitor checks remain manual in MVP.",
       },
-    } satisfies Record<(typeof ENGINE_MARKETS)[number], {
-      registrationRoute: string;
-      typicalTimeline: string;
-      pricingRules: string;
-      tenderCalendar: string;
-      competitorRegistrationSummary: string;
-    }>;
+    } satisfies Record<
+      (typeof ENGINE_MARKETS)[number],
+      {
+        registrationRoute: string;
+        typicalTimeline: string;
+        pricingRules: string;
+        tenderCalendar: string;
+        competitorRegistrationSummary: string;
+      }
+    >;
     for (const country of ENGINE_MARKETS) {
-      const existing = await ctx.db.query("marketFiles").withIndex("by_country", (q) => q.eq("country", country)).unique();
+      const existing = await ctx.db
+        .query("marketFiles")
+        .withIndex("by_country", (q) => q.eq("country", country))
+        .unique();
       const doc = {
         country,
         ...defaults[country],
@@ -1277,13 +1668,16 @@ export const upsertSourceRegistry = mutation({
     const now = Date.now();
     const existing = await ctx.db
       .query("sourceRegistries")
-      .withIndex("by_source_registry", (q) => q.eq("sourceRegistry", args.sourceRegistry))
+      .withIndex("by_source_registry", (q) =>
+        q.eq("sourceRegistry", args.sourceRegistry),
+      )
       .unique();
     const doc = {
       ...args,
       status: "active" as const,
       userAgent: userAgent(),
-      contactEmail: process.env.KEMEDICA_CRAWLER_CONTACT_EMAIL ?? "research@kemedica.com",
+      contactEmail:
+        process.env.KEMEDICA_CRAWLER_CONTACT_EMAIL ?? "research@kemedica.com",
       rateLimitPerMinute: args.rateLimitPerMinute ?? 12,
       staleAfterMs: (args.cadence === "weekly" ? 14 : 3) * 24 * 60 * 60 * 1000,
       nextFetchAt: nextFetchAt(args.cadence, now),
@@ -1310,7 +1704,9 @@ export const ingestManualSourceFetch = mutation({
     const now = Date.now();
     let registry = await ctx.db
       .query("sourceRegistries")
-      .withIndex("by_source_registry", (q) => q.eq("sourceRegistry", args.sourceRegistry))
+      .withIndex("by_source_registry", (q) =>
+        q.eq("sourceRegistry", args.sourceRegistry),
+      )
       .unique();
     if (!registry) {
       const registryId = await ctx.db.insert("sourceRegistries", {
@@ -1322,7 +1718,8 @@ export const ingestManualSourceFetch = mutation({
         status: "active",
         parserVersion: args.parserVersion ?? "manual-v1",
         userAgent: userAgent(),
-        contactEmail: process.env.KEMEDICA_CRAWLER_CONTACT_EMAIL ?? "research@kemedica.com",
+        contactEmail:
+          process.env.KEMEDICA_CRAWLER_CONTACT_EMAIL ?? "research@kemedica.com",
         rateLimitPerMinute: 12,
         staleAfterMs: 30 * 24 * 60 * 60 * 1000,
         createdAt: now,
@@ -1359,7 +1756,12 @@ export const ingestManualSourceFetch = mutation({
 export const ensureDefaultAssumptionSet = internalMutation({
   args: {},
   handler: async (ctx) => {
-    const existing = (await ctx.db.query("opportunityAssumptionSets").withIndex("by_is_active", (q) => q.eq("isActive", true)).take(1))[0];
+    const existing = (
+      await ctx.db
+        .query("opportunityAssumptionSets")
+        .withIndex("by_is_active", (q) => q.eq("isActive", true))
+        .take(1)
+    )[0];
     if (existing) return existing._id;
     const now = Date.now();
     return await ctx.db.insert("opportunityAssumptionSets", {
@@ -1393,7 +1795,12 @@ export const ensureDefaultAssumptionSet = internalMutation({
 export const getActiveAssumptionSet = internalQuery({
   args: {},
   handler: async (ctx) =>
-    (await ctx.db.query("opportunityAssumptionSets").withIndex("by_is_active", (q) => q.eq("isActive", true)).take(1))[0] ?? null,
+    (
+      await ctx.db
+        .query("opportunityAssumptionSets")
+        .withIndex("by_is_active", (q) => q.eq("isActive", true))
+        .take(1)
+    )[0] ?? null,
 });
 
 export const listDueSourceRegistries = internalQuery({
@@ -1404,7 +1811,10 @@ export const listDueSourceRegistries = internalQuery({
       .query("sourceRegistries")
       .withIndex("by_status_and_next_fetch_at", (q) => q.eq("status", "active"))
       .take(100);
-    return active.filter((source) => source.cadence !== "manual" && (source.nextFetchAt ?? 0) <= now);
+    return active.filter(
+      (source) =>
+        source.cadence !== "manual" && (source.nextFetchAt ?? 0) <= now,
+    );
   },
 });
 
@@ -1418,7 +1828,11 @@ export const recordAutomatedFetch = internalMutation({
     httpStatus: v.optional(v.number()),
     ok: v.boolean(),
     parserVersion: v.string(),
-    structureStatus: v.union(v.literal("passed"), v.literal("failed"), v.literal("not_checked")),
+    structureStatus: v.union(
+      v.literal("passed"),
+      v.literal("failed"),
+      v.literal("not_checked"),
+    ),
     structureMessage: v.optional(v.string()),
     robotsAllowed: v.boolean(),
     errorMessage: v.optional(v.string()),
@@ -1442,8 +1856,14 @@ export const recordAutomatedFetch = internalMutation({
             ? "active"
             : "error",
       lastFetchedAt: now,
-      lastSuccessAt: args.ok && args.structureStatus !== "failed" ? now : registry.lastSuccessAt,
-      lastErrorAt: !args.ok || args.structureStatus === "failed" || !args.robotsAllowed ? now : registry.lastErrorAt,
+      lastSuccessAt:
+        args.ok && args.structureStatus !== "failed"
+          ? now
+          : registry.lastSuccessAt,
+      lastErrorAt:
+        !args.ok || args.structureStatus === "failed" || !args.robotsAllowed
+          ? now
+          : registry.lastErrorAt,
       lastError: args.errorMessage ?? args.structureMessage,
       nextFetchAt: nextFetchAt(registry.cadence, now),
       staleAt: !args.ok || args.structureStatus === "failed" ? now : undefined,
@@ -1454,13 +1874,18 @@ export const recordAutomatedFetch = internalMutation({
         itemType: "source_structure",
         status: "open",
         title: `${registry.title} source structure changed`,
-        summary: args.structureMessage ?? "The expected source structure was not detected.",
-        proposedAction: "Inspect the retained payload, update and fixture-test the parser, then approve the source before resuming automated classifications.",
+        summary:
+          args.structureMessage ??
+          "The expected source structure was not detected.",
+        proposedAction:
+          "Inspect the retained payload, update and fixture-test the parser, then approve the source before resuming automated classifications.",
         candidatePayload: {
           sourceRegistry: args.sourceRegistry,
           parserVersion: args.parserVersion,
           httpStatus: String(args.httpStatus ?? "unknown"),
-          lastValidSnapshotAt: registry.lastSuccessAt ? new Date(registry.lastSuccessAt).toISOString() : "none",
+          lastValidSnapshotAt: registry.lastSuccessAt
+            ? new Date(registry.lastSuccessAt).toISOString()
+            : "none",
         },
         sourceUrl: args.sourceUrl,
         fetchedAt: now,
@@ -1476,7 +1901,11 @@ export const recordAutomatedFetch = internalMutation({
 
 export const createOpportunityRun = mutation({
   args: {
-    trigger: v.union(v.literal("manual"), v.literal("scheduled"), v.literal("source_change")),
+    trigger: v.union(
+      v.literal("manual"),
+      v.literal("scheduled"),
+      v.literal("source_change"),
+    ),
     assumptionSetId: v.id("opportunityAssumptionSets"),
   },
   handler: async (ctx, args) => {
@@ -1531,16 +1960,23 @@ export const createOpportunityRun = mutation({
       .query("decisionOpportunities")
       .withIndex("by_status", (q) => q.eq("status", "active"))
       .take(200);
-    const previousRun = (await ctx.db.query("opportunityRuns").withIndex("by_started_at").order("desc").take(2)).find(
-      (run) => run._id !== runId && run.status === "completed"
-    );
+    const previousRun = (
+      await ctx.db
+        .query("opportunityRuns")
+        .withIndex("by_started_at")
+        .order("desc")
+        .take(2)
+    ).find((run) => run._id !== runId && run.status === "completed");
     const previousItems = previousRun
-      ? await ctx.db.query("opportunityRunItems").withIndex("by_run", (q) => q.eq("runId", previousRun._id)).take(500)
+      ? await ctx.db
+          .query("opportunityRunItems")
+          .withIndex("by_run", (q) => q.eq("runId", previousRun._id))
+          .take(500)
       : [];
     const previousByOpportunity = new Map(
       previousItems
         .filter((item) => item.decisionOpportunityId)
-        .map((item) => [item.decisionOpportunityId!, item])
+        .map((item) => [item.decisionOpportunityId!, item]),
     );
     let passedGateCount = 0;
     let excludedTop20Count = 0;
@@ -1551,16 +1987,23 @@ export const createOpportunityRun = mutation({
         ctx.db.get(opportunity.drugId),
         opportunity.companyId ? ctx.db.get(opportunity.companyId) : null,
       ]);
-      const companyName = company?.name ?? opportunity.manufacturerName ?? opportunity.approachEntityName;
+      const companyName =
+        company?.name ??
+        opportunity.manufacturerName ??
+        opportunity.approachEntityName;
       const top20 = isTop20Company(companyName);
-      const registeredTargetMarkets = targetRegisteredMarkets(drug, opportunity);
+      const registeredTargetMarkets = targetRegisteredMarkets(
+        drug,
+        opportunity,
+      );
       const rightsEvidence = await ctx.db
         .query("territoryRightsEvidence")
         .withIndex("by_drug", (q) => q.eq("drugId", opportunity.drugId))
         .take(20);
-      const menaRightsLicensed = rightsEvidence.some((item) =>
-        ["confirmed", "unavailable"].includes(item.rightsStatus) &&
-        /mena|middle east|gulf|gcc|egypt|saudi|uae/i.test(item.territory)
+      const menaRightsLicensed = rightsEvidence.some(
+        (item) =>
+          ["confirmed", "unavailable"].includes(item.rightsStatus) &&
+          /mena|middle east|gulf|gcc|egypt|saudi|uae/i.test(item.territory),
       );
       const menaRightsSummary = menaRightsLicensed
         ? "MENA rights already appear licensed or unavailable in stored evidence."
@@ -1569,7 +2012,9 @@ export const createOpportunityRun = mutation({
           : "No MENA partner on public record in current stored evidence.";
       const sizingInputs = await ctx.db
         .query("opportunitySizingInputs")
-        .withIndex("by_decision_opportunity", (q) => q.eq("decisionOpportunityId", opportunity._id))
+        .withIndex("by_decision_opportunity", (q) =>
+          q.eq("decisionOpportunityId", opportunity._id),
+        )
         .take(20);
       const priceRows = await ctx.db
         .query("priceEvidence")
@@ -1578,25 +2023,43 @@ export const createOpportunityRun = mutation({
       const priceAnchor = deriveInternationalPriceAnchor(priceRows);
       const targetMarkets = opportunity.focusMarkets
         .map(canonicalMarket)
-        .filter((market): market is (typeof ENGINE_MARKETS)[number] => Boolean(market));
+        .filter((market): market is (typeof ENGINE_MARKETS)[number] =>
+          Boolean(market),
+        );
       const peakSalesByMarket: Record<string, number> = {};
       let peakSalesUsd = 0;
       let kemedicaMarginAtPeakUsd = 0;
       const cascadeBasisParts: string[] = [];
-      let sizingStatus: "evidence_based" | "practitioner_estimate" | "unvalidated" = "unvalidated";
-      for (const market of targetMarkets.length > 0 ? targetMarkets : TARGET_MARKETS) {
+      let sizingStatus:
+        | "evidence_based"
+        | "practitioner_estimate"
+        | "unvalidated" = "unvalidated";
+      for (const market of targetMarkets.length > 0
+        ? targetMarkets
+        : TARGET_MARKETS) {
         const storedSizing = sizingInputs.find((row) => row.country === market);
-        const sizing = storedSizing ?? deriveSizingDefaults({ country: market, opportunity, priceAnchor });
+        const sizing =
+          storedSizing ??
+          deriveSizingDefaults({ country: market, opportunity, priceAnchor });
         if (storedSizing && storedSizing.inputStatus !== "unvalidated") {
           if (storedSizing.inputStatus === "practitioner_estimate") {
-            sizingStatus = sizingStatus === "evidence_based" ? "evidence_based" : "practitioner_estimate";
-          } else if (storedSizing.inputStatus === "international_price_anchor") {
-            sizingStatus = sizingStatus === "evidence_based" ? "evidence_based" : "practitioner_estimate";
+            sizingStatus =
+              sizingStatus === "evidence_based"
+                ? "evidence_based"
+                : "practitioner_estimate";
+          } else if (
+            storedSizing.inputStatus === "international_price_anchor"
+          ) {
+            sizingStatus =
+              sizingStatus === "evidence_based"
+                ? "evidence_based"
+                : "practitioner_estimate";
           } else {
             sizingStatus = "evidence_based";
           }
         } else if (
-          (sizing.inputStatus === "practitioner_estimate" || sizing.inputStatus === "international_price_anchor") &&
+          (sizing.inputStatus === "practitioner_estimate" ||
+            sizing.inputStatus === "international_price_anchor") &&
           sizingStatus !== "evidence_based"
         ) {
           sizingStatus = "practitioner_estimate";
@@ -1614,11 +2077,12 @@ export const createOpportunityRun = mutation({
         cascadeBasisParts.push(
           sizing.inputStatus === "unvalidated"
             ? `${market}: UNVALIDATED sizing; add eligible patients, rates, share, and net price in the Asset File.`
-            : `${market}: ${sizing.eligiblePatients.toLocaleString()} eligible; ${sizing.diagnosedReachableRate}% reachable; ${sizing.brandedTreatmentRate}% branded; ${sizing.kemedicaShareRate}% KEMEDICA share; ${sizing.inputStatus.replaceAll("_", " ")}.`
+            : `${market}: ${sizing.eligiblePatients.toLocaleString()} eligible; ${sizing.diagnosedReachableRate}% reachable; ${sizing.brandedTreatmentRate}% branded; ${sizing.kemedicaShareRate}% KEMEDICA share; ${sizing.inputStatus.replaceAll("_", " ")}.`,
         );
       }
       const belowMarginFloor =
-        sizingStatus !== "unvalidated" && kemedicaMarginAtPeakUsd < assumptionSet.minimumRiskAdjustedMargin;
+        sizingStatus !== "unvalidated" &&
+        kemedicaMarginAtPeakUsd < assumptionSet.minimumRiskAdjustedMargin;
       const distributionInfeasible = opportunity.entryStrategy === "watch";
       const reasons = gateReasons({
         opportunity,
@@ -1632,7 +2096,12 @@ export const createOpportunityRun = mutation({
       });
       if (top20.isTop20) excludedTop20Count += 1;
       if (registeredTargetMarkets.length > 0) targetRegisteredCount += 1;
-      const gateStatus = reasons.length === 0 ? "passed" : reasons.length <= 2 ? "needs_review" : "failed";
+      const gateStatus =
+        reasons.length === 0
+          ? "passed"
+          : reasons.length <= 2
+            ? "needs_review"
+            : "failed";
       if (gateStatus === "passed") passedGateCount += 1;
       const annualRange = opportunity.marketSizeEstimate;
       const model1ExpectedValue = kemedicaMarginAtPeakUsd;
@@ -1641,7 +2110,9 @@ export const createOpportunityRun = mutation({
         ...assumptionSet.model4Assumptions,
       });
       const riskAdjustedMargin = kemedicaMarginAtPeakUsd;
-      const primaryMarket = canonicalMarket(opportunity.focusMarkets[0] ?? "Saudi Arabia") ?? "Saudi Arabia";
+      const primaryMarket =
+        canonicalMarket(opportunity.focusMarkets[0] ?? "Saudi Arabia") ??
+        "Saudi Arabia";
       const productClass = classifyProduct({
         drug,
         opportunity,
@@ -1663,7 +2134,8 @@ export const createOpportunityRun = mutation({
         indication: drug?.indication ?? opportunity.therapeuticArea,
         registryStatusMatrix: matrix,
         gateStatus,
-        gateReasons: reasons.length > 0 ? reasons : ["All MVP evidence gates passed."],
+        gateReasons:
+          reasons.length > 0 ? reasons : ["All MVP evidence gates passed."],
         exclusionFlags: {
           alreadyRegisteredTarget: registeredTargetMarkets.length > 0,
           top20Pharma: top20.isTop20,
@@ -1679,7 +2151,9 @@ export const createOpportunityRun = mutation({
           drug?.approvalStatus === "approved"
             ? `Approved${drug.approvalDate ? ` ${drug.approvalDate}` : ""}${drug.emaApprovalDate ? `; EMA ${drug.emaApprovalDate}` : ""}`
             : "Home authorization needs validation",
-        territoryRightsStatus: menaRightsLicensed ? "LICENSED_OR_UNAVAILABLE" : "UNVALIDATED",
+        territoryRightsStatus: menaRightsLicensed
+          ? "LICENSED_OR_UNAVAILABLE"
+          : "UNVALIDATED",
         menaRightsSummary,
         opportunityScore: opportunity.priorityScore,
         riskAdjustedMargin,
@@ -1702,7 +2176,7 @@ export const createOpportunityRun = mutation({
           previous.opportunityScore >= assumptionSet.thresholdScore &&
           opportunity.priorityScore < assumptionSet.thresholdScore;
         const newRegistrations = registeredTargetMarkets.filter(
-          (market) => !previous.registeredTargetMarkets.includes(market)
+          (market) => !previous.registeredTargetMarkets.includes(market),
         );
         for (const market of newRegistrations) {
           await insertChangeEventWithInAppDelivery(ctx, {
@@ -1710,7 +2184,8 @@ export const createOpportunityRun = mutation({
             severity: "critical",
             status: "new",
             title: `${opportunity.productName} registered in ${market}`,
-            summary: "A tracked opportunity now has target-market registration evidence; KEMEDICA may have been beaten to market.",
+            summary:
+              "A tracked opportunity now has target-market registration evidence; KEMEDICA may have been beaten to market.",
             decisionOpportunityId: opportunity._id,
             drugId: opportunity.drugId,
             companyId: opportunity.companyId,
@@ -1726,7 +2201,9 @@ export const createOpportunityRun = mutation({
         }
         if (crossedUp || crossedDown) {
           await insertChangeEventWithInAppDelivery(ctx, {
-            eventType: crossedUp ? "threshold_crossed_up" : "threshold_crossed_down",
+            eventType: crossedUp
+              ? "threshold_crossed_up"
+              : "threshold_crossed_down",
             severity: crossedUp ? "info" : "warning",
             status: "new",
             title: `${opportunity.productName} ${crossedUp ? "crossed above" : "fell below"} threshold`,
@@ -1744,9 +2221,24 @@ export const createOpportunityRun = mutation({
           });
         }
       }
-      for (const model of ["MODEL_1_REGIONAL_AGENT", "MODEL_4_BROKER_SUBLICENSE"] as const) {
+      for (const model of [
+        "MODEL_1_REGIONAL_AGENT",
+        "MODEL_4_BROKER_SUBLICENSE",
+      ] as const) {
         const isModel1 = model === "MODEL_1_REGIONAL_AGENT";
-        await ctx.db.insert("dealEconomicsScenarios", {
+        const existingScenario = (
+          await ctx.db
+            .query("dealEconomicsScenarios")
+            .withIndex("by_decision_opportunity_and_market_and_model", (q) =>
+              q
+                .eq("decisionOpportunityId", opportunity._id)
+                .eq("market", primaryMarket)
+                .eq("model", model),
+            )
+            .order("desc")
+            .take(1)
+        )[0];
+        const scenario = {
           decisionOpportunityId: opportunity._id,
           runItemId: itemId,
           model,
@@ -1755,27 +2247,44 @@ export const createOpportunityRun = mutation({
           netRevenueHighUsd: parseRevenueRange(annualRange).high,
           expectedGrossMarginPct: isModel1
             ? assumptionSet.model1Assumptions.grossMarginPct
-            : assumptionSet.model4Assumptions.successFeePct + assumptionSet.model4Assumptions.sublicenseRoyaltyPct,
+            : assumptionSet.model4Assumptions.successFeePct +
+              assumptionSet.model4Assumptions.sublicenseRoyaltyPct,
           operatingCostUsd: isModel1
-            ? assumptionSet.model1Assumptions.registrationCostUsd + assumptionSet.model1Assumptions.annualPvCostUsd
+            ? assumptionSet.model1Assumptions.registrationCostUsd +
+              assumptionSet.model1Assumptions.annualPvCostUsd
             : assumptionSet.model4Assumptions.operatingCostUsd,
           probabilityOfSuccessPct: isModel1
             ? assumptionSet.model1Assumptions.probabilityOfSuccessPct
             : assumptionSet.model4Assumptions.probabilityOfSuccessPct,
-          expectedValueUsd: isModel1 ? model1ExpectedValue : model4ExpectedValue,
+          expectedValueUsd: isModel1
+            ? model1ExpectedValue
+            : model4ExpectedValue,
           assumptions: isModel1
-            ? ["KEMEDICA registers/imports/distributes through local route.", "Includes tender discount, PV cost, working capital, and registration cost."]
-            : ["KEMEDICA brokers or sub-licenses regional rights.", "Lower operating burden with smaller probability-adjusted economics."],
-          createdAt: now,
+            ? [
+                "Provisional scenario only; the named local applicant would carry regulated registration and import duties.",
+                "KEMEDICA acts as coordinator/advisor unless a separately approved role is recorded.",
+              ]
+            : [
+                "Provisional broker or sub-license scenario.",
+                "No fee, role, or right is final until a human approves the evidence and commercial assumptions.",
+              ],
+          status: "provisional" as const,
           updatedAt: now,
-        });
+        };
+        if (existingScenario)
+          await ctx.db.patch(existingScenario._id, scenario);
+        else
+          await ctx.db.insert("dealEconomicsScenarios", {
+            ...scenario,
+            createdAt: now,
+          });
       }
     }
-    const ranked = (
-      await Promise.all(itemIds.map((id) => ctx.db.get(id)))
-    )
+    const ranked = (await Promise.all(itemIds.map((id) => ctx.db.get(id))))
       .filter((item): item is Doc<"opportunityRunItems"> => item !== null)
-      .sort((left, right) => right.riskAdjustedMargin - left.riskAdjustedMargin);
+      .sort(
+        (left, right) => right.riskAdjustedMargin - left.riskAdjustedMargin,
+      );
     for (const [index, item] of ranked.entries()) {
       await ctx.db.patch(item._id, { rankingPosition: index + 1 });
     }
@@ -1792,16 +2301,35 @@ export const createOpportunityRun = mutation({
 });
 
 export const rebuildOpportunityRun = action({
-  args: { trigger: v.optional(v.union(v.literal("manual"), v.literal("scheduled"), v.literal("source_change"))) },
-  handler: async (ctx, args): Promise<{ runId: Id<"opportunityRuns">; candidateCount: number; passedGateCount: number }> => {
-    const assumptionSetId: Id<"opportunityAssumptionSets"> = await ctx.runMutation(
-      internal.continuousOpportunityEngine.ensureDefaultAssumptionSet,
-      {}
+  args: {
+    trigger: v.optional(
+      v.union(
+        v.literal("manual"),
+        v.literal("scheduled"),
+        v.literal("source_change"),
+      ),
+    ),
+  },
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{
+    runId: Id<"opportunityRuns">;
+    candidateCount: number;
+    passedGateCount: number;
+  }> => {
+    const assumptionSetId: Id<"opportunityAssumptionSets"> =
+      await ctx.runMutation(
+        internal.continuousOpportunityEngine.ensureDefaultAssumptionSet,
+        {},
+      );
+    return await ctx.runMutation(
+      api.continuousOpportunityEngine.createOpportunityRun,
+      {
+        trigger: args.trigger ?? "manual",
+        assumptionSetId,
+      },
     );
-    return await ctx.runMutation(api.continuousOpportunityEngine.createOpportunityRun, {
-      trigger: args.trigger ?? "manual",
-      assumptionSetId,
-    });
   },
 });
 
@@ -1809,14 +2337,23 @@ async function robotsAllowed(sourceUrl: string, userAgentValue: string) {
   const url = new URL(sourceUrl);
   const robotsUrl = `${url.origin}/robots.txt`;
   try {
-    const response = await fetch(robotsUrl, { headers: { "User-Agent": userAgentValue } });
+    const response = await fetch(robotsUrl, {
+      headers: { "User-Agent": userAgentValue },
+    });
     if (!response.ok) return true;
     const text = await response.text();
     const lower = text.toLowerCase();
     const path = url.pathname.toLowerCase();
-    const globalDisallows = [...lower.matchAll(/user-agent:\s*\*[\s\S]*?(?=user-agent:|$)/g)]
-      .flatMap((block) => [...block[0].matchAll(/disallow:\s*([^\n\r#]+)/g)].map((match) => match[1].trim()));
-    return !globalDisallows.some((rule) => rule !== "" && path.startsWith(rule));
+    const globalDisallows = [
+      ...lower.matchAll(/user-agent:\s*\*[\s\S]*?(?=user-agent:|$)/g),
+    ].flatMap((block) =>
+      [...block[0].matchAll(/disallow:\s*([^\n\r#]+)/g)].map((match) =>
+        match[1].trim(),
+      ),
+    );
+    return !globalDisallows.some(
+      (rule) => rule !== "" && path.startsWith(rule),
+    );
   } catch {
     return true;
   }
@@ -1827,17 +2364,22 @@ function assertStructure(rawPayload: string, signature?: string) {
   const passed = rawPayload.toLowerCase().includes(signature.toLowerCase());
   return {
     status: passed ? ("passed" as const) : ("failed" as const),
-    message: passed ? undefined : `Expected page structure signature "${signature}" was not found.`,
+    message: passed
+      ? undefined
+      : `Expected page structure signature "${signature}" was not found.`,
   };
 }
 
 export const runDueSourceDispatcher = action({
   args: {},
   handler: async (ctx) => {
-    await ctx.runMutation(api.continuousOpportunityEngine.seedSourceRegistry, {});
+    await ctx.runMutation(
+      api.continuousOpportunityEngine.seedSourceRegistry,
+      {},
+    );
     const sources: Doc<"sourceRegistries">[] = await ctx.runQuery(
       internal.continuousOpportunityEngine.listDueSourceRegistries,
-      {}
+      {},
     );
     const results: Array<{
       sourceRegistry: string;
@@ -1848,63 +2390,94 @@ export const runDueSourceDispatcher = action({
     for (const source of sources) {
       const allowed = await robotsAllowed(source.baseUrl, source.userAgent);
       if (!allowed) {
-        await ctx.runMutation(internal.continuousOpportunityEngine.recordAutomatedFetch, {
-          sourceRegistryId: source._id,
+        await ctx.runMutation(
+          internal.continuousOpportunityEngine.recordAutomatedFetch,
+          {
+            sourceRegistryId: source._id,
+            sourceRegistry: source.sourceRegistry,
+            sourceUrl: source.baseUrl,
+            sourceType: source.sourceType,
+            rawPayload: "",
+            ok: false,
+            parserVersion: source.parserVersion,
+            structureStatus: "not_checked",
+            robotsAllowed: false,
+            errorMessage: "robots.txt disallows this fetch path.",
+          },
+        );
+        results.push({
           sourceRegistry: source.sourceRegistry,
-          sourceUrl: source.baseUrl,
-          sourceType: source.sourceType,
-          rawPayload: "",
           ok: false,
-          parserVersion: source.parserVersion,
-          structureStatus: "not_checked",
-          robotsAllowed: false,
-          errorMessage: "robots.txt disallows this fetch path.",
+          reason: "robots",
         });
-        results.push({ sourceRegistry: source.sourceRegistry, ok: false, reason: "robots" });
         continue;
       }
       try {
         const response = await fetch(source.baseUrl, {
           headers: {
-            Accept: "text/html,application/xhtml+xml,application/json,text/plain",
+            Accept:
+              "text/html,application/xhtml+xml,application/json,text/plain",
             "User-Agent": source.userAgent,
           },
         });
         const rawPayload = await response.text();
-        const structure = assertStructure(rawPayload, source.structureSignature);
-        await ctx.runMutation(internal.continuousOpportunityEngine.recordAutomatedFetch, {
-          sourceRegistryId: source._id,
-          sourceRegistry: source.sourceRegistry,
-          sourceUrl: source.baseUrl,
-          sourceType: source.sourceType,
+        const structure = assertStructure(
           rawPayload,
-          httpStatus: response.status,
-          ok: response.ok,
-          parserVersion: source.parserVersion,
-          structureStatus: structure.status,
-          structureMessage: structure.message,
-          robotsAllowed: true,
-          errorMessage: response.ok ? undefined : `${source.title} returned ${response.status}.`,
-        });
-        results.push({ sourceRegistry: source.sourceRegistry, ok: response.ok, structureStatus: structure.status });
-      } catch (error) {
-        await ctx.runMutation(internal.continuousOpportunityEngine.recordAutomatedFetch, {
-          sourceRegistryId: source._id,
+          source.structureSignature,
+        );
+        await ctx.runMutation(
+          internal.continuousOpportunityEngine.recordAutomatedFetch,
+          {
+            sourceRegistryId: source._id,
+            sourceRegistry: source.sourceRegistry,
+            sourceUrl: source.baseUrl,
+            sourceType: source.sourceType,
+            rawPayload,
+            httpStatus: response.status,
+            ok: response.ok,
+            parserVersion: source.parserVersion,
+            structureStatus: structure.status,
+            structureMessage: structure.message,
+            robotsAllowed: true,
+            errorMessage: response.ok
+              ? undefined
+              : `${source.title} returned ${response.status}.`,
+          },
+        );
+        results.push({
           sourceRegistry: source.sourceRegistry,
-          sourceUrl: source.baseUrl,
-          sourceType: source.sourceType,
-          rawPayload: "",
-          ok: false,
-          parserVersion: source.parserVersion,
-          structureStatus: "not_checked",
-          robotsAllowed: true,
-          errorMessage: error instanceof Error ? error.message : String(error),
+          ok: response.ok,
+          structureStatus: structure.status,
         });
-        results.push({ sourceRegistry: source.sourceRegistry, ok: false, reason: "fetch_error" });
+      } catch (error) {
+        await ctx.runMutation(
+          internal.continuousOpportunityEngine.recordAutomatedFetch,
+          {
+            sourceRegistryId: source._id,
+            sourceRegistry: source.sourceRegistry,
+            sourceUrl: source.baseUrl,
+            sourceType: source.sourceType,
+            rawPayload: "",
+            ok: false,
+            parserVersion: source.parserVersion,
+            structureStatus: "not_checked",
+            robotsAllowed: true,
+            errorMessage:
+              error instanceof Error ? error.message : String(error),
+          },
+        );
+        results.push({
+          sourceRegistry: source.sourceRegistry,
+          ok: false,
+          reason: "fetch_error",
+        });
       }
     }
     if (results.some((result) => result.ok)) {
-      await ctx.runAction(api.continuousOpportunityEngine.rebuildOpportunityRun, { trigger: "source_change" });
+      await ctx.runAction(
+        api.continuousOpportunityEngine.rebuildOpportunityRun,
+        { trigger: "source_change" },
+      );
     }
     return { checked: results.length, results };
   },
@@ -1912,7 +2485,11 @@ export const runDueSourceDispatcher = action({
 
 export const runDueSourceDispatcherInternal = internalAction({
   args: {},
-  handler: async (ctx) => await ctx.runAction(api.continuousOpportunityEngine.runDueSourceDispatcher, {}),
+  handler: async (ctx) =>
+    await ctx.runAction(
+      api.continuousOpportunityEngine.runDueSourceDispatcher,
+      {},
+    ),
 });
 
 export const processPendingAlertDeliveries = action({
@@ -1920,7 +2497,7 @@ export const processPendingAlertDeliveries = action({
   handler: async (ctx) => {
     const pending: Doc<"alertDeliveries">[] = await ctx.runQuery(
       internal.continuousOpportunityEngine.listPendingAlertDeliveries,
-      {}
+      {},
     );
     let sent = 0;
     let skipped = 0;
@@ -1928,14 +2505,17 @@ export const processPendingAlertDeliveries = action({
     for (const delivery of pending) {
       const event: Doc<"changeEvents"> | null = await ctx.runQuery(
         internal.continuousOpportunityEngine.getChangeEventForDelivery,
-        { id: delivery.changeEventId }
+        { id: delivery.changeEventId },
       );
       if (!event) {
-        await ctx.runMutation(internal.continuousOpportunityEngine.markAlertDelivery, {
-          id: delivery._id,
-          status: "skipped",
-          lastError: "Change event no longer exists.",
-        });
+        await ctx.runMutation(
+          internal.continuousOpportunityEngine.markAlertDelivery,
+          {
+            id: delivery._id,
+            status: "skipped",
+            lastError: "Change event no longer exists.",
+          },
+        );
         skipped += 1;
         continue;
       }
@@ -1946,11 +2526,14 @@ export const processPendingAlertDeliveries = action({
             ? process.env.KEMEDICA_EMAIL_DIGEST_WEBHOOK_URL
             : undefined;
       if (!webhookUrl) {
-        await ctx.runMutation(internal.continuousOpportunityEngine.markAlertDelivery, {
-          id: delivery._id,
-          status: "skipped",
-          lastError: "Webhook is not configured.",
-        });
+        await ctx.runMutation(
+          internal.continuousOpportunityEngine.markAlertDelivery,
+          {
+            id: delivery._id,
+            status: "skipped",
+            lastError: "Webhook is not configured.",
+          },
+        );
         skipped += 1;
         continue;
       }
@@ -1966,18 +2549,25 @@ export const processPendingAlertDeliveries = action({
             createdAt: event.createdAt,
           }),
         });
-        if (!response.ok) throw new Error(`Webhook returned ${response.status}`);
-        await ctx.runMutation(internal.continuousOpportunityEngine.markAlertDelivery, {
-          id: delivery._id,
-          status: "sent",
-        });
+        if (!response.ok)
+          throw new Error(`Webhook returned ${response.status}`);
+        await ctx.runMutation(
+          internal.continuousOpportunityEngine.markAlertDelivery,
+          {
+            id: delivery._id,
+            status: "sent",
+          },
+        );
         sent += 1;
       } catch (error) {
-        await ctx.runMutation(internal.continuousOpportunityEngine.markAlertDelivery, {
-          id: delivery._id,
-          status: "failed",
-          lastError: error instanceof Error ? error.message : String(error),
-        });
+        await ctx.runMutation(
+          internal.continuousOpportunityEngine.markAlertDelivery,
+          {
+            id: delivery._id,
+            status: "failed",
+            lastError: error instanceof Error ? error.message : String(error),
+          },
+        );
         failed += 1;
       }
     }
@@ -1987,5 +2577,9 @@ export const processPendingAlertDeliveries = action({
 
 export const processPendingAlertDeliveriesInternal = internalAction({
   args: {},
-  handler: async (ctx) => await ctx.runAction(api.continuousOpportunityEngine.processPendingAlertDeliveries, {}),
+  handler: async (ctx) =>
+    await ctx.runAction(
+      api.continuousOpportunityEngine.processPendingAlertDeliveries,
+      {},
+    ),
 });

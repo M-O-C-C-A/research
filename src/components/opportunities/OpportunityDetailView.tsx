@@ -8,30 +8,51 @@ import { Id } from "../../../convex/_generated/dataModel";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { GuidedFlowBanner } from "@/components/shared/GuidedFlowBanner";
-import { confidenceBadgeClass, entryStrategyLabel, statusBadgeClass } from "@/lib/decisionOpportunities";
+import {
+  confidenceBadgeClass,
+  entryStrategyLabel,
+  statusBadgeClass,
+} from "@/lib/decisionOpportunities";
 import { normalizeExternalUrl } from "@/lib/urlUtils";
 import { Button } from "@/components/ui/button";
 import { CountryCellEditor } from "@/components/drugs/CountryCellEditor";
 import { MandateReportPanel } from "@/components/opportunities/MandateReportPanel";
 import { DealEconomicsPanel } from "@/components/opportunities/DealEconomicsPanel";
 import { SizingCascadePanel } from "@/components/opportunities/SizingCascadePanel";
-import { AlertTriangle, ExternalLink, Mail, Linkedin, Target, ShieldCheck, Clock3, ArrowRight, Download } from "lucide-react";
+import {
+  AlertTriangle,
+  ExternalLink,
+  Mail,
+  Linkedin,
+  Target,
+  ShieldCheck,
+  Clock3,
+  ArrowRight,
+  Download,
+} from "lucide-react";
 
 interface OpportunityDetailViewProps {
   opportunityId: string;
 }
 
-export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewProps) {
+export function OpportunityDetailView({
+  opportunityId,
+}: OpportunityDetailViewProps) {
   const [editingCountry, setEditingCountry] = useState<string | null>(null);
   const loadGuidedFlow = useAction(api.dashboard.getGuidedFlowSnapshot);
-  const [guidedFlow, setGuidedFlow] = useState<{ resumeHref: string } | undefined>();
+  const [guidedFlow, setGuidedFlow] = useState<
+    { resumeHref: string } | undefined
+  >();
   const opportunity = useQuery(api.decisionOpportunities.get, {
     id: opportunityId as Id<"decisionOpportunities">,
   });
   const marketOpportunities = useQuery(
     api.opportunities.listByDrug,
-    opportunity ? { drugId: opportunity.drugId } : "skip"
+    opportunity ? { drugId: opportunity.drugId } : "skip",
   );
+  const evidenceFile = useQuery(api.evidenceFunnel.get, {
+    opportunityId: opportunityId as Id<"decisionOpportunities">,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -59,16 +80,171 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
 
   if (!opportunity) return null;
 
+  if (opportunity.evidenceEngineVersion === "v1.1") {
+    return (
+      <div className="space-y-6">
+        <GuidedFlowBanner
+          hereLabel="Evidence file"
+          helperText="Review the dated product-country evidence chain. A registry non-match is a scoped finding, never proof of absolute absence."
+        />
+        <section className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5 sm:p-7">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <div className="flex flex-wrap gap-2">
+                <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-100">
+                  v1.1 evidence
+                </Badge>
+                <Badge className="border-zinc-600 bg-zinc-950 text-zinc-200">
+                  {(opportunity.funnelStage ?? "needs_evidence").replaceAll(
+                    "_",
+                    " ",
+                  )}
+                </Badge>
+              </div>
+              <h2 className="mt-3 text-3xl font-semibold text-white">
+                {opportunity.productName}
+              </h2>
+              <p className="mt-2 text-sm text-zinc-300">
+                {opportunity.genericName} · {opportunity.approachEntityName}
+              </p>
+              <p className="mt-2 font-mono text-xs text-zinc-500">
+                {opportunity.normalizedPresentationKey}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <a
+                href={`/api/opportunities/${opportunityId}/asset-brief.pdf`}
+                className="inline-flex items-center gap-2 rounded-lg border border-zinc-600 px-3 py-2 text-sm font-medium text-zinc-200 hover:border-zinc-400"
+              >
+                <Download className="h-4 w-4" /> Evidence PDF
+              </a>
+              <Link
+                href="/opportunities"
+                className="inline-flex items-center gap-2 text-sm font-medium text-[var(--brand-300)] hover:text-white"
+              >
+                Back to working queue <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+          <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-100">
+            This is a research candidate. Commercial claims remain provisional
+            until the country assessment, price chain, intended local applicant,
+            nominee covenant, and human approval are recorded.
+          </div>
+        </section>
+        <section className="grid gap-4 lg:grid-cols-3">
+          {(evidenceFile?.assessments ?? []).map((assessment) => (
+            <article
+              key={assessment._id}
+              className="rounded-xl border border-zinc-700 bg-zinc-900 p-5"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="font-semibold text-white">
+                  {assessment.country}
+                </h3>
+                <Badge className="border-sky-500/30 bg-sky-500/10 text-sky-100">
+                  {assessment.absenceConfidence ?? "low"} confidence
+                </Badge>
+              </div>
+              <p className="mt-3 text-sm leading-relaxed text-zinc-300">
+                {assessment.presenceStatement}
+              </p>
+              <dl className="mt-4 space-y-3 border-t border-zinc-700 pt-4 text-sm">
+                <div>
+                  <dt className="text-xs text-zinc-500">Source snapshot</dt>
+                  <dd className="mt-1 text-zinc-200">
+                    {assessment.sourceSnapshotDate
+                      ? new Date(
+                          assessment.sourceSnapshotDate,
+                        ).toLocaleDateString()
+                      : "Not recorded"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-zinc-500">Company reason</dt>
+                  <dd className="mt-1 text-zinc-200">
+                    {(
+                      assessment.companyReasonCode ?? "UNCLASSIFIED"
+                    ).replaceAll("_", " ")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-zinc-500">
+                    Commercial assumptions
+                  </dt>
+                  <dd className="mt-1 text-zinc-200">
+                    {(
+                      assessment.commercialApprovalStatus ?? "not_requested"
+                    ).replaceAll("_", " ")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-zinc-500">Local applicant</dt>
+                  <dd className="mt-1 text-zinc-200">
+                    {assessment.intendedLocalApplicant || "Not recorded"}
+                  </dd>
+                </div>
+              </dl>
+              <div className="mt-4 flex flex-wrap gap-1.5">
+                {assessment.gateSnapshot
+                  ? Object.entries(assessment.gateSnapshot)
+                      .filter(([key]) => key.startsWith("g"))
+                      .map(([key, value]) => (
+                        <span
+                          key={key}
+                          className={`rounded-full border px-2 py-1 text-[11px] ${value === "PASS" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100" : value === "FAIL" ? "border-red-500/30 bg-red-500/10 text-red-100" : "border-amber-500/30 bg-amber-500/10 text-amber-100"}`}
+                        >
+                          {key.slice(0, 2).toUpperCase()} {String(value)}
+                        </span>
+                      ))
+                  : null}
+              </div>
+            </article>
+          ))}
+        </section>
+        <section className="rounded-xl border border-zinc-700 bg-zinc-900 p-5">
+          <h3 className="font-semibold text-white">
+            Reviewed supporting evidence
+          </h3>
+          <div className="mt-4 space-y-3">
+            {(evidenceFile?.signals ?? []).length === 0 ? (
+              <p className="text-sm text-zinc-400">
+                No supporting claims have been approved yet.
+              </p>
+            ) : (
+              evidenceFile?.signals.map((signal) => (
+                <a
+                  key={signal._id}
+                  href={normalizeExternalUrl(signal.sourceUrl) ?? undefined}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-lg border border-zinc-700 bg-zinc-950/60 p-3 hover:border-zinc-500"
+                >
+                  <p className="font-medium text-white">{signal.title}</p>
+                  <p className="mt-1 text-xs text-zinc-400">
+                    {signal.sourceType} ·{" "}
+                    {new Date(signal.observedAt).toLocaleDateString()}
+                  </p>
+                </a>
+              ))
+            )}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   type MarketOpportunityRow = NonNullable<typeof marketOpportunities>[number];
   const opportunityByCountry = new Map<string, MarketOpportunityRow>(
-    (marketOpportunities ?? []).map((item) => [item.country, item])
+    (marketOpportunities ?? []).map((item) => [item.country, item]),
   );
   const marketRows = opportunity.focusMarkets.map((country) => {
     const current = opportunityByCountry.get(country);
     return {
       drugId: opportunity.drugId,
       country,
-      opportunityScore: current?.commercialOpportunityScore ?? current?.opportunityScore,
+      opportunityScore:
+        current?.commercialOpportunityScore ?? current?.opportunityScore,
       regulatoryStatus: current?.regulatoryStatus,
       competitorPresence: current?.competitorPresence,
       marketSizeEstimate: current?.marketSizeEstimate,
@@ -105,7 +281,8 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
       notes: current?.notes,
     };
   });
-  const activeMarketRow = marketRows.find((row) => row.country === editingCountry) ?? null;
+  const activeMarketRow =
+    marketRows.find((row) => row.country === editingCountry) ?? null;
 
   const outreachReadiness = opportunity.outreachReadiness ?? {
     gapConfirmed: false,
@@ -120,9 +297,12 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
   const outreachPackage = opportunity.outreachPackage ?? {
     shortEmail: opportunity.outreachDraft,
     longEmail: opportunity.outreachDraft,
-    linkedinMessage: "Rebuild the opportunity engine to generate a LinkedIn outreach version.",
-    callOpening: "Rebuild the opportunity engine to generate a call-opening script.",
-    attachmentBrief: "Rebuild the opportunity engine to generate a one-page brief.",
+    linkedinMessage:
+      "Rebuild the opportunity engine to generate a LinkedIn outreach version.",
+    callOpening:
+      "Rebuild the opportunity engine to generate a call-opening script.",
+    attachmentBrief:
+      "Rebuild the opportunity engine to generate a one-page brief.",
   };
   const currentOpportunityHref = `/opportunities/${opportunityId}`;
   const bannerNextHref =
@@ -152,10 +332,14 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
               <span className="inline-flex rounded-md bg-zinc-950 px-2 py-1 text-xs font-semibold text-zinc-400">
                 Rank #{opportunity.rankingPosition ?? "—"}
               </span>
-              <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${statusBadgeClass(opportunity.status)}`}>
+              <span
+                className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${statusBadgeClass(opportunity.status)}`}
+              >
                 {opportunity.status.replace("_", " ")}
               </span>
-              <span className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${confidenceBadgeClass(opportunity.confidenceLevel)}`}>
+              <span
+                className={`inline-flex rounded-md px-2 py-1 text-xs font-medium ${confidenceBadgeClass(opportunity.confidenceLevel)}`}
+              >
                 {opportunity.confidenceLevel} confidence
               </span>
               {opportunity.blockedFocusMarkets?.map((market) => (
@@ -167,7 +351,9 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                 </span>
               ))}
             </div>
-            <h2 className="text-2xl font-semibold text-white">{opportunity.productName}</h2>
+            <h2 className="text-2xl font-semibold text-white">
+              {opportunity.productName}
+            </h2>
             <p className="mt-1 text-sm text-zinc-400">
               {opportunity.genericName} · {opportunity.approachEntityName}
             </p>
@@ -177,9 +363,15 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           </div>
 
           <div className="w-full rounded-xl border border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] px-4 py-3 text-left sm:w-auto sm:text-right">
-            <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">Priority Score</p>
-            <p className="mt-1 text-3xl font-bold text-white">{opportunity.priorityScore.toFixed(1)}</p>
-            <p className="text-xs text-zinc-500">Focus: {opportunity.focusMarkets.join(", ")}</p>
+            <p className="text-xs uppercase tracking-wider text-[var(--brand-300)]">
+              Priority Score
+            </p>
+            <p className="mt-1 text-3xl font-bold text-white">
+              {opportunity.priorityScore.toFixed(1)}
+            </p>
+            <p className="text-xs text-zinc-500">
+              Focus: {opportunity.focusMarkets.join(", ")}
+            </p>
             <div className="mt-3 flex flex-wrap justify-start gap-2 sm:justify-end">
               <a
                 href={`/api/opportunities/${opportunityId}/asset-brief.pdf`}
@@ -210,8 +402,8 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
               The core recommendation in plain language
             </h3>
             <p className="mt-2 text-sm text-zinc-300">
-              Use this section first if you only need the key takeaways before deciding whether
-              to move forward.
+              Use this section first if you only need the key takeaways before
+              deciding whether to move forward.
             </p>
           </div>
           <Link
@@ -271,26 +463,39 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <p className="text-xs uppercase tracking-wider text-zinc-500">Why This Market</p>
-          <p className="mt-2 text-sm text-zinc-300">{opportunity.whyThisMarket}</p>
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <p className="text-xs uppercase tracking-wider text-zinc-500">Why Now</p>
-          <p className="mt-2 text-sm text-zinc-300">{opportunity.whyNow}</p>
-        </div>
-        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <p className="text-xs uppercase tracking-wider text-zinc-500">How To Enter</p>
+          <p className="text-xs uppercase tracking-wider text-zinc-500">
+            Why This Market
+          </p>
           <p className="mt-2 text-sm text-zinc-300">
-            {entryStrategyLabel(opportunity.entryStrategy)} · {opportunity.entryStrategyRationale}
+            {opportunity.whyThisMarket}
           </p>
         </div>
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
-          <p className="text-xs uppercase tracking-wider text-zinc-500">Who To Contact</p>
+          <p className="text-xs uppercase tracking-wider text-zinc-500">
+            Why Now
+          </p>
+          <p className="mt-2 text-sm text-zinc-300">{opportunity.whyNow}</p>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+          <p className="text-xs uppercase tracking-wider text-zinc-500">
+            How To Enter
+          </p>
+          <p className="mt-2 text-sm text-zinc-300">
+            {entryStrategyLabel(opportunity.entryStrategy)} ·{" "}
+            {opportunity.entryStrategyRationale}
+          </p>
+        </div>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">
+          <p className="text-xs uppercase tracking-wider text-zinc-500">
+            Who To Contact
+          </p>
           <p className="mt-2 text-sm text-zinc-300">
             {opportunity.contactName ?? opportunity.targetRole}
           </p>
           {opportunity.contactTitle && (
-            <p className="mt-1 text-xs text-zinc-500">{opportunity.contactTitle}</p>
+            <p className="mt-1 text-xs text-zinc-500">
+              {opportunity.contactTitle}
+            </p>
           )}
         </div>
       </section>
@@ -310,14 +515,21 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                 </p>
                 <div className="mt-3 flex flex-wrap gap-2 text-xs text-amber-100/90">
                   {opportunity.companyFootprintCountries?.map((country) => (
-                    <span key={country} className="rounded bg-amber-500/15 px-2 py-1">
+                    <span
+                      key={country}
+                      className="rounded bg-amber-500/15 px-2 py-1"
+                    >
                       {country}
                     </span>
                   ))}
                   {(opportunity.companyPortfolioPresenceCount ?? 0) > 0 && (
                     <span className="rounded bg-amber-500/15 px-2 py-1">
-                      {opportunity.companyPortfolioPresenceCount} other linked product
-                      {(opportunity.companyPortfolioPresenceCount ?? 0) === 1 ? "" : "s"} in GCC++
+                      {opportunity.companyPortfolioPresenceCount} other linked
+                      product
+                      {(opportunity.companyPortfolioPresenceCount ?? 0) === 1
+                        ? ""
+                        : "s"}{" "}
+                      in GCC++
                     </span>
                   )}
                 </div>
@@ -355,7 +567,9 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold text-white">{item.country}</p>
+                      <p className="text-sm font-semibold text-white">
+                        {item.country}
+                      </p>
                       <p className="mt-1 text-xs text-zinc-500">
                         {item.opportunityKind
                           ? item.opportunityKind.replaceAll("_", " ")
@@ -363,7 +577,9 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                       </p>
                     </div>
                     <p className="text-lg font-semibold text-white">
-                      {(item.commercialOpportunityScore ?? item.opportunityScore)?.toFixed(1) ?? "—"}
+                      {(
+                        item.commercialOpportunityScore ?? item.opportunityScore
+                      )?.toFixed(1) ?? "—"}
                     </p>
                   </div>
                   <div className="mt-3 space-y-2 text-sm text-zinc-300">
@@ -381,7 +597,9 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                     </p>
                     <p>
                       <span className="text-zinc-500">Competition:</span>{" "}
-                      {item.competitionIntensity ?? item.competitorPresence ?? "unknown"}
+                      {item.competitionIntensity ??
+                        item.competitorPresence ??
+                        "unknown"}
                     </p>
                     {item.competitivePriceSummary && (
                       <p className="text-xs leading-relaxed text-zinc-400">
@@ -393,7 +611,8 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                         {item.accessibleVolumeEstimate}
                       </p>
                     )}
-                    {(item.entryStrategyChannel || item.entryStrategySequencing) && (
+                    {(item.entryStrategyChannel ||
+                      item.entryStrategySequencing) && (
                       <p className="text-xs leading-relaxed text-zinc-400">
                         {item.entryStrategyChannel
                           ? item.entryStrategyChannel.replaceAll("_", " ")
@@ -444,14 +663,33 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "Gap confirmed", complete: outreachReadiness.gapConfirmed },
-            { label: "Ownership confirmed", complete: outreachReadiness.ownershipConfirmed },
-            { label: "Contact confirmed", complete: outreachReadiness.contactConfirmed },
-            { label: "Route available", complete: outreachReadiness.reachableChannelAvailable },
+            {
+              label: "Gap confirmed",
+              complete: outreachReadiness.gapConfirmed,
+            },
+            {
+              label: "Ownership confirmed",
+              complete: outreachReadiness.ownershipConfirmed,
+            },
+            {
+              label: "Contact confirmed",
+              complete: outreachReadiness.contactConfirmed,
+            },
+            {
+              label: "Route available",
+              complete: outreachReadiness.reachableChannelAvailable,
+            },
           ].map(({ label, complete }) => (
-            <div key={label} className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4">
-              <p className="text-xs uppercase tracking-wider text-zinc-500">{label}</p>
-              <p className={`mt-2 text-sm font-medium ${complete ? "text-emerald-300" : "text-amber-300"}`}>
+            <div
+              key={label}
+              className="rounded-lg border border-zinc-800 bg-zinc-950/60 p-4"
+            >
+              <p className="text-xs uppercase tracking-wider text-zinc-500">
+                {label}
+              </p>
+              <p
+                className={`mt-2 text-sm font-medium ${complete ? "text-emerald-300" : "text-amber-300"}`}
+              >
                 {complete ? "Yes" : "Needs work"}
               </p>
             </div>
@@ -483,7 +721,9 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
           )}
           <Button
             variant="outline"
-            onClick={() => setEditingCountry(opportunity.focusMarkets[0] ?? null)}
+            onClick={() =>
+              setEditingCountry(opportunity.focusMarkets[0] ?? null)
+            }
             className="border-[color:var(--brand-border)] bg-[color:var(--brand-surface)] text-[var(--brand-300)] hover:border-[color:var(--brand-500)] hover:bg-[color:var(--brand-surface)] hover:text-white"
           >
             Edit route for {opportunity.focusMarkets[0] ?? "focus market"}
@@ -498,8 +738,8 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
               Decision details and scoring
             </summary>
             <p className="mt-2 text-xs text-zinc-500">
-              Use this section when you want to inspect the scoring logic, assumptions, and
-              constraints behind the recommendation.
+              Use this section when you want to inspect the scoring logic,
+              assumptions, and constraints behind the recommendation.
             </p>
             <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
               Decision Summary
@@ -507,36 +747,49 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             <div className="mt-4 grid gap-4 md:grid-cols-2">
               <div>
                 <p className="text-xs text-zinc-500">Gap Type</p>
-                <p className="mt-1 text-sm text-zinc-300">{opportunity.gapType.replace("_", " ")}</p>
+                <p className="mt-1 text-sm text-zinc-300">
+                  {opportunity.gapType.replace("_", " ")}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-zinc-500">Product Identity</p>
-                <p className="mt-1 text-sm text-zinc-300">{opportunity.productIdentityStatus}</p>
+                <p className="mt-1 text-sm text-zinc-300">
+                  {opportunity.productIdentityStatus}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-zinc-500">Regulatory Feasibility</p>
                 <p className="mt-1 text-sm text-zinc-300">
-                  {opportunity.regulatoryFeasibility} · {opportunity.timelineRange}
+                  {opportunity.regulatoryFeasibility} ·{" "}
+                  {opportunity.timelineRange}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-zinc-500">Key Constraint</p>
-                <p className="mt-1 text-sm text-zinc-300">{opportunity.keyConstraint}</p>
+                <p className="mt-1 text-sm text-zinc-300">
+                  {opportunity.keyConstraint}
+                </p>
               </div>
             </div>
 
             <div className="mt-5 space-y-4 border-t border-zinc-800 pt-5">
               <div>
                 <p className="text-xs text-zinc-500">Gap Summary</p>
-                <p className="mt-1 text-sm text-zinc-300">{opportunity.gapSummary}</p>
+                <p className="mt-1 text-sm text-zinc-300">
+                  {opportunity.gapSummary}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-zinc-500">Demand Proxy</p>
-                <p className="mt-1 text-sm text-zinc-300">{opportunity.demandProxy}</p>
+                <p className="mt-1 text-sm text-zinc-300">
+                  {opportunity.demandProxy}
+                </p>
               </div>
               <div>
                 <p className="text-xs text-zinc-500">Competitive Pressure</p>
-                <p className="mt-1 text-sm text-zinc-300">{opportunity.competitivePressure}</p>
+                <p className="mt-1 text-sm text-zinc-300">
+                  {opportunity.competitivePressure}
+                </p>
               </div>
             </div>
           </details>
@@ -546,37 +799,49 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
               <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-300">
                 Outreach Package
               </h3>
-              <span className="text-xs text-zinc-500">{opportunity.outreachSubject}</span>
+              <span className="text-xs text-zinc-500">
+                {opportunity.outreachSubject}
+              </span>
             </div>
             <div className="mt-4 grid gap-4">
               <div className="rounded-lg bg-zinc-950 p-4">
-                <p className="text-xs uppercase tracking-wider text-zinc-500">Short email</p>
+                <p className="text-xs uppercase tracking-wider text-zinc-500">
+                  Short email
+                </p>
                 <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-zinc-300">
                   {outreachPackage.shortEmail}
                 </pre>
               </div>
               <div className="rounded-lg bg-zinc-950 p-4">
-                <p className="text-xs uppercase tracking-wider text-zinc-500">Long email</p>
+                <p className="text-xs uppercase tracking-wider text-zinc-500">
+                  Long email
+                </p>
                 <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-zinc-300">
                   {outreachPackage.longEmail}
                 </pre>
               </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="rounded-lg bg-zinc-950 p-4">
-                  <p className="text-xs uppercase tracking-wider text-zinc-500">LinkedIn message</p>
+                  <p className="text-xs uppercase tracking-wider text-zinc-500">
+                    LinkedIn message
+                  </p>
                   <p className="mt-2 text-sm leading-relaxed text-zinc-300">
                     {outreachPackage.linkedinMessage}
                   </p>
                 </div>
                 <div className="rounded-lg bg-zinc-950 p-4">
-                  <p className="text-xs uppercase tracking-wider text-zinc-500">Call opening</p>
+                  <p className="text-xs uppercase tracking-wider text-zinc-500">
+                    Call opening
+                  </p>
                   <p className="mt-2 text-sm leading-relaxed text-zinc-300">
                     {outreachPackage.callOpening}
                   </p>
                 </div>
               </div>
               <div className="rounded-lg bg-zinc-950 p-4">
-                <p className="text-xs uppercase tracking-wider text-zinc-500">Attachment brief</p>
+                <p className="text-xs uppercase tracking-wider text-zinc-500">
+                  Attachment brief
+                </p>
                 <pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words font-sans text-sm leading-relaxed text-zinc-300">
                   {outreachPackage.attachmentBrief}
                 </pre>
@@ -590,7 +855,9 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             </summary>
             <div className="mt-4 space-y-3">
               {opportunity.evidence.length === 0 ? (
-                <p className="text-sm text-zinc-500">No structured evidence links yet.</p>
+                <p className="text-sm text-zinc-500">
+                  No structured evidence links yet.
+                </p>
               ) : (
                 opportunity.evidence.map((item) => (
                   <a
@@ -602,11 +869,17 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-white">{item.title}</p>
-                        <p className="mt-1 text-xs text-zinc-500">{item.claim}</p>
+                        <p className="truncate text-sm font-medium text-white">
+                          {item.title}
+                        </p>
+                        <p className="mt-1 text-xs text-zinc-500">
+                          {item.claim}
+                        </p>
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
-                        <Badge className={`border-0 ${confidenceBadgeClass(item.confidence === "confirmed" ? "high" : item.confidence === "likely" ? "medium" : "low")}`}>
+                        <Badge
+                          className={`border-0 ${confidenceBadgeClass(item.confidence === "confirmed" ? "high" : item.confidence === "likely" ? "medium" : "low")}`}
+                        >
                           {item.evidenceType}
                         </Badge>
                         <ExternalLink className="h-3.5 w-3.5 text-zinc-500" />
@@ -625,14 +898,22 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
               Company And Contact
             </h3>
             <div className="mt-4 space-y-3">
-              {(opportunity.companyWebsite || opportunity.companyLinkedinUrl) && (
+              {(opportunity.companyWebsite ||
+                opportunity.companyLinkedinUrl) && (
                 <div className="rounded-lg bg-zinc-950 px-4 py-3">
-                  <p className="text-xs uppercase tracking-wider text-zinc-500">Company</p>
-                  <p className="mt-1 text-sm font-medium text-white">{opportunity.approachEntityName}</p>
+                  <p className="text-xs uppercase tracking-wider text-zinc-500">
+                    Company
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-white">
+                    {opportunity.approachEntityName}
+                  </p>
                   <div className="mt-3 flex flex-wrap gap-3 text-xs">
                     {opportunity.companyWebsite && (
                       <a
-                        href={normalizeExternalUrl(opportunity.companyWebsite) ?? undefined}
+                        href={
+                          normalizeExternalUrl(opportunity.companyWebsite) ??
+                          undefined
+                        }
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]"
@@ -643,7 +924,11 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                     )}
                     {opportunity.companyLinkedinUrl && (
                       <a
-                        href={normalizeExternalUrl(opportunity.companyLinkedinUrl) ?? undefined}
+                        href={
+                          normalizeExternalUrl(
+                            opportunity.companyLinkedinUrl,
+                          ) ?? undefined
+                        }
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]"
@@ -660,18 +945,26 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                   {opportunity.contactName ?? opportunity.targetRole}
                 </p>
                 {opportunity.contactTitle && (
-                  <p className="mt-1 text-xs text-zinc-500">{opportunity.contactTitle}</p>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    {opportunity.contactTitle}
+                  </p>
                 )}
                 <div className="mt-3 flex flex-wrap gap-3 text-xs">
                   {opportunity.contactEmail && (
-                    <a href={`mailto:${opportunity.contactEmail}`} className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]">
+                    <a
+                      href={`mailto:${opportunity.contactEmail}`}
+                      className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]"
+                    >
                       <Mail className="h-3 w-3" />
                       {opportunity.contactEmail}
                     </a>
                   )}
                   {opportunity.contactLinkedinUrl && (
                     <a
-                      href={normalizeExternalUrl(opportunity.contactLinkedinUrl) ?? undefined}
+                      href={
+                        normalizeExternalUrl(opportunity.contactLinkedinUrl) ??
+                        undefined
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-[var(--brand-300)] hover:text-[var(--brand-400)]"
@@ -683,9 +976,14 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
                 </div>
               </div>
               <p className="text-xs text-zinc-500">
-                Contact confidence: <span className="text-zinc-300">{opportunity.contactConfidence}</span>
+                Contact confidence:{" "}
+                <span className="text-zinc-300">
+                  {opportunity.contactConfidence}
+                </span>
               </p>
-              <p className="text-sm text-zinc-300">{opportunity.whyThisPartner}</p>
+              <p className="text-sm text-zinc-300">
+                {opportunity.whyThisPartner}
+              </p>
             </div>
           </div>
 
@@ -696,27 +994,42 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
             <div className="mt-4 space-y-3">
               {[
                 ["Gap validity", opportunity.scoreBreakdown.gapValidity],
-                ["Commercial value", opportunity.scoreBreakdown.commercialValue],
+                [
+                  "Commercial value",
+                  opportunity.scoreBreakdown.commercialValue,
+                ],
                 ["Urgency", opportunity.scoreBreakdown.urgency],
                 ["Feasibility", opportunity.scoreBreakdown.feasibility],
-                ["Partner reachability", opportunity.scoreBreakdown.partnerReachability],
-                ["Evidence confidence", opportunity.scoreBreakdown.evidenceConfidence],
+                [
+                  "Partner reachability",
+                  opportunity.scoreBreakdown.partnerReachability,
+                ],
+                [
+                  "Evidence confidence",
+                  opportunity.scoreBreakdown.evidenceConfidence,
+                ],
               ].map(([label, score]) => (
                 <div key={label} className="space-y-1">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-zinc-500">{label}</span>
-                    <span className="font-medium text-white">{Number(score).toFixed(1)}</span>
+                    <span className="font-medium text-white">
+                      {Number(score).toFixed(1)}
+                    </span>
                   </div>
                   <div className="h-2 rounded-full bg-zinc-800">
                     <div
                       className="h-2 rounded-full bg-gradient-to-r from-[var(--brand-500)] via-[var(--brand-400)] to-amber-400"
-                      style={{ width: `${Math.max(6, Math.min(100, Number(score) * 10))}%` }}
+                      style={{
+                        width: `${Math.max(6, Math.min(100, Number(score) * 10))}%`,
+                      }}
                     />
                   </div>
                 </div>
               ))}
             </div>
-            <p className="mt-4 text-xs leading-relaxed text-zinc-500">{opportunity.scoreExplanation}</p>
+            <p className="mt-4 text-xs leading-relaxed text-zinc-500">
+              {opportunity.scoreExplanation}
+            </p>
           </div>
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 sm:p-6">
@@ -736,7 +1049,13 @@ export function OpportunityDetailView({ opportunityId }: OpportunityDetailViewPr
               ))}
               <div className="flex items-start gap-2 text-zinc-500">
                 <Clock3 className="mt-0.5 h-4 w-4" />
-                <p>Last promoted {new Date(opportunity.lastPromotedAt).toLocaleDateString("en-GB")}.</p>
+                <p>
+                  Last promoted{" "}
+                  {new Date(opportunity.lastPromotedAt).toLocaleDateString(
+                    "en-GB",
+                  )}
+                  .
+                </p>
               </div>
             </div>
           </div>

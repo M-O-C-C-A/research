@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, RefreshCw, Upload } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const EMPTY_IMPORTS: Array<{
   _id: Id<"registrationImports">;
@@ -39,6 +40,8 @@ const EMPTY_IMPORTS: Array<{
   parseErrorCount?: number;
   sheetNames?: string[];
   lastError?: string;
+  coverageHealth?: "accepted" | "needs_review" | "rejected";
+  coverageChangePct?: number;
 }> = [];
 
 const STATUS_STYLES: Record<string, string> = {
@@ -46,19 +49,20 @@ const STATUS_STYLES: Record<string, string> = {
   parsed: "bg-sky-500/15 text-sky-300 border-sky-500/30",
   needs_review: "bg-amber-500/15 text-amber-300 border-amber-500/30",
   ready: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  applied: "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-[color:var(--brand-border)]",
+  applied:
+    "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-[color:var(--brand-border)]",
   failed: "bg-red-500/15 text-red-300 border-red-500/30",
 };
 
 export function RegistrationImportWorkspace() {
+  const router = useRouter();
   const STAGED_ROW_LIMIT = 25;
   const [sourceMarket, setSourceMarket] = useState("");
-  const [selectedImportId, setSelectedImportId] = useState<Id<"registrationImports"> | null>(
-    null
-  );
-  const [resolvingRowId, setResolvingRowId] = useState<Id<"registrationImportRows"> | null>(
-    null
-  );
+  const [sourceType, setSourceType] = useState("uae_official_directory");
+  const [selectedImportId, setSelectedImportId] =
+    useState<Id<"registrationImports"> | null>(null);
+  const [resolvingRowId, setResolvingRowId] =
+    useState<Id<"registrationImportRows"> | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,12 +75,22 @@ export function RegistrationImportWorkspace() {
   const generateUploadUrl = useMutation(api.files.generateUploadUrl);
   const createImport = useMutation(api.registrationImports.createImport);
   const requestApply = useMutation(api.registrationImports.requestApply);
+  const approveInitialSnapshot = useMutation(
+    api.registrationImports.approveInitialSnapshot,
+  );
   const resolveRowMatch = useMutation(api.registrationImports.resolveRowMatch);
   const parseImport = useAction(api.registrationImportActions.parseImport);
   const applyImport = useAction(api.registrationImportActions.applyImport);
-  const loadImportDetail = useAction(api.registrationImports.getImportDetailSnapshot);
+  const materializeReference = useAction(
+    api.evidenceEngineV11.materializeAcceptedReferenceSnapshot,
+  );
+  const loadImportDetail = useAction(
+    api.registrationImports.getImportDetailSnapshot,
+  );
 
-  const importsQuery = useQuery(api.registrationImports.listImports, { limit: 10 });
+  const importsQuery = useQuery(api.registrationImports.listImports, {
+    limit: 10,
+  });
   const [detail, setDetail] = useState<
     | {
         importDoc: {
@@ -94,6 +108,8 @@ export function RegistrationImportWorkspace() {
           parseErrorCount: number;
           sheetNames: string[];
           lastError?: string;
+          coverageHealth?: "accepted" | "needs_review" | "rejected";
+          coverageChangePct?: number;
         };
         rows: Array<{
           _id: Id<"registrationImportRows">;
@@ -129,7 +145,7 @@ export function RegistrationImportWorkspace() {
         ? {
             limit: 250,
           }
-        : "skip"
+        : "skip",
     ) ?? [];
   const imports = importsQuery ?? EMPTY_IMPORTS;
 
@@ -163,28 +179,28 @@ export function RegistrationImportWorkspace() {
     setError(null);
     setMessage(null);
     try {
-      const isWorkbook =
-        file.name.toLowerCase().endsWith(".xlsx") || file.name.toLowerCase().endsWith(".xls");
+      const isWorkbook = [".xlsx", ".xls", ".csv"].some((extension) =>
+        file.name.toLowerCase().endsWith(extension),
+      );
       if (!isWorkbook) {
-        throw new Error("Please upload an Excel workbook (.xlsx or .xls).");
+        throw new Error("Please upload an Excel workbook or CSV file.");
       }
 
       const inferredSourceMarket =
         sourceMarket.trim() ||
-        (file.name.toLowerCase().includes("drugdirectory_products") ? "UAE" : "");
-      const lowerFileName = file.name.toLowerCase();
+        (sourceType.includes("uae")
+          ? "UAE"
+          : sourceType.includes("sfda")
+            ? "Saudi Arabia"
+            : sourceType.includes("egypt")
+              ? "Egypt"
+              : "Reference market");
       const { storageId } = await uploadFileToConvex(file, generateUploadUrl);
       const importId = await createImport({
         storageId: storageId as Id<"_storage">,
         fileName: file.name,
         sourceMarket: inferredSourceMarket || undefined,
-        sourceType:
-          lowerFileName.includes("mohap_complete_product_list") ||
-          lowerFileName.includes("mohap complete product list")
-            ? "mohap_uae_complete_product_list"
-            : inferredSourceMarket === "UAE"
-              ? "uae_official_directory"
-              : undefined,
+        sourceType,
       });
       setSelectedImportId(importId);
       const result = await parseImport({ importId });
@@ -199,20 +215,72 @@ export function RegistrationImportWorkspace() {
       setMessage(
         `Parsed ${result.totalRows} rows from ${result.sheetNames.length} sheet${
           result.sheetNames.length === 1 ? "" : "s"
-        }.`
+        }.`,
       );
     } catch (uploadError) {
       setError(
         uploadError instanceof Error
           ? uploadError.message
-          : "The workbook could not be imported."
+          : "The workbook could not be imported.",
       );
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleResolveRow(rowId: Id<"registrationImportRows">, value: string | null) {
+  async function approveCoverage() {
+    if (!selectedImportId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await approveInitialSnapshot({
+        importId: selectedImportId,
+        reviewNote:
+          "Initial/full snapshot row count and required presentation fields reviewed in the import preview.",
+      });
+      const refreshed = await loadImportDetail({
+        importId: selectedImportId,
+        rowLimit: STAGED_ROW_LIMIT,
+      });
+      setDetail(refreshed ?? undefined);
+      setMessage(
+        "Snapshot coverage accepted. Its dated manifest can now support registry comparisons.",
+      );
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Coverage could not be approved.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function materializeCandidates() {
+    if (!selectedImportId) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await materializeReference({ importId: selectedImportId });
+      setMessage(
+        `Processed ${result.processed} reference rows and created ${result.created} evidence-safe pursuits; ${result.skipped} rows stayed in research.`,
+      );
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : "Candidates could not be materialized.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleResolveRow(
+    rowId: Id<"registrationImportRows">,
+    value: string | null,
+  ) {
     if (!value || value === "__none") return;
     setBusy(true);
     setError(null);
@@ -246,7 +314,7 @@ export function RegistrationImportWorkspace() {
       setError(
         resolveError instanceof Error
           ? resolveError.message
-          : "The row could not be updated."
+          : "The row could not be updated.",
       );
     } finally {
       setResolvingRowId(null);
@@ -262,7 +330,10 @@ export function RegistrationImportWorkspace() {
     setMessage(null);
     try {
       await requestApply({ importId: selectedImportId });
-      const result = await applyImport({ importId: selectedImportId, batchSize: 25 });
+      const result = await applyImport({
+        importId: selectedImportId,
+        batchSize: 25,
+      });
       const refreshedDetail = await loadImportDetail({
         importId: selectedImportId,
         rowLimit: STAGED_ROW_LIMIT,
@@ -273,13 +344,13 @@ export function RegistrationImportWorkspace() {
         touchedDrugCount: result.touchedDrugCount,
       });
       setMessage(
-        `Applied ${result.appliedCount} matched row${result.appliedCount === 1 ? "" : "s"} across ${result.touchedDrugCount} product${result.touchedDrugCount === 1 ? "" : "s"}.`
+        `Applied ${result.appliedCount} matched row${result.appliedCount === 1 ? "" : "s"} across ${result.touchedDrugCount} product${result.touchedDrugCount === 1 ? "" : "s"}.`,
       );
     } catch (applyError) {
       setError(
         applyError instanceof Error
           ? applyError.message
-          : "The import could not be applied."
+          : "The import could not be applied.",
       );
     } finally {
       setBusy(false);
@@ -287,7 +358,9 @@ export function RegistrationImportWorkspace() {
   }
 
   const selectedImport =
-    detail?.importDoc ?? imports.find((item) => item._id === selectedImportId) ?? null;
+    detail?.importDoc ??
+    imports.find((item) => item._id === selectedImportId) ??
+    null;
   const selectedImportSheetNames = selectedImport?.sheetNames ?? [];
   const selectedImportAppliedRows = selectedImport?.appliedRows ?? 0;
   const selectedImportParseErrorCount = selectedImport?.parseErrorCount ?? 0;
@@ -295,7 +368,8 @@ export function RegistrationImportWorkspace() {
     ? selectedImport.matchedRows > selectedImportAppliedRows
     : false;
   const likelyWarningReason =
-    selectedImport?.sourceType === "uae_official_directory" && selectedImportParseErrorCount > 0
+    selectedImport?.sourceType === "uae_official_directory" &&
+    selectedImportParseErrorCount > 0
       ? "Most warnings in this UAE file come from rows that need market confirmation or cleaner parsing, not from failed uploads."
       : selectedImportParseErrorCount > 0
         ? "Warnings usually mean the row is missing a field the matcher needs, not that the file is broken."
@@ -303,12 +377,12 @@ export function RegistrationImportWorkspace() {
   const applyBlockedReason = !selectedImport
     ? "Select an import first."
     : !hasPendingMatchedRows
-        ? "There are no matched rows left to apply."
-        : selectedImport.status === "uploaded"
-          ? "Parse the workbook before applying."
-          : selectedImport.status === "failed"
-            ? "This import failed and cannot be applied."
-            : null;
+      ? "There are no matched rows left to apply."
+      : selectedImport.status === "uploaded"
+        ? "Parse the workbook before applying."
+        : selectedImport.status === "failed"
+          ? "This import failed and cannot be applied."
+          : null;
 
   return (
     <div className="space-y-5">
@@ -316,7 +390,38 @@ export function RegistrationImportWorkspace() {
         <div className="space-y-4">
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
             <p className="text-sm font-medium text-zinc-100">Upload workbook</p>
-            <p className="mt-1 text-sm text-zinc-500">Supported: `.xlsx`, `.xls`</p>
+            <p className="mt-1 text-sm text-zinc-500">
+              Supported: `.xlsx`, `.xls`, `.csv`
+            </p>
+            <label className="mt-3 block text-xs font-medium text-zinc-300">
+              Evidence source
+              <select
+                value={sourceType}
+                onChange={(event) => setSourceType(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-zinc-700 bg-zinc-900 p-2.5 text-sm text-white"
+              >
+                <optgroup label="Target registries">
+                  <option value="sfda_registered_drugs">
+                    Saudi SFDA full table
+                  </option>
+                  <option value="uae_official_directory">
+                    UAE EDE authorized directory
+                  </option>
+                  <option value="egypt_eda_authorized_export">
+                    Egypt EDA authorized export
+                  </option>
+                </optgroup>
+                <optgroup label="Reference approvals">
+                  <option value="drugs_fda">Drugs@FDA approvals</option>
+                  <option value="ema_medicine_downloads">
+                    EMA authorized medicines
+                  </option>
+                  <option value="mhra_products">
+                    MHRA authorized products
+                  </option>
+                </optgroup>
+              </select>
+            </label>
             <Input
               value={sourceMarket}
               onChange={(event) => setSourceMarket(event.target.value)}
@@ -326,7 +431,7 @@ export function RegistrationImportWorkspace() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".xlsx,.xls"
+              accept=".xlsx,.xls,.csv"
               className="sr-only"
               onChange={handleFileChange}
               disabled={busy}
@@ -348,12 +453,16 @@ export function RegistrationImportWorkspace() {
 
           <div className="rounded-xl border border-zinc-800 bg-zinc-950/60 p-4">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm font-medium text-zinc-100">Recent imports</p>
+              <p className="text-sm font-medium text-zinc-100">
+                Recent imports
+              </p>
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => selectedImportId && setSelectedImportId(selectedImportId)}
+                onClick={() =>
+                  selectedImportId && setSelectedImportId(selectedImportId)
+                }
               >
                 <RefreshCw className="h-4 w-4" />
               </Button>
@@ -375,12 +484,17 @@ export function RegistrationImportWorkspace() {
                       <span className="truncate text-sm font-medium text-zinc-100">
                         {item.fileName}
                       </span>
-                      <Badge className={STATUS_STYLES[item.status] ?? STATUS_STYLES.uploaded}>
+                      <Badge
+                        className={
+                          STATUS_STYLES[item.status] ?? STATUS_STYLES.uploaded
+                        }
+                      >
                         {item.status.replaceAll("_", " ")}
                       </Badge>
                     </div>
                     <p className="mt-1 text-xs text-zinc-500">
-                      {item.totalRows} rows • {item.matchedRows} matched • {item.unresolvedRows} unresolved
+                      {item.totalRows} rows • {item.matchedRows} matched •{" "}
+                      {item.unresolvedRows} unresolved
                     </p>
                     <Button
                       type="button"
@@ -421,7 +535,10 @@ export function RegistrationImportWorkspace() {
                       </h3>
                       <Badge
                         variant="secondary"
-                        className={STATUS_STYLES[selectedImport.status] ?? STATUS_STYLES.uploaded}
+                        className={
+                          STATUS_STYLES[selectedImport.status] ??
+                          STATUS_STYLES.uploaded
+                        }
                       >
                         {selectedImport.status.replaceAll("_", " ")}
                       </Badge>
@@ -434,7 +551,8 @@ export function RegistrationImportWorkspace() {
                     <p className="mt-2 text-xs text-zinc-500">
                       {selectedImport.sourceType === "uae_official_directory"
                         ? "Official UAE directory import"
-                        : selectedImport.sourceType === "mohap_uae_complete_product_list"
+                        : selectedImport.sourceType ===
+                            "mohap_uae_complete_product_list"
                           ? "MOHAP UAE complete product list"
                           : selectedImport.sourceMarket
                             ? `${selectedImport.sourceMarket} registration import`
@@ -446,46 +564,117 @@ export function RegistrationImportWorkspace() {
                     onClick={handleApplyImport}
                     disabled={busy || Boolean(applyBlockedReason)}
                   >
-                    {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    {busy ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : null}
                     Apply Matched Rows
                   </Button>
                 </div>
 
+                <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 p-3">
+                  <Badge
+                    className={
+                      selectedImport.coverageHealth === "accepted"
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                        : selectedImport.coverageHealth === "rejected"
+                          ? "border-red-500/30 bg-red-500/10 text-red-200"
+                          : "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                    }
+                  >
+                    Coverage: {selectedImport.coverageHealth ?? "not reviewed"}
+                  </Badge>
+                  {selectedImport.coverageChangePct !== undefined ? (
+                    <span className="text-xs text-zinc-400">
+                      Change from last accepted snapshot:{" "}
+                      {selectedImport.coverageChangePct.toFixed(1)}%
+                    </span>
+                  ) : null}
+                  {selectedImport.coverageHealth !== "accepted" &&
+                  selectedImport.status !== "uploaded" &&
+                  selectedImport.status !== "failed" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={approveCoverage}
+                    >
+                      Approve snapshot coverage
+                    </Button>
+                  ) : null}
+                  {[
+                    "drugs_fda",
+                    "ema_medicine_downloads",
+                    "mhra_products",
+                  ].includes(selectedImport.sourceType ?? "") &&
+                  selectedImport.coverageHealth === "accepted" ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={busy}
+                      onClick={materializeCandidates}
+                    >
+                      Create v1.1 research candidates
+                    </Button>
+                  ) : null}
+                </div>
+
                 {applyBlockedReason && (
-                  <p className="mt-3 text-sm text-amber-300">{applyBlockedReason}</p>
+                  <p className="mt-3 text-sm text-amber-300">
+                    {applyBlockedReason}
+                  </p>
                 )}
 
                 {selectedImport.unresolvedRows > 0 && hasPendingMatchedRows ? (
                   <p className="mt-3 text-sm text-zinc-400">
-                    Applying now will write the matched rows and leave unresolved rows staged for later review.
+                    Applying now will write the matched rows and leave
+                    unresolved rows staged for later review.
                   </p>
                 ) : null}
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Total</p>
-                    <p className="mt-1 text-xl font-semibold text-white">{selectedImport.totalRows}</p>
-                    <p className="mt-1 text-xs text-zinc-500">Rows parsed from this workbook.</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Total
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-white">
+                      {selectedImport.totalRows}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      Rows parsed from this workbook.
+                    </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
                     <p className="text-xs uppercase tracking-wide text-zinc-500">
                       Matched automatically
                     </p>
-                    <p className="mt-1 text-xl font-semibold text-emerald-300">{selectedImport.matchedRows}</p>
+                    <p className="mt-1 text-xl font-semibold text-emerald-300">
+                      {selectedImport.matchedRows}
+                    </p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      Rows confidently linked to a product already in the system.
+                      Rows confidently linked to a product already in the
+                      system.
                     </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Needs review</p>
-                    <p className="mt-1 text-xl font-semibold text-amber-300">{selectedImport.unresolvedRows}</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Needs review
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-amber-300">
+                      {selectedImport.unresolvedRows}
+                    </p>
                     <p className="mt-1 text-xs text-zinc-500">
-                      Rows that still need a match or should be skipped manually.
+                      Rows that still need a match or should be skipped
+                      manually.
                     </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Applied</p>
-                    <p className="mt-1 text-xl font-semibold text-[var(--brand-300)]">{selectedImportAppliedRows}</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Applied
+                    </p>
+                    <p className="mt-1 text-xl font-semibold text-[var(--brand-300)]">
+                      {selectedImportAppliedRows}
+                    </p>
                     <p className="mt-1 text-xs text-zinc-500">
                       Rows already written into UAE market evidence.
                     </p>
@@ -494,7 +683,9 @@ export function RegistrationImportWorkspace() {
                     <p className="text-xs uppercase tracking-wide text-zinc-500">
                       Validation warnings
                     </p>
-                    <p className="mt-1 text-xl font-semibold text-red-300">{selectedImportParseErrorCount}</p>
+                    <p className="mt-1 text-xl font-semibold text-red-300">
+                      {selectedImportParseErrorCount}
+                    </p>
                     <p className="mt-1 text-xs text-zinc-500">
                       Rows with missing or unclear fields that need review.
                     </p>
@@ -503,37 +694,52 @@ export function RegistrationImportWorkspace() {
 
                 {likelyWarningReason && (
                   <div className="mt-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
-                    <p className="font-medium text-amber-200">About the warnings</p>
+                    <p className="font-medium text-amber-200">
+                      About the warnings
+                    </p>
                     <p className="mt-1">{likelyWarningReason}</p>
                   </div>
                 )}
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Parser coverage</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Parser coverage
+                    </p>
                     <p className="mt-1 text-sm text-zinc-300">
-                      Brand, ingredients, manufacturer, supplier, price, form, pack size, and UAE status.
-                      {selectedImport.sourceType === "mohap_uae_complete_product_list"
+                      Brand, ingredients, manufacturer, supplier, price, form,
+                      pack size, and UAE status.
+                      {selectedImport.sourceType ===
+                      "mohap_uae_complete_product_list"
                         ? " MOHAP provenance like Source ID and registration date is preserved."
                         : null}
                     </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Match policy</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Match policy
+                    </p>
                     <p className="mt-1 text-sm text-zinc-300">
-                      Conservative brand-first matching with ingredient plus manufacturer fallback.
+                      Conservative brand-first matching with ingredient plus
+                      manufacturer fallback.
                     </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">Devices</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      Devices
+                    </p>
                     <p className="mt-1 text-sm text-zinc-300">
-                      Device-like rows are flagged and kept separate from the synced medicine graph.
+                      Device-like rows are flagged and kept separate from the
+                      synced medicine graph.
                     </p>
                   </div>
                   <div className="rounded-lg border border-zinc-800 bg-zinc-900 p-3">
-                    <p className="text-xs uppercase tracking-wide text-zinc-500">After apply</p>
+                    <p className="text-xs uppercase tracking-wide text-zinc-500">
+                      After apply
+                    </p>
                     <p className="mt-1 text-sm text-zinc-300">
-                      Refresh gaps and product market views so UAE presence affects whitespace scoring.
+                      Refresh gaps and product market views so UAE presence
+                      affects whitespace scoring.
                     </p>
                   </div>
                 </div>
@@ -545,26 +751,28 @@ export function RegistrationImportWorkspace() {
                     </p>
                     <p className="mt-2 text-sm text-zinc-100">
                       Applied {lastAppliedSummary.appliedCount} UAE row
-                      {lastAppliedSummary.appliedCount === 1 ? "" : "s"} and confirmed market
-                      evidence on {lastAppliedSummary.touchedDrugCount} matched product
+                      {lastAppliedSummary.appliedCount === 1 ? "" : "s"} and
+                      confirmed market evidence on{" "}
+                      {lastAppliedSummary.touchedDrugCount} matched product
                       {lastAppliedSummary.touchedDrugCount === 1 ? "" : "s"}.
                     </p>
                     <p className="mt-2 text-sm text-zinc-300">
-                      Next step: review touched products or rerun gap and opportunity workflows so
-                      UAE registrations remove false UAE whitespace recommendations.
+                      Next step: review touched products or rerun gap and
+                      opportunity workflows so UAE registrations remove false
+                      UAE whitespace recommendations.
                     </p>
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => (window.location.href = "/drugs")}
+                        onClick={() => router.push("/drugs")}
                       >
                         Review products
                       </Button>
                       <Button
                         type="button"
                         variant="outline"
-                        onClick={() => (window.location.href = "/gaps")}
+                        onClick={() => router.push("/gaps")}
                       >
                         Refresh gap workflow
                       </Button>
@@ -573,21 +781,27 @@ export function RegistrationImportWorkspace() {
                 )}
 
                 {selectedImport.lastError && (
-                  <p className="mt-4 text-sm text-red-300">{selectedImport.lastError}</p>
+                  <p className="mt-4 text-sm text-red-300">
+                    {selectedImport.lastError}
+                  </p>
                 )}
               </div>
 
               <div className="min-w-0 rounded-xl border border-zinc-800 bg-zinc-950/60">
                 <div className="flex items-center justify-between gap-3 border-b border-zinc-800 px-4 py-3">
                   <div>
-                    <h4 className="text-sm font-medium text-zinc-100">Staged rows</h4>
+                    <h4 className="text-sm font-medium text-zinc-100">
+                      Staged rows
+                    </h4>
                     <p className="text-sm text-zinc-500">
-                      Review unresolved matches and skip anything you do not want to apply.
+                      Review unresolved matches and skip anything you do not
+                      want to apply.
                     </p>
                   </div>
                   {detail && detail.totalRowCount > detail.rows.length ? (
                     <p className="text-xs text-zinc-500">
-                      Showing {detail.rows.length} of {detail.totalRowCount} rows
+                      Showing {detail.rows.length} of {detail.totalRowCount}{" "}
+                      rows
                     </p>
                   ) : null}
                 </div>
@@ -600,7 +814,9 @@ export function RegistrationImportWorkspace() {
                         <TableHead className="text-zinc-500">Type</TableHead>
                         <TableHead className="text-zinc-500">Country</TableHead>
                         <TableHead className="text-zinc-500">Status</TableHead>
-                        <TableHead className="text-zinc-500">Provenance</TableHead>
+                        <TableHead className="text-zinc-500">
+                          Provenance
+                        </TableHead>
                         <TableHead className="text-zinc-500">Match</TableHead>
                         <TableHead className="text-zinc-500">Resolve</TableHead>
                         <TableHead className="text-zinc-500">Issues</TableHead>
@@ -609,14 +825,18 @@ export function RegistrationImportWorkspace() {
                     <TableBody>
                       {detail?.rows.length ? (
                         detail.rows.map((row) => {
-                          const linkedDrug = drugs.find((drug) => drug._id === row.matchedDrugId);
+                          const linkedDrug = drugs.find(
+                            (drug) => drug._id === row.matchedDrugId,
+                          );
                           return (
                             <TableRow
                               key={row._id}
                               className="border-zinc-800 hover:bg-zinc-800/40"
                             >
                               <TableCell className="whitespace-normal">
-                                <div className="font-medium text-white">{row.productName}</div>
+                                <div className="font-medium text-white">
+                                  {row.productName}
+                                </div>
                                 <div className="text-xs text-zinc-500">
                                   {[
                                     row.genericName,
@@ -638,20 +858,28 @@ export function RegistrationImportWorkspace() {
                                       : "bg-zinc-800 text-zinc-300"
                                   }
                                 >
-                                  {row.productKind === "device" ? "Device" : "Medicine"}
+                                  {row.productKind === "device"
+                                    ? "Device"
+                                    : "Medicine"}
                                 </Badge>
                               </TableCell>
-                              <TableCell className="text-zinc-300">{row.country}</TableCell>
+                              <TableCell className="text-zinc-300">
+                                {row.country}
+                              </TableCell>
                               <TableCell className="text-zinc-300">
                                 {row.registrationStatus.replaceAll("_", " ")}
                                 {row.priceAed ? (
-                                  <div className="mt-1 text-xs text-zinc-500">AED {row.priceAed}</div>
+                                  <div className="mt-1 text-xs text-zinc-500">
+                                    AED {row.priceAed}
+                                  </div>
                                 ) : null}
                               </TableCell>
                               <TableCell className="whitespace-normal text-xs text-zinc-500">
                                 {[
                                   row.source,
-                                  row.sourceRecordId ? `ID ${row.sourceRecordId}` : undefined,
+                                  row.sourceRecordId
+                                    ? `ID ${row.sourceRecordId}`
+                                    : undefined,
                                   row.sourceStatus,
                                   row.approvalDate,
                                   row.supplierName,
@@ -697,10 +925,16 @@ export function RegistrationImportWorkspace() {
                                       align="start"
                                       className="max-h-80 w-[min(28rem,calc(100vw-3rem))] min-w-[20rem] border-zinc-700 bg-zinc-900"
                                     >
-                                      <SelectItem value="__none" className="text-zinc-400">
+                                      <SelectItem
+                                        value="__none"
+                                        className="text-zinc-400"
+                                      >
                                         Keep current selection
                                       </SelectItem>
-                                      <SelectItem value="__skip" className="text-zinc-300">
+                                      <SelectItem
+                                        value="__skip"
+                                        className="text-zinc-300"
+                                      >
                                         Skip this row
                                       </SelectItem>
                                       {drugs.map((drug) => (
@@ -723,7 +957,9 @@ export function RegistrationImportWorkspace() {
                                     onClick={() => setResolvingRowId(row._id)}
                                     className="w-full justify-start"
                                   >
-                                    {row.matchStatus === "matched" ? "Change match" : "Resolve row"}
+                                    {row.matchStatus === "matched"
+                                      ? "Change match"
+                                      : "Resolve row"}
                                   </Button>
                                 )}
                               </TableCell>
@@ -737,7 +973,10 @@ export function RegistrationImportWorkspace() {
                         })
                       ) : (
                         <TableRow className="border-zinc-800">
-                          <TableCell colSpan={8} className="py-8 text-center text-zinc-500">
+                          <TableCell
+                            colSpan={8}
+                            className="py-8 text-center text-zinc-500"
+                          >
                             {selectedImport.status === "uploaded"
                               ? "Upload and parse a workbook to see staged rows."
                               : "No staged rows available."}

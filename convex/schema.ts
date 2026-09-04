@@ -8,7 +8,7 @@ const logEntry = v.object({
     v.literal("info"),
     v.literal("success"),
     v.literal("warning"),
-    v.literal("error")
+    v.literal("error"),
   ),
 });
 
@@ -21,18 +21,20 @@ const menaPartner = v.object({
     v.literal("licensee"),
     v.literal("co_marketing_partner"),
     v.literal("tender_partner"),
-    v.literal("other")
+    v.literal("other"),
   ),
   geographies: v.array(v.string()),
-  exclusivity: v.optional(v.union(
-    v.literal("exclusive"),
-    v.literal("non_exclusive"),
-    v.literal("unknown")
-  )),
+  exclusivity: v.optional(
+    v.union(
+      v.literal("exclusive"),
+      v.literal("non_exclusive"),
+      v.literal("unknown"),
+    ),
+  ),
   confidence: v.union(
     v.literal("confirmed"),
     v.literal("likely"),
-    v.literal("inferred")
+    v.literal("inferred"),
   ),
   source: v.optional(v.string()),
   url: v.optional(v.string()),
@@ -53,32 +55,32 @@ const registrationImportStatus = v.union(
   v.literal("needs_review"),
   v.literal("ready"),
   v.literal("applied"),
-  v.literal("failed")
+  v.literal("failed"),
 );
 
 const registrationImportMatchStatus = v.union(
   v.literal("matched"),
   v.literal("unmatched"),
   v.literal("ambiguous"),
-  v.literal("skipped")
+  v.literal("skipped"),
 );
 
 const registrationImportApplyState = v.union(
   v.literal("pending"),
   v.literal("applied"),
-  v.literal("skipped")
+  v.literal("skipped"),
 );
 
 const evidenceConfidence = v.union(
   v.literal("confirmed"),
   v.literal("likely"),
-  v.literal("inferred")
+  v.literal("inferred"),
 );
 
 const workspaceRole = v.union(
   v.literal("admin"),
   v.literal("analyst"),
-  v.literal("bd")
+  v.literal("bd"),
 );
 
 const funnelStage = v.union(
@@ -93,13 +95,13 @@ const funnelStage = v.union(
   v.literal("won"),
   v.literal("watching"),
   v.literal("disqualified"),
-  v.literal("lost")
+  v.literal("lost"),
 );
 
 const assessmentCountry = v.union(
   v.literal("UAE"),
   v.literal("Saudi Arabia"),
-  v.literal("Egypt")
+  v.literal("Egypt"),
 );
 
 const assessmentScoreBreakdown = v.object({
@@ -117,7 +119,7 @@ const assessmentScoreBreakdown = v.object({
 const leadCountry = v.union(
   v.literal("Saudi Arabia"),
   v.literal("UAE"),
-  v.literal("Egypt")
+  v.literal("Egypt"),
 );
 
 const leadSourceSystem = v.union(
@@ -128,7 +130,7 @@ const leadSourceSystem = v.union(
   v.literal("etimad"),
   v.literal("mohap_import"),
   v.literal("uae_public_procurement"),
-  v.literal("egypt_eprocurement")
+  v.literal("egypt_eprocurement"),
 );
 
 const leadSignalType = v.union(
@@ -136,18 +138,18 @@ const leadSignalType = v.union(
   v.literal("anticipated_shortage"),
   v.literal("tender"),
   v.literal("procurement"),
-  v.literal("registration")
+  v.literal("registration"),
 );
 
 const leadOrigin = v.union(
   v.literal("sustainable_whitespace"),
-  v.literal("quick_win_signal")
+  v.literal("quick_win_signal"),
 );
 
 const opportunityReadinessStatus = v.union(
   v.literal("needs_contact"),
   v.literal("outreach_ready"),
-  v.literal("blocked")
+  v.literal("blocked"),
 );
 
 const actionableLeadStage = v.union(
@@ -158,7 +160,7 @@ const actionableLeadStage = v.union(
   v.literal("won"),
   v.literal("lost"),
   v.literal("expired"),
-  v.literal("disqualified")
+  v.literal("disqualified"),
 );
 
 const leadContactRole = v.union(
@@ -166,7 +168,7 @@ const leadContactRole = v.union(
   v.literal("international_markets"),
   v.literal("licensing"),
   v.literal("commercial"),
-  v.literal("executive")
+  v.literal("executive"),
 );
 
 const leadContactSourceKind = v.union(
@@ -174,14 +176,14 @@ const leadContactSourceKind = v.union(
   v.literal("company_press_release"),
   v.literal("conference"),
   v.literal("linkedin"),
-  v.literal("manual")
+  v.literal("manual"),
 );
 
 const researchTargetType = v.union(v.literal("product"), v.literal("company"));
 const researchRunStatus = v.union(
   v.literal("running"),
   v.literal("completed"),
-  v.literal("error")
+  v.literal("error"),
 );
 const researchFindingKind = v.union(
   v.literal("product_profile"),
@@ -190,12 +192,12 @@ const researchFindingKind = v.union(
   v.literal("registration"),
   v.literal("market_signal"),
   v.literal("partner"),
-  v.literal("contact")
+  v.literal("contact"),
 );
 const researchFindingStatus = v.union(
   v.literal("pending"),
   v.literal("approved"),
-  v.literal("rejected")
+  v.literal("rejected"),
 );
 const researchSourceKind = v.union(
   v.literal("official_registry"),
@@ -204,7 +206,7 @@ const researchSourceKind = v.union(
   v.literal("company_press_release"),
   v.literal("conference"),
   v.literal("linkedin"),
-  v.literal("public_web")
+  v.literal("public_web"),
 );
 
 const companyRoleType = v.union(
@@ -213,7 +215,7 @@ const companyRoleType = v.union(
   v.literal("regional_commercial"),
   v.literal("regulatory"),
   v.literal("licensing"),
-  v.literal("other")
+  v.literal("other"),
 );
 
 const contactSeniority = v.union(
@@ -221,14 +223,14 @@ const contactSeniority = v.union(
   v.literal("director"),
   v.literal("manager"),
   v.literal("individual_contributor"),
-  v.literal("unknown")
+  v.literal("unknown"),
 );
 
 const productSourceRegion = v.union(
   v.literal("eu"),
   v.literal("us"),
   v.literal("mena"),
-  v.literal("other")
+  v.literal("other"),
 );
 
 const productSourceSystem = v.union(
@@ -238,7 +240,7 @@ const productSourceSystem = v.union(
   v.literal("purple_book"),
   v.literal("ndc"),
   v.literal("ema_central"),
-  v.literal("eu_national_bfarm")
+  v.literal("eu_national_bfarm"),
 );
 
 const canonicalProductStatus = v.union(
@@ -246,7 +248,7 @@ const canonicalProductStatus = v.union(
   v.literal("withdrawn"),
   v.literal("discontinued"),
   v.literal("under_review"),
-  v.literal("unavailable")
+  v.literal("unavailable"),
 );
 
 const productApplicationType = v.union(
@@ -254,7 +256,7 @@ const productApplicationType = v.union(
   v.literal("ANDA"),
   v.literal("BLA"),
   v.literal("CAP"),
-  v.literal("national")
+  v.literal("national"),
 );
 
 const canonicalProductType = v.union(
@@ -262,7 +264,7 @@ const canonicalProductType = v.union(
   v.literal("biologic"),
   v.literal("biosimilar"),
   v.literal("generic"),
-  v.literal("unknown")
+  v.literal("unknown"),
 );
 
 const canonicalProductLinkRelationship = v.union(
@@ -270,14 +272,14 @@ const canonicalProductLinkRelationship = v.union(
   v.literal("presentation_variant"),
   v.literal("biosimilar_of"),
   v.literal("reference_product"),
-  v.literal("regional_variant")
+  v.literal("regional_variant"),
 );
 
 const canonicalEntityRole = v.union(
   v.literal("manufacturer"),
   v.literal("mah"),
   v.literal("applicant"),
-  v.literal("licensor")
+  v.literal("licensor"),
 );
 
 const productIdentityEvidenceItem = v.object({
@@ -287,7 +289,7 @@ const productIdentityEvidenceItem = v.object({
     v.literal("regulator"),
     v.literal("company"),
     v.literal("market_report"),
-    v.literal("internal")
+    v.literal("internal"),
   ),
   title: v.optional(v.string()),
   url: v.optional(v.string()),
@@ -301,7 +303,7 @@ const opportunityAvailabilityStatus = v.union(
   v.literal("hospital_import_only"),
   v.literal("not_found"),
   v.literal("ambiguous"),
-  v.literal("unverified")
+  v.literal("unverified"),
 );
 
 const marketAccessRoute = v.union(
@@ -309,7 +311,7 @@ const marketAccessRoute = v.union(
   v.literal("private_hospital"),
   v.literal("retail_pharmacy"),
   v.literal("specialty_center"),
-  v.literal("named_patient")
+  v.literal("named_patient"),
 );
 
 const commercialOpportunityKind = v.union(
@@ -317,54 +319,51 @@ const commercialOpportunityKind = v.union(
   v.literal("tender_opportunity"),
   v.literal("commercial_and_tender"),
   v.literal("no_clear_opportunity"),
-  v.literal("insufficient_commercial_evidence")
+  v.literal("insufficient_commercial_evidence"),
 );
 
 const pricingConfidence = v.union(
   v.literal("high"),
   v.literal("medium"),
   v.literal("low"),
-  v.literal("unknown")
+  v.literal("unknown"),
 );
 
 const pricePositioning = v.union(
   v.literal("premium"),
   v.literal("parity"),
   v.literal("discount"),
-  v.literal("unknown")
+  v.literal("unknown"),
 );
 
 const competitionIntensity = v.union(
   v.literal("low"),
   v.literal("medium"),
   v.literal("high"),
-  v.literal("unknown")
+  v.literal("unknown"),
 );
 
 const commercialEvidenceStatus = v.union(
   v.literal("strong"),
   v.literal("partial"),
   v.literal("proxy_only"),
-  v.literal("insufficient")
+  v.literal("insufficient"),
 );
 
 const tenderSignalStrength = v.union(
   v.literal("high"),
   v.literal("medium"),
   v.literal("low"),
-  v.literal("none")
+  v.literal("none"),
 );
 
-const commercialSummaryMode = v.union(
-  v.literal("auto"),
-  v.literal("manual")
-);
+const commercialSummaryMode = v.union(v.literal("auto"), v.literal("manual"));
 
 const marketModelLevel = v.union(
   v.literal("low"),
   v.literal("medium"),
   v.literal("high"),
-  v.literal("unknown")
+  v.literal("unknown"),
 );
 
 const entryStrategyChannel = v.union(
@@ -373,7 +372,7 @@ const entryStrategyChannel = v.union(
   v.literal("public_tender"),
   v.literal("specialty_center"),
   v.literal("hybrid"),
-  v.literal("unknown")
+  v.literal("unknown"),
 );
 
 const entryStrategySequencing = v.union(
@@ -381,13 +380,13 @@ const entryStrategySequencing = v.union(
   v.literal("private_to_tender"),
   v.literal("tender_led"),
   v.literal("hybrid_launch"),
-  v.literal("watch")
+  v.literal("watch"),
 );
 
 const priceSourceCategory = v.union(
   v.literal("official"),
   v.literal("commercial_database"),
-  v.literal("proxy")
+  v.literal("proxy"),
 );
 
 const priceEvidenceSourceSystem = v.union(
@@ -403,7 +402,7 @@ const priceEvidenceSourceSystem = v.union(
   v.literal("clarivate"),
   v.literal("lauer_taxe"),
   v.literal("manual"),
-  v.literal("other")
+  v.literal("other"),
 );
 
 const priceType = v.union(
@@ -415,7 +414,7 @@ const priceType = v.union(
   v.literal("tender"),
   v.literal("retail"),
   v.literal("hospital"),
-  v.literal("other")
+  v.literal("other"),
 );
 
 const commercialSignalType = v.union(
@@ -425,13 +424,13 @@ const commercialSignalType = v.union(
   v.literal("tariff"),
   v.literal("channel"),
   v.literal("competition"),
-  v.literal("proxy")
+  v.literal("proxy"),
 );
 
 const signalStrength = v.union(
   v.literal("high"),
   v.literal("medium"),
-  v.literal("low")
+  v.literal("low"),
 );
 
 const marketEvidenceItem = v.object({
@@ -446,7 +445,7 @@ const marketEvidenceItem = v.object({
     v.literal("essential_medicines"),
     v.literal("market_report"),
     v.literal("company"),
-    v.literal("internal")
+    v.literal("internal"),
   ),
   confidence: evidenceConfidence,
   sourceSystem: v.optional(priceEvidenceSourceSystem),
@@ -467,7 +466,7 @@ const productGenericAvailability = v.union(
   v.literal("originator_plus_generics"),
   v.literal("generic_only"),
   v.literal("not_available"),
-  v.literal("unclear")
+  v.literal("unclear"),
 );
 
 const productMarketEvidenceItem = v.object({
@@ -482,7 +481,7 @@ const productMarketEvidenceItem = v.object({
     v.literal("essential_medicines"),
     v.literal("market_report"),
     v.literal("company"),
-    v.literal("internal")
+    v.literal("internal"),
   ),
   confidence: evidenceConfidence,
   country: v.optional(v.string()),
@@ -522,7 +521,7 @@ const companyFootprintStatus = v.union(
   v.literal("regional_representation_detected"),
   v.literal("portfolio_presence_detected"),
   v.literal("regional_representation_and_portfolio_presence"),
-  v.literal("unclear_company_presence")
+  v.literal("unclear_company_presence"),
 );
 
 const mandateOpportunityType = v.union(
@@ -533,25 +532,25 @@ const mandateOpportunityType = v.union(
   v.literal("SECOND_SOURCE"),
   v.literal("TENDER_DEMAND"),
   v.literal("REGULATORY_INCENTIVE"),
-  v.literal("PIPELINE_OPPORTUNITY")
+  v.literal("PIPELINE_OPPORTUNITY"),
 );
 
 const mandateDecision = v.union(
   v.literal("PURSUE"),
   v.literal("VALIDATE"),
   v.literal("HOLD"),
-  v.literal("REJECT")
+  v.literal("REJECT"),
 );
 
 const mandateDiscoveryDirection = v.union(
   v.literal("EU_TO_MIDDLE_EAST"),
-  v.literal("MENA_TO_EU")
+  v.literal("MENA_TO_EU"),
 );
 
 const mandateReportStatus = v.union(
   v.literal("ready"),
   v.literal("needs_validation"),
-  v.literal("error")
+  v.literal("error"),
 );
 
 const mandateSourceTier = v.union(
@@ -559,13 +558,13 @@ const mandateSourceTier = v.union(
   v.literal("Tier B"),
   v.literal("Tier C"),
   v.literal("Tier D"),
-  v.literal("Tier E")
+  v.literal("Tier E"),
 );
 
 const mandateAbsenceStatus = v.union(
   v.literal("VERIFIED_ABSENT"),
   v.literal("UNKNOWN"),
-  v.literal("NOT_APPLICABLE")
+  v.literal("NOT_APPLICABLE"),
 );
 
 const mandateScoreBreakdown = v.object({
@@ -583,7 +582,7 @@ const engineCountry = v.union(
   v.literal("Egypt"),
   v.literal("Kuwait"),
   v.literal("Qatar"),
-  v.literal("Algeria")
+  v.literal("Algeria"),
 );
 
 const sourceRegistryStatus = v.union(
@@ -592,33 +591,33 @@ const sourceRegistryStatus = v.union(
   v.literal("stale"),
   v.literal("blocked_by_robots"),
   v.literal("structural_change"),
-  v.literal("error")
+  v.literal("error"),
 );
 
 const sourceCadence = v.union(
   v.literal("manual"),
   v.literal("daily"),
   v.literal("weekly"),
-  v.literal("monthly")
+  v.literal("monthly"),
 );
 
 const sourceStructureStatus = v.union(
   v.literal("passed"),
   v.literal("failed"),
-  v.literal("not_checked")
+  v.literal("not_checked"),
 );
 
 const opportunityRunStatus = v.union(
   v.literal("running"),
   v.literal("completed"),
   v.literal("partial"),
-  v.literal("error")
+  v.literal("error"),
 );
 
 const opportunityGateStatus = v.union(
   v.literal("passed"),
   v.literal("failed"),
-  v.literal("needs_review")
+  v.literal("needs_review"),
 );
 
 const changeEventType = v.union(
@@ -628,7 +627,7 @@ const changeEventType = v.union(
   v.literal("ownership_or_mah_change"),
   v.literal("territory_rights_detected"),
   v.literal("threshold_crossed_up"),
-  v.literal("threshold_crossed_down")
+  v.literal("threshold_crossed_down"),
 );
 
 const reviewQueueItemType = v.union(
@@ -636,14 +635,14 @@ const reviewQueueItemType = v.union(
   v.literal("ownership"),
   v.literal("territory_rights"),
   v.literal("registration_absence"),
-  v.literal("source_structure")
+  v.literal("source_structure"),
 );
 
 const reviewQueueStatus = v.union(
   v.literal("open"),
   v.literal("approved"),
   v.literal("rejected"),
-  v.literal("merged")
+  v.literal("merged"),
 );
 
 const registrationFactStatus = v.union(
@@ -655,10 +654,53 @@ const registrationFactStatus = v.union(
   v.literal("pending"),
   v.literal("withdrawn"),
   v.literal("suspended"),
-  v.literal("unknown")
+  v.literal("unknown"),
 );
 
-const dealModel = v.union(v.literal("MODEL_1_REGIONAL_AGENT"), v.literal("MODEL_4_BROKER_SUBLICENSE"));
+const evidenceEngineVersion = v.literal("v1.1");
+const whiteSpaceMatchStatus = v.union(
+  v.literal("matches_found"),
+  v.literal("no_match_in_snapshot"),
+  v.literal("not_checked"),
+  v.literal("source_unhealthy"),
+);
+const absenceConfidence = v.union(
+  v.literal("high"),
+  v.literal("medium"),
+  v.literal("low"),
+);
+const companyReasonCode = v.union(
+  v.literal("UNCLASSIFIED"),
+  v.literal("ALREADY_PARTNERED_ELSEWHERE"),
+  v.literal("OUT_LICENSING"),
+  v.literal("PARKED"),
+  v.literal("IGNORING"),
+  v.literal("STRUCTURAL_NO"),
+);
+const evidenceGateStatus = v.union(
+  v.literal("PASS"),
+  v.literal("FAIL"),
+  v.literal("UNVALIDATED"),
+  v.literal("PROVISIONAL"),
+);
+const commercialApprovalStatus = v.union(
+  v.literal("not_requested"),
+  v.literal("provisional"),
+  v.literal("approved"),
+  v.literal("rejected"),
+);
+const nomineeCovenantStatus = v.union(
+  v.literal("not_requested"),
+  v.literal("requested"),
+  v.literal("reviewed"),
+  v.literal("accepted"),
+  v.literal("rejected"),
+);
+
+const dealModel = v.union(
+  v.literal("MODEL_1_REGIONAL_AGENT"),
+  v.literal("MODEL_4_BROKER_SUBLICENSE"),
+);
 
 const engineSourceType = v.union(
   v.literal("home_authorization"),
@@ -669,7 +711,7 @@ const engineSourceType = v.union(
   v.literal("manual_import"),
   v.literal("patent_exclusivity"),
   v.literal("orphan_register"),
-  v.literal("disease_burden")
+  v.literal("disease_burden"),
 );
 
 const productClass = v.union(
@@ -677,7 +719,7 @@ const productClass = v.union(
   v.literal("on_patent"),
   v.literal("orphan_rare_disease"),
   v.literal("hybrid"),
-  v.literal("off_patent_biosimilar")
+  v.literal("off_patent_biosimilar"),
 );
 
 const sizingInputStatus = v.union(
@@ -686,13 +728,13 @@ const sizingInputStatus = v.union(
   v.literal("literature"),
   v.literal("international_price_anchor"),
   v.literal("practitioner_estimate"),
-  v.literal("unvalidated")
+  v.literal("unvalidated"),
 );
 
 const opportunitySizingStatus = v.union(
   v.literal("evidence_based"),
   v.literal("practitioner_estimate"),
-  v.literal("unvalidated")
+  v.literal("unvalidated"),
 );
 
 const registryStatusMatrix = v.object({
@@ -737,33 +779,35 @@ export default defineSchema({
     therapeuticAreas: v.array(v.string()),
     status: v.union(v.literal("active"), v.literal("inactive")),
     // BD qualification fields
-    bdStatus: v.optional(v.union(
-      v.literal("screened"),
-      v.literal("qualified"),
-      v.literal("prospect"),
-      v.literal("contacted"),
-      v.literal("intro_call"),
-      v.literal("data_shared"),
-      v.literal("partner_discussion"),
-      v.literal("engaged"),
-      v.literal("negotiating"),
-      v.literal("won"),
-      v.literal("lost"),
-      v.literal("contracted"),
-      v.literal("disqualified"),
-    )),
+    bdStatus: v.optional(
+      v.union(
+        v.literal("screened"),
+        v.literal("qualified"),
+        v.literal("prospect"),
+        v.literal("contacted"),
+        v.literal("intro_call"),
+        v.literal("data_shared"),
+        v.literal("partner_discussion"),
+        v.literal("engaged"),
+        v.literal("negotiating"),
+        v.literal("won"),
+        v.literal("lost"),
+        v.literal("contracted"),
+        v.literal("disqualified"),
+      ),
+    ),
     bdScore: v.optional(v.number()),
     bdScoreRationale: v.optional(v.string()),
-    companySize: v.optional(v.union(
-      v.literal("sme"),
-      v.literal("mid"),
-      v.literal("large"),
-    )),
-    menaPresence: v.optional(v.union(
-      v.literal("none"),
-      v.literal("limited"),
-      v.literal("established"),
-    )),
+    companySize: v.optional(
+      v.union(v.literal("sme"), v.literal("mid"), v.literal("large")),
+    ),
+    menaPresence: v.optional(
+      v.union(
+        v.literal("none"),
+        v.literal("limited"),
+        v.literal("established"),
+      ),
+    ),
     revenueEstimate: v.optional(v.string()),
     employeeCount: v.optional(v.string()),
     contactName: v.optional(v.string()),
@@ -772,49 +816,57 @@ export default defineSchema({
     linkedinUrl: v.optional(v.string()),
     bdNotes: v.optional(v.string()),
     bdScoredAt: v.optional(v.number()),
-    bdEvidenceItems: v.optional(v.array(v.object({
-      claim: v.string(),
-      source: v.string(),
-      url: v.optional(v.string()),
-    }))),
-    keyContacts: v.optional(v.array(v.object({
-      name: v.string(),
-      title: v.string(),
-      roleType: v.optional(companyRoleType),
-      seniority: v.optional(contactSeniority),
-      geographies: v.optional(v.array(v.string())),
-      email: v.optional(v.string()),
-      linkedinUrl: v.optional(v.string()),
-      confidence: evidenceConfidence,
-      source: v.optional(v.string()),
-      lastVerifiedAt: v.optional(v.number()),
-    }))),
+    bdEvidenceItems: v.optional(
+      v.array(
+        v.object({
+          claim: v.string(),
+          source: v.string(),
+          url: v.optional(v.string()),
+        }),
+      ),
+    ),
+    keyContacts: v.optional(
+      v.array(
+        v.object({
+          name: v.string(),
+          title: v.string(),
+          roleType: v.optional(companyRoleType),
+          seniority: v.optional(contactSeniority),
+          geographies: v.optional(v.array(v.string())),
+          email: v.optional(v.string()),
+          linkedinUrl: v.optional(v.string()),
+          confidence: evidenceConfidence,
+          source: v.optional(v.string()),
+          lastVerifiedAt: v.optional(v.number()),
+        }),
+      ),
+    ),
     researchedAt: v.optional(v.number()),
     linkedinCompanyUrl: v.optional(v.string()),
     distributorFitScore: v.optional(v.number()),
     distributorFitRationale: v.optional(v.string()),
-    targetSegment: v.optional(v.union(
-      v.literal("sme"),
-      v.literal("mid"),
-      v.literal("large"),
-    )),
-    menaChannelStatus: v.optional(v.union(
-      v.literal("none"),
-      v.literal("limited"),
-      v.literal("established"),
-    )),
-    exportReadiness: v.optional(v.union(
-      v.literal("low"),
-      v.literal("medium"),
-      v.literal("high"),
-    )),
+    targetSegment: v.optional(
+      v.union(v.literal("sme"), v.literal("mid"), v.literal("large")),
+    ),
+    menaChannelStatus: v.optional(
+      v.union(
+        v.literal("none"),
+        v.literal("limited"),
+        v.literal("established"),
+      ),
+    ),
+    exportReadiness: v.optional(
+      v.union(v.literal("low"), v.literal("medium"), v.literal("high")),
+    ),
     dealModelFit: v.optional(v.union(v.literal("distributor"))),
-    priorityTier: v.optional(v.union(
-      v.literal("tier_1"),
-      v.literal("tier_2"),
-      v.literal("tier_3"),
-      v.literal("deprioritized"),
-    )),
+    priorityTier: v.optional(
+      v.union(
+        v.literal("tier_1"),
+        v.literal("tier_2"),
+        v.literal("tier_3"),
+        v.literal("deprioritized"),
+      ),
+    ),
     partnerabilitySignals: v.optional(v.array(v.string())),
     disqualifierReasons: v.optional(v.array(v.string())),
     ownershipType: v.optional(v.string()),
@@ -822,31 +874,41 @@ export default defineSchema({
     partneringHistory: v.optional(v.string()),
     manufacturingFootprint: v.optional(v.string()),
     primaryCommercialModel: v.optional(v.string()),
-    entityRoles: v.optional(v.array(v.union(
-      v.literal("manufacturer"),
-      v.literal("market_authorization_holder"),
-      v.literal("licensor"),
-      v.literal("regional_partner"),
-      v.literal("distributor")
-    ))),
-    commercialControlLevel: v.optional(v.union(
-      v.literal("full"),
-      v.literal("shared"),
-      v.literal("limited"),
-      v.literal("unknown")
-    )),
+    entityRoles: v.optional(
+      v.array(
+        v.union(
+          v.literal("manufacturer"),
+          v.literal("market_authorization_holder"),
+          v.literal("licensor"),
+          v.literal("regional_partner"),
+          v.literal("distributor"),
+        ),
+      ),
+    ),
+    commercialControlLevel: v.optional(
+      v.union(
+        v.literal("full"),
+        v.literal("shared"),
+        v.literal("limited"),
+        v.literal("unknown"),
+      ),
+    ),
     existingMenaPartners: v.optional(v.array(menaPartner)),
-    menaPartnershipStrength: v.optional(v.union(
-      v.literal("none"),
-      v.literal("limited"),
-      v.literal("moderate"),
-      v.literal("entrenched")
-    )),
-    approachTargetRecommendation: v.optional(v.union(
-      v.literal("approach"),
-      v.literal("watch"),
-      v.literal("deprioritize")
-    )),
+    menaPartnershipStrength: v.optional(
+      v.union(
+        v.literal("none"),
+        v.literal("limited"),
+        v.literal("moderate"),
+        v.literal("entrenched"),
+      ),
+    ),
+    approachTargetRecommendation: v.optional(
+      v.union(
+        v.literal("approach"),
+        v.literal("watch"),
+        v.literal("deprioritize"),
+      ),
+    ),
     approachTargetReason: v.optional(v.string()),
     notApproachableReason: v.optional(v.string()),
   })
@@ -867,24 +929,28 @@ export default defineSchema({
     therapeuticArea: v.string(),
     indication: v.string(),
     mechanism: v.optional(v.string()),
-    productProfile: v.optional(v.object({
-      strength: v.optional(v.string()),
-      dosageForm: v.optional(v.string()),
-      route: v.optional(v.string()),
-      productFamily: v.optional(v.string()),
-      canonicalKey: v.optional(v.string()),
-      sourceRegions: v.optional(v.array(productSourceRegion)),
-      ownershipConfidence: v.optional(v.union(
-        v.literal("confirmed"),
-        v.literal("likely"),
-        v.literal("uncertain")
-      )),
-    })),
+    productProfile: v.optional(
+      v.object({
+        strength: v.optional(v.string()),
+        dosageForm: v.optional(v.string()),
+        route: v.optional(v.string()),
+        productFamily: v.optional(v.string()),
+        canonicalKey: v.optional(v.string()),
+        sourceRegions: v.optional(v.array(productSourceRegion)),
+        ownershipConfidence: v.optional(
+          v.union(
+            v.literal("confirmed"),
+            v.literal("likely"),
+            v.literal("uncertain"),
+          ),
+        ),
+      }),
+    ),
     identityEvidenceItems: v.optional(v.array(productIdentityEvidenceItem)),
     approvalStatus: v.union(
       v.literal("approved"),
       v.literal("pending"),
-      v.literal("withdrawn")
+      v.literal("withdrawn"),
     ),
     approvalDate: v.optional(v.string()),
     category: v.optional(v.string()),
@@ -895,30 +961,34 @@ export default defineSchema({
     emaApprovalDate: v.optional(v.string()),
     menaRegistrationCount: v.optional(v.number()),
     patentUrgencyScore: v.optional(v.number()),
-    menaRegistrations: v.optional(v.array(v.object({
-      country: v.string(),
-      status: v.union(
-        v.literal("registered"),
-        v.literal("under_registration"),
-        v.literal("verified_absent"),
-        v.literal("not_found"),
-        v.literal("not_found_unverified"),
-        v.literal("unverified"),
-        v.literal("unknown")
+    menaRegistrations: v.optional(
+      v.array(
+        v.object({
+          country: v.string(),
+          status: v.union(
+            v.literal("registered"),
+            v.literal("under_registration"),
+            v.literal("verified_absent"),
+            v.literal("not_found"),
+            v.literal("not_found_unverified"),
+            v.literal("unverified"),
+            v.literal("unknown"),
+          ),
+          registrationNumber: v.optional(v.string()),
+          source: v.string(),
+          url: v.optional(v.string()),
+          verifiedAt: v.number(),
+          sourceSystem: v.optional(priceEvidenceSourceSystem),
+          sourceTitle: v.optional(v.string()),
+          sourceRecordId: v.optional(v.string()),
+          observedAt: v.optional(v.number()),
+          strength: v.optional(v.string()),
+          form: v.optional(v.string()),
+          packSize: v.optional(v.string()),
+          notes: v.optional(v.string()),
+        }),
       ),
-      registrationNumber: v.optional(v.string()),
-      source: v.string(),
-      url: v.optional(v.string()),
-      verifiedAt: v.number(),
-      sourceSystem: v.optional(priceEvidenceSourceSystem),
-      sourceTitle: v.optional(v.string()),
-      sourceRecordId: v.optional(v.string()),
-      observedAt: v.optional(v.number()),
-      strength: v.optional(v.string()),
-      form: v.optional(v.string()),
-      packSize: v.optional(v.string()),
-      notes: v.optional(v.string()),
-    }))),
+    ),
   })
     .index("by_company", ["companyId"])
     .index("by_therapeutic_area", ["therapeuticArea"])
@@ -955,7 +1025,10 @@ export default defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   })
-    .index("by_source_system_and_source_record_id", ["sourceSystem", "sourceRecordId"])
+    .index("by_source_system_and_source_record_id", [
+      "sourceSystem",
+      "sourceRecordId",
+    ])
     .index("by_geography", ["geography"])
     .index("by_brand_name", ["brandName"])
     .index("by_inn", ["inn"]),
@@ -1004,7 +1077,10 @@ export default defineSchema({
   })
     .index("by_canonical_product", ["canonicalProductId"])
     .index("by_product_source", ["productSourceId"])
-    .index("by_canonical_product_and_product_source", ["canonicalProductId", "productSourceId"]),
+    .index("by_canonical_product_and_product_source", [
+      "canonicalProductId",
+      "productSourceId",
+    ]),
 
   canonicalProductEntities: defineTable({
     canonicalProductId: v.id("canonicalProducts"),
@@ -1032,7 +1108,7 @@ export default defineSchema({
       v.literal("market_authorization_holder"),
       v.literal("licensor"),
       v.literal("regional_partner"),
-      v.literal("distributor")
+      v.literal("distributor"),
     ),
     jurisdiction: v.optional(v.string()),
     isPrimary: v.boolean(),
@@ -1042,7 +1118,7 @@ export default defineSchema({
     confidence: v.union(
       v.literal("confirmed"),
       v.literal("likely"),
-      v.literal("inferred")
+      v.literal("inferred"),
     ),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -1050,7 +1126,10 @@ export default defineSchema({
     .index("by_drug", ["drugId"])
     .index("by_company", ["companyId"])
     .index("by_drug_and_relationship_type", ["drugId", "relationshipType"])
-    .index("by_company_and_relationship_type", ["companyId", "relationshipType"]),
+    .index("by_company_and_relationship_type", [
+      "companyId",
+      "relationshipType",
+    ]),
 
   opportunities: defineTable({
     drugId: v.id("drugs"),
@@ -1159,7 +1238,10 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_canonical_product", ["canonicalProductId"])
-    .index("by_canonical_product_and_country", ["canonicalProductId", "country"])
+    .index("by_canonical_product_and_country", [
+      "canonicalProductId",
+      "country",
+    ])
     .index("by_country", ["country"]),
 
   priceEvidence: defineTable({
@@ -1184,7 +1266,11 @@ export default defineSchema({
     .index("by_drug", ["drugId"])
     .index("by_drug_and_country", ["drugId", "country"])
     .index("by_source_system", ["sourceSystem"])
-    .index("by_drug_country_and_observed_at", ["drugId", "country", "observedAt"]),
+    .index("by_drug_country_and_observed_at", [
+      "drugId",
+      "country",
+      "observedAt",
+    ]),
 
   commercialSignals: defineTable({
     drugId: v.id("drugs"),
@@ -1222,7 +1308,7 @@ export default defineSchema({
       v.literal("essential_medicines"),
       v.literal("market_report"),
       v.literal("company"),
-      v.literal("internal")
+      v.literal("internal"),
     ),
     sourceSystem: priceEvidenceSourceSystem,
     sourceCategory: priceSourceCategory,
@@ -1233,7 +1319,10 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_drug_and_country", ["drugId", "country"])
-    .index("by_canonical_product_and_country", ["canonicalProductId", "country"])
+    .index("by_canonical_product_and_country", [
+      "canonicalProductId",
+      "country",
+    ])
     .index("by_country", ["country"]),
 
   marketSimulations: defineTable({
@@ -1276,13 +1365,13 @@ export default defineSchema({
     status: v.union(
       v.literal("generating"),
       v.literal("ready"),
-      v.literal("error")
+      v.literal("error"),
     ),
     errorMessage: v.optional(v.string()),
     generatedAt: v.optional(v.number()),
     updatedAt: v.number(),
     sources: v.optional(
-      v.array(v.object({ title: v.string(), url: v.string() }))
+      v.array(v.object({ title: v.string(), url: v.string() })),
     ),
   }).index("by_drug", ["drugId"]),
 
@@ -1292,7 +1381,7 @@ export default defineSchema({
     sourceType: v.union(
       v.literal("pdf"),
       v.literal("image"),
-      v.literal("text")
+      v.literal("text"),
     ),
     content: v.string(),
     seedTerms: v.array(v.string()),
@@ -1327,7 +1416,7 @@ export default defineSchema({
     status: v.union(
       v.literal("running"),
       v.literal("completed"),
-      v.literal("error")
+      v.literal("error"),
     ),
     // For drug-discovery jobs — which company was scanned
     companyId: v.optional(v.id("companies")),
@@ -1393,36 +1482,44 @@ export default defineSchema({
     indication: v.string(),
     targetCountries: v.array(v.string()),
     gapScore: v.number(),
-    analysisLens: v.optional(v.union(
-      v.literal("demand_led"),
-      v.literal("product_led"),
-      v.literal("mixed"),
-    )),
+    analysisLens: v.optional(
+      v.union(
+        v.literal("demand_led"),
+        v.literal("product_led"),
+        v.literal("mixed"),
+      ),
+    ),
     canonicalProductId: v.optional(v.id("canonicalProducts")),
-    gapType: v.optional(v.union(
-      v.literal("regulatory_gap"),
-      v.literal("formulary_gap"),
-      v.literal("shortage_gap"),
-      v.literal("tender_pull"),
-      v.literal("channel_whitespace"),
-    )),
-    productGapKind: v.optional(v.union(
-      v.literal("fda_absent_mena"),
-      v.literal("ema_absent_mena"),
-      v.literal("fda_ema_absent_mena"),
-      v.literal("different_brand_present"),
-      v.literal("generic_present"),
-      v.literal("off_patent"),
-      v.literal("near_patent_expiry"),
-      v.literal("biosimilar_opportunity"),
-      v.literal("reference_biologic_opportunity"),
-      v.literal("unclear_presence"),
-    )),
-    validationStatus: v.optional(v.union(
-      v.literal("confirmed"),
-      v.literal("likely"),
-      v.literal("insufficient_evidence"),
-    )),
+    gapType: v.optional(
+      v.union(
+        v.literal("regulatory_gap"),
+        v.literal("formulary_gap"),
+        v.literal("shortage_gap"),
+        v.literal("tender_pull"),
+        v.literal("channel_whitespace"),
+      ),
+    ),
+    productGapKind: v.optional(
+      v.union(
+        v.literal("fda_absent_mena"),
+        v.literal("ema_absent_mena"),
+        v.literal("fda_ema_absent_mena"),
+        v.literal("different_brand_present"),
+        v.literal("generic_present"),
+        v.literal("off_patent"),
+        v.literal("near_patent_expiry"),
+        v.literal("biosimilar_opportunity"),
+        v.literal("reference_biologic_opportunity"),
+        v.literal("unclear_presence"),
+      ),
+    ),
+    validationStatus: v.optional(
+      v.union(
+        v.literal("confirmed"),
+        v.literal("likely"),
+        v.literal("insufficient_evidence"),
+      ),
+    ),
     evidenceSummary: v.optional(v.string()),
     verifiedRegisteredCount: v.optional(v.number()),
     verifiedMissingCount: v.optional(v.number()),
@@ -1437,36 +1534,40 @@ export default defineSchema({
     suggestedDrugClasses: v.array(v.string()),
     tenderSignals: v.optional(v.string()),
     whoDiseaseBurden: v.optional(v.string()),
-    regulatoryFeasibility: v.optional(v.union(
-      v.literal("high"),
-      v.literal("medium"),
-      v.literal("low"),
-    )),
+    regulatoryFeasibility: v.optional(
+      v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    ),
     status: v.union(v.literal("active"), v.literal("archived")),
     dedupeKey: v.optional(v.string()),
-    sources: v.optional(v.array(v.object({ title: v.string(), url: v.string() }))),
-    evidenceItems: v.optional(v.array(v.object({
-      claim: v.string(),
-      title: v.string(),
-      url: v.string(),
-      sourceKind: v.union(
-        v.literal("official_registry"),
-        v.literal("ema"),
-        v.literal("government_publication"),
-        v.literal("tender_portal"),
-        v.literal("who_or_gbd"),
-        v.literal("market_report"),
-        v.literal("pubmed"),
-        v.literal("clinical_trial"),
+    sources: v.optional(
+      v.array(v.object({ title: v.string(), url: v.string() })),
+    ),
+    evidenceItems: v.optional(
+      v.array(
+        v.object({
+          claim: v.string(),
+          title: v.string(),
+          url: v.string(),
+          sourceKind: v.union(
+            v.literal("official_registry"),
+            v.literal("ema"),
+            v.literal("government_publication"),
+            v.literal("tender_portal"),
+            v.literal("who_or_gbd"),
+            v.literal("market_report"),
+            v.literal("pubmed"),
+            v.literal("clinical_trial"),
+          ),
+          country: v.optional(v.string()),
+          productOrClass: v.optional(v.string()),
+          confidence: v.union(
+            v.literal("confirmed"),
+            v.literal("likely"),
+            v.literal("inferred"),
+          ),
+        }),
       ),
-      country: v.optional(v.string()),
-      productOrClass: v.optional(v.string()),
-      confidence: v.union(
-        v.literal("confirmed"),
-        v.literal("likely"),
-        v.literal("inferred")
-      ),
-    }))),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
     lastEnrichedAt: v.optional(v.number()),
@@ -1490,11 +1591,9 @@ export default defineSchema({
     overlapSummary: v.optional(v.string()),
     overlappingDrugClasses: v.optional(v.array(v.string())),
     targetCountries: v.array(v.string()),
-    estimatedEaseOfEntry: v.optional(v.union(
-      v.literal("high"),
-      v.literal("medium"),
-      v.literal("low"),
-    )),
+    estimatedEaseOfEntry: v.optional(
+      v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    ),
     competitiveWhitespace: v.optional(v.string()),
     companyFootprintStatus: v.optional(companyFootprintStatus),
     companyFootprintReason: v.optional(v.string()),
@@ -1502,21 +1601,25 @@ export default defineSchema({
     companyConfirmedPortfolioCountries: v.optional(v.array(v.string())),
     companyPortfolioPresenceCount: v.optional(v.number()),
     recommendedFirstOutreachAngle: v.optional(v.string()),
-    confidence: v.optional(v.union(
-      v.literal("high"),
-      v.literal("medium"),
-      v.literal("low"),
-    )),
-    evidenceLinks: v.optional(v.array(v.object({
-      title: v.string(),
-      url: v.string(),
-    }))),
-    priorityTier: v.optional(v.union(
-      v.literal("tier_1"),
-      v.literal("tier_2"),
-      v.literal("tier_3"),
-      v.literal("deprioritized"),
-    )),
+    confidence: v.optional(
+      v.union(v.literal("high"), v.literal("medium"), v.literal("low")),
+    ),
+    evidenceLinks: v.optional(
+      v.array(
+        v.object({
+          title: v.string(),
+          url: v.string(),
+        }),
+      ),
+    ),
+    priorityTier: v.optional(
+      v.union(
+        v.literal("tier_1"),
+        v.literal("tier_2"),
+        v.literal("tier_3"),
+        v.literal("deprioritized"),
+      ),
+    ),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
@@ -1536,12 +1639,12 @@ export default defineSchema({
       v.literal("inn"),
       v.literal("manufacturer"),
       v.literal("market_authorization_holder"),
-      v.literal("other")
+      v.literal("other"),
     ),
     confidence: v.union(
       v.literal("confirmed"),
       v.literal("likely"),
-      v.literal("uncertain")
+      v.literal("uncertain"),
     ),
     source: v.optional(v.string()),
     notes: v.optional(v.string()),
@@ -1561,7 +1664,7 @@ export default defineSchema({
     status: v.union(
       v.literal("active"),
       v.literal("archived"),
-      v.literal("needs_validation")
+      v.literal("needs_validation"),
     ),
     therapeuticArea: v.string(),
     productName: v.string(),
@@ -1575,7 +1678,7 @@ export default defineSchema({
       v.literal("licensor"),
       v.literal("regional_partner"),
       v.literal("distributor"),
-      v.literal("unknown")
+      v.literal("unknown"),
     ),
     focusMarkets: v.array(v.string()),
     secondaryMarkets: v.optional(v.array(v.string())),
@@ -1586,12 +1689,12 @@ export default defineSchema({
       v.literal("shortage_gap"),
       v.literal("tender_pull"),
       v.literal("channel_whitespace"),
-      v.literal("mixed")
+      v.literal("mixed"),
     ),
     productIdentityStatus: v.union(
       v.literal("confirmed"),
       v.literal("likely"),
-      v.literal("uncertain")
+      v.literal("uncertain"),
     ),
     gapSummary: v.string(),
     commercialRationale: v.string(),
@@ -1608,7 +1711,7 @@ export default defineSchema({
       v.literal("easy"),
       v.literal("moderate"),
       v.literal("complex"),
-      v.literal("unknown")
+      v.literal("unknown"),
     ),
     timelineRange: v.string(),
     keyConstraint: v.string(),
@@ -1616,7 +1719,7 @@ export default defineSchema({
       v.literal("distributor"),
       v.literal("licensing"),
       v.literal("direct"),
-      v.literal("watch")
+      v.literal("watch"),
     ),
     entryStrategyRationale: v.string(),
     whyThisMarket: v.string(),
@@ -1633,7 +1736,7 @@ export default defineSchema({
       v.literal("confirmed"),
       v.literal("likely"),
       v.literal("inferred"),
-      v.literal("none")
+      v.literal("none"),
     ),
     outreachReadiness: v.optional(outreachReadiness),
     outreachBlockers: v.optional(v.array(v.string())),
@@ -1643,7 +1746,7 @@ export default defineSchema({
     confidenceLevel: v.union(
       v.literal("high"),
       v.literal("medium"),
-      v.literal("low")
+      v.literal("low"),
     ),
     confidenceSummary: v.string(),
     assumptions: v.array(v.string()),
@@ -1666,10 +1769,14 @@ export default defineSchema({
     lastContactedAt: v.optional(v.number()),
     staleAfter: v.optional(v.number()),
     migrationKey: v.optional(v.string()),
-    legacySource: v.optional(v.union(
-      v.literal("candidate_opportunity"),
-      v.literal("actionable_lead")
-    )),
+    legacySource: v.optional(
+      v.union(v.literal("candidate_opportunity"), v.literal("actionable_lead")),
+    ),
+    evidenceEngineVersion: v.optional(evidenceEngineVersion),
+    canonicalPursuitKey: v.optional(v.string()),
+    normalizedPresentationKey: v.optional(v.string()),
+    legacyQuarantinedAt: v.optional(v.number()),
+    legacyQuarantineReason: v.optional(v.string()),
   })
     .index("by_status", ["status"])
     .index("by_priority_score", ["priorityScore"])
@@ -1681,8 +1788,16 @@ export default defineSchema({
     .index("by_drug_and_gap_opportunity", ["drugId", "gapOpportunityId"])
     .index("by_funnel_stage", ["funnelStage"])
     .index("by_funnel_stage_and_score", ["funnelStage", "priorityScore"])
-    .index("by_funnel_stage_and_last_qualified", ["funnelStage", "lastQualifiedAt"])
-    .index("by_migration_key", ["migrationKey"]),
+    .index("by_funnel_stage_and_last_qualified", [
+      "funnelStage",
+      "lastQualifiedAt",
+    ])
+    .index("by_migration_key", ["migrationKey"])
+    .index("by_evidence_engine_version_and_priority_score", [
+      "evidenceEngineVersion",
+      "priorityScore",
+    ])
+    .index("by_canonical_pursuit_key", ["canonicalPursuitKey"]),
 
   opportunityMarketAssessments: defineTable({
     decisionOpportunityId: v.id("decisionOpportunities"),
@@ -1695,14 +1810,14 @@ export default defineSchema({
       v.literal("under_registration"),
       v.literal("verified_absent"),
       v.literal("not_found_unverified"),
-      v.literal("unverified")
+      v.literal("unverified"),
     ),
     registrationEvidence: v.string(),
     rightsStatus: v.union(
       v.literal("clear_no_conflict_found"),
       v.literal("conflict"),
       v.literal("unknown"),
-      v.literal("needs_review")
+      v.literal("needs_review"),
     ),
     presenceStatement: v.string(),
     agentPartnerEvidence: v.string(),
@@ -1710,7 +1825,7 @@ export default defineSchema({
       v.literal("strong"),
       v.literal("medium"),
       v.literal("weak"),
-      v.literal("none")
+      v.literal("none"),
     ),
     strongSignalCount: v.number(),
     mediumSignalCount: v.number(),
@@ -1719,7 +1834,7 @@ export default defineSchema({
     economicsStatus: v.union(
       v.literal("evidence_backed"),
       v.literal("conservative_range"),
-      v.literal("unvalidated")
+      v.literal("unvalidated"),
     ),
     economicsSummary: v.string(),
     feasibilityReviewed: v.boolean(),
@@ -1732,12 +1847,42 @@ export default defineSchema({
     staleAfter: v.number(),
     reviewedByMemberId: v.optional(v.id("workspaceMembers")),
     reviewedAt: v.optional(v.number()),
+    evidenceEngineVersion: v.optional(evidenceEngineVersion),
+    normalizedPresentationKey: v.optional(v.string()),
+    whiteSpaceStatus: v.optional(whiteSpaceMatchStatus),
+    absenceConfidence: v.optional(absenceConfidence),
+    sourceSnapshotId: v.optional(v.id("sourceFetches")),
+    sourceSnapshotDate: v.optional(v.number()),
+    sourceExpiresAt: v.optional(v.number()),
+    companyReasonCode: v.optional(companyReasonCode),
+    companyReasonEvidenceUrl: v.optional(v.string()),
+    companyReasonEvidenceExcerpt: v.optional(v.string()),
+    companyReasonObservedAt: v.optional(v.number()),
+    gateSnapshot: v.optional(
+      v.object({
+        g1ReferenceApproval: evidenceGateStatus,
+        g2EligibleCategory: evidenceGateStatus,
+        g3WhiteSpace: evidenceGateStatus,
+        g4CompanyAndRights: evidenceGateStatus,
+        g5PriceChain: evidenceGateStatus,
+        g6LifetimeEconomics: evidenceGateStatus,
+        g7Demand: evidenceGateStatus,
+        evaluatedAt: v.number(),
+        engineVersion: evidenceEngineVersion,
+      }),
+    ),
+    commercialApprovalStatus: v.optional(commercialApprovalStatus),
+    commercialApprovedByMemberId: v.optional(v.id("workspaceMembers")),
+    commercialApprovedAt: v.optional(v.number()),
+    intendedLocalApplicant: v.optional(v.string()),
+    nomineeCovenantStatus: v.optional(nomineeCovenantStatus),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_opportunity", ["decisionOpportunityId"])
     .index("by_opportunity_and_country", ["decisionOpportunityId", "country"])
     .index("by_country_and_stage", ["country", "stage"])
+    .index("by_company_reason_and_stage", ["companyReasonCode", "stage"])
     .index("by_stage_and_score", ["stage", "weightedScore"])
     .index("by_stale_after", ["staleAfter"]),
 
@@ -1749,11 +1894,19 @@ export default defineSchema({
     title: v.string(),
     sourceUrl: v.string(),
     sourceType: v.string(),
-    evidenceStrength: v.union(v.literal("strong"), v.literal("medium"), v.literal("supporting")),
+    evidenceStrength: v.union(
+      v.literal("strong"),
+      v.literal("medium"),
+      v.literal("supporting"),
+    ),
     observedAt: v.number(),
     parserVersion: v.string(),
     confidence: evidenceConfidence,
-    reviewState: v.union(v.literal("pending"), v.literal("approved"), v.literal("rejected")),
+    reviewState: v.union(
+      v.literal("pending"),
+      v.literal("approved"),
+      v.literal("rejected"),
+    ),
     reviewedByMemberId: v.optional(v.id("workspaceMembers")),
     reviewedAt: v.optional(v.number()),
     createdAt: v.number(),
@@ -1767,8 +1920,18 @@ export default defineSchema({
     companyId: v.id("companies"),
     contactId: v.optional(v.id("leadContacts")),
     assignedMemberId: v.id("workspaceMembers"),
-    sequenceDay: v.union(v.literal(0), v.literal(3), v.literal(7), v.literal(14), v.literal(30)),
-    channel: v.union(v.literal("email"), v.literal("call"), v.literal("linkedin")),
+    sequenceDay: v.union(
+      v.literal(0),
+      v.literal(3),
+      v.literal(7),
+      v.literal(14),
+      v.literal(30),
+    ),
+    channel: v.union(
+      v.literal("email"),
+      v.literal("call"),
+      v.literal("linkedin"),
+    ),
     title: v.string(),
     draft: v.optional(v.string()),
     dueAt: v.number(),
@@ -1776,15 +1939,22 @@ export default defineSchema({
       v.literal("pending"),
       v.literal("completed"),
       v.literal("skipped"),
-      v.literal("cancelled")
+      v.literal("cancelled"),
     ),
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_opportunity", ["decisionOpportunityId"])
-    .index("by_assignee_and_status_and_due", ["assignedMemberId", "status", "dueAt"])
-    .index("by_opportunity_and_sequence_day", ["decisionOpportunityId", "sequenceDay"]),
+    .index("by_assignee_and_status_and_due", [
+      "assignedMemberId",
+      "status",
+      "dueAt",
+    ])
+    .index("by_opportunity_and_sequence_day", [
+      "decisionOpportunityId",
+      "sequenceDay",
+    ]),
 
   opportunityEvidence: defineTable({
     decisionOpportunityId: v.id("decisionOpportunities"),
@@ -1797,18 +1967,21 @@ export default defineSchema({
       v.literal("gap"),
       v.literal("company"),
       v.literal("contact"),
-      v.literal("internal")
+      v.literal("internal"),
     ),
     confidence: v.union(
       v.literal("confirmed"),
       v.literal("likely"),
-      v.literal("inferred")
+      v.literal("inferred"),
     ),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_decision_opportunity", ["decisionOpportunityId"])
-    .index("by_decision_opportunity_and_evidence_type", ["decisionOpportunityId", "evidenceType"]),
+    .index("by_decision_opportunity_and_evidence_type", [
+      "decisionOpportunityId",
+      "evidenceType",
+    ]),
 
   mandateOpportunityReports: defineTable({
     decisionOpportunityId: v.id("decisionOpportunities"),
@@ -1842,7 +2015,7 @@ export default defineSchema({
       v.literal("high"),
       v.literal("medium"),
       v.literal("low"),
-      v.literal("UNVALIDATED")
+      v.literal("UNVALIDATED"),
     ),
     missingEconomicInformation: v.array(v.string()),
     risks: v.array(v.string()),
@@ -1946,15 +2119,30 @@ export default defineSchema({
     ok: v.boolean(),
     contentHash: v.string(),
     rawPayload: v.string(),
+    storageId: v.optional(v.id("_storage")),
     parserVersion: v.string(),
     structureStatus: sourceStructureStatus,
     structureMessage: v.optional(v.string()),
     robotsAllowed: v.boolean(),
     errorMessage: v.optional(v.string()),
+    rowCount: v.optional(v.number()),
+    previousRowCount: v.optional(v.number()),
+    coverageChangePct: v.optional(v.number()),
+    coverageHealth: v.optional(
+      v.union(
+        v.literal("accepted"),
+        v.literal("needs_review"),
+        v.literal("rejected"),
+      ),
+    ),
+    acceptedAt: v.optional(v.number()),
     createdAt: v.number(),
   })
     .index("by_source_registry_and_fetched_at", ["sourceRegistry", "fetchedAt"])
-    .index("by_source_registry_id_and_fetched_at", ["sourceRegistryId", "fetchedAt"])
+    .index("by_source_registry_id_and_fetched_at", [
+      "sourceRegistryId",
+      "fetchedAt",
+    ])
     .index("by_structure_status", ["structureStatus"]),
 
   substanceFacts: defineTable({
@@ -1963,7 +2151,11 @@ export default defineSchema({
     inn: v.string(),
     normalizedInn: v.string(),
     substanceKey: v.string(),
-    matchStatus: v.union(v.literal("resolved"), v.literal("ambiguous"), v.literal("unresolved")),
+    matchStatus: v.union(
+      v.literal("resolved"),
+      v.literal("ambiguous"),
+      v.literal("unresolved"),
+    ),
     sourceUrl: v.string(),
     fetchedAt: v.number(),
     sourceRegistry: v.string(),
@@ -1981,12 +2173,17 @@ export default defineSchema({
       v.literal("rxnorm"),
       v.literal("atc"),
       v.literal("inn"),
-      v.literal("internal")
+      v.literal("internal"),
     ),
     sourceCode: v.string(),
     displayName: v.string(),
     normalizedName: v.string(),
-    synonymType: v.union(v.literal("preferred"), v.literal("synonym"), v.literal("salt"), v.literal("combination")),
+    synonymType: v.union(
+      v.literal("preferred"),
+      v.literal("synonym"),
+      v.literal("salt"),
+      v.literal("combination"),
+    ),
     sourceUrl: v.string(),
     fetchedAt: v.number(),
     sourceRegistry: v.string(),
@@ -2010,21 +2207,45 @@ export default defineSchema({
     route: v.string(),
     mah: v.string(),
     manufacturer: v.string(),
-    authorizationMarket: v.union(v.literal("FDA"), v.literal("EMA"), v.literal("BfArM"), v.literal("EU_NATIONAL")),
-    authorizationStatus: v.union(v.literal("approved"), v.literal("under_review"), v.literal("withdrawn"), v.literal("suspended")),
+    authorizationMarket: v.union(
+      v.literal("FDA"),
+      v.literal("EMA"),
+      v.literal("MHRA"),
+      v.literal("BfArM"),
+      v.literal("EU_NATIONAL"),
+    ),
+    authorizationStatus: v.union(
+      v.literal("approved"),
+      v.literal("under_review"),
+      v.literal("withdrawn"),
+      v.literal("suspended"),
+    ),
     authorizationDate: v.optional(v.string()),
     sourceRecordId: v.optional(v.string()),
     sourceUrl: v.string(),
     fetchedAt: v.number(),
     sourceRegistry: v.string(),
     sourceFetchId: v.id("sourceFetches"),
+    normalizedInn: v.optional(v.string()),
+    normalizedDosageForm: v.optional(v.string()),
+    normalizedStrength: v.optional(v.string()),
+    normalizedPresentationKey: v.optional(v.string()),
+    parserVersion: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_drug", ["drugId"])
     .index("by_canonical_product", ["canonicalProductId"])
     .index("by_inn", ["inn"])
-    .index("by_authorization_market_and_status", ["authorizationMarket", "authorizationStatus"]),
+    .index("by_normalized_presentation_key", ["normalizedPresentationKey"])
+    .index("by_source_registry_and_source_record_id", [
+      "sourceRegistry",
+      "sourceRecordId",
+    ])
+    .index("by_authorization_market_and_status", [
+      "authorizationMarket",
+      "authorizationStatus",
+    ]),
 
   registrationStatusFacts: defineTable({
     canonicalProductId: v.optional(v.id("canonicalProducts")),
@@ -2039,29 +2260,49 @@ export default defineSchema({
     manufacturer: v.optional(v.string()),
     status: registrationFactStatus,
     registrationNumber: v.optional(v.string()),
-    absenceSearchMetadata: v.optional(v.object({
-      searchedNames: v.array(v.string()),
-      searchedInnVariants: v.array(v.string()),
-      officialRegistry: v.string(),
-      searchedAt: v.number(),
-    })),
+    absenceSearchMetadata: v.optional(
+      v.object({
+        searchedNames: v.array(v.string()),
+        searchedInnVariants: v.array(v.string()),
+        officialRegistry: v.string(),
+        searchedAt: v.number(),
+      }),
+    ),
     sourceUrl: v.string(),
     fetchedAt: v.number(),
     sourceRegistry: v.string(),
     sourceFetchId: v.id("sourceFetches"),
+    normalizedInn: v.optional(v.string()),
+    normalizedDosageForm: v.optional(v.string()),
+    normalizedStrength: v.optional(v.string()),
+    normalizedPresentationKey: v.optional(v.string()),
+    snapshotCoverageConfidence: v.optional(absenceConfidence),
+    expiresAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_drug_and_country", ["drugId", "country"])
-    .index("by_canonical_product_and_country", ["canonicalProductId", "country"])
+    .index("by_canonical_product_and_country", [
+      "canonicalProductId",
+      "country",
+    ])
     .index("by_country_and_status", ["country", "status"])
+    .index("by_country_and_normalized_presentation_key", [
+      "country",
+      "normalizedPresentationKey",
+    ])
     .index("by_source_registry", ["sourceRegistry"]),
 
   companyClassificationFacts: defineTable({
     companyId: v.optional(v.id("companies")),
     companyName: v.string(),
     normalizedCompanyName: v.string(),
-    sizeBand: v.union(v.literal("sme"), v.literal("mid"), v.literal("large"), v.literal("unknown")),
+    sizeBand: v.union(
+      v.literal("sme"),
+      v.literal("mid"),
+      v.literal("large"),
+      v.literal("unknown"),
+    ),
     isTop20Pharma: v.boolean(),
     matchedTop20Parent: v.optional(v.string()),
     confidence: evidenceConfidence,
@@ -2083,7 +2324,12 @@ export default defineSchema({
     productName: v.string(),
     companyName: v.string(),
     territory: v.string(),
-    rightsStatus: v.union(v.literal("confirmed"), v.literal("announced"), v.literal("unclear"), v.literal("unavailable")),
+    rightsStatus: v.union(
+      v.literal("confirmed"),
+      v.literal("announced"),
+      v.literal("unclear"),
+      v.literal("unavailable"),
+    ),
     rightsHolder: v.optional(v.string()),
     excerpt: v.string(),
     confidence: evidenceConfidence,
@@ -2124,13 +2370,16 @@ export default defineSchema({
     }),
     createdAt: v.number(),
     updatedAt: v.number(),
-  })
-    .index("by_is_active", ["isActive"]),
+  }).index("by_is_active", ["isActive"]),
 
   opportunityRuns: defineTable({
     assumptionSetId: v.id("opportunityAssumptionSets"),
     status: opportunityRunStatus,
-    trigger: v.union(v.literal("manual"), v.literal("scheduled"), v.literal("source_change")),
+    trigger: v.union(
+      v.literal("manual"),
+      v.literal("scheduled"),
+      v.literal("source_change"),
+    ),
     candidateCount: v.number(),
     passedGateCount: v.number(),
     excludedTop20Count: v.number(),
@@ -2207,13 +2456,28 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_decision_opportunity_and_country", [
+      "decisionOpportunityId",
+      "country",
+    ])
     .index("by_drug_and_country", ["drugId", "country"])
-    .index("by_canonical_product_and_country", ["canonicalProductId", "country"]),
+    .index("by_canonical_product_and_country", [
+      "canonicalProductId",
+      "country",
+    ]),
 
   changeEvents: defineTable({
     eventType: changeEventType,
-    severity: v.union(v.literal("info"), v.literal("warning"), v.literal("critical")),
-    status: v.union(v.literal("new"), v.literal("acknowledged"), v.literal("resolved")),
+    severity: v.union(
+      v.literal("info"),
+      v.literal("warning"),
+      v.literal("critical"),
+    ),
+    status: v.union(
+      v.literal("new"),
+      v.literal("acknowledged"),
+      v.literal("resolved"),
+    ),
     title: v.string(),
     summary: v.string(),
     decisionOpportunityId: v.optional(v.id("decisionOpportunities")),
@@ -2237,8 +2501,17 @@ export default defineSchema({
 
   alertDeliveries: defineTable({
     changeEventId: v.id("changeEvents"),
-    channel: v.union(v.literal("in_app"), v.literal("email_digest"), v.literal("teams_webhook")),
-    status: v.union(v.literal("pending"), v.literal("sent"), v.literal("skipped"), v.literal("failed")),
+    channel: v.union(
+      v.literal("in_app"),
+      v.literal("email_digest"),
+      v.literal("teams_webhook"),
+    ),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("sent"),
+      v.literal("skipped"),
+      v.literal("failed"),
+    ),
     destination: v.string(),
     retryCount: v.number(),
     lastError: v.optional(v.string()),
@@ -2258,7 +2531,11 @@ export default defineSchema({
     productName: v.optional(v.string()),
     companyName: v.optional(v.string()),
     targetMarkets: v.array(engineCountry),
-    status: v.union(v.literal("tracked"), v.literal("paused"), v.literal("closed")),
+    status: v.union(
+      v.literal("tracked"),
+      v.literal("paused"),
+      v.literal("closed"),
+    ),
     reason: v.string(),
     alertOnRegistration: v.boolean(),
     alertOnRights: v.boolean(),
@@ -2305,10 +2582,18 @@ export default defineSchema({
     probabilityOfSuccessPct: v.number(),
     expectedValueUsd: v.number(),
     assumptions: v.array(v.string()),
+    status: v.optional(commercialApprovalStatus),
+    approvedByMemberId: v.optional(v.id("workspaceMembers")),
+    approvedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_decision_opportunity", ["decisionOpportunityId"])
+    .index("by_decision_opportunity_and_market_and_model", [
+      "decisionOpportunityId",
+      "market",
+      "model",
+    ])
     .index("by_run_item", ["runItemId"])
     .index("by_model", ["model"]),
 
@@ -2326,8 +2611,7 @@ export default defineSchema({
     sourceFetchId: v.id("sourceFetches"),
     createdAt: v.number(),
     updatedAt: v.number(),
-  })
-    .index("by_country", ["country"]),
+  }).index("by_country", ["country"]),
 
   sourceSnapshots: defineTable({
     sourceSystem: leadSourceSystem,
@@ -2341,7 +2625,10 @@ export default defineSchema({
     fetchedAt: v.number(),
     httpStatus: v.optional(v.number()),
   })
-    .index("by_source_system_and_source_record_id", ["sourceSystem", "sourceRecordId"])
+    .index("by_source_system_and_source_record_id", [
+      "sourceSystem",
+      "sourceRecordId",
+    ])
     .index("by_country_and_fetched_at", ["country", "fetchedAt"]),
 
   marketSignals: defineTable({
@@ -2350,7 +2637,11 @@ export default defineSchema({
     externalId: v.string(),
     country: leadCountry,
     signalType: leadSignalType,
-    status: v.union(v.literal("open"), v.literal("closed"), v.literal("observed")),
+    status: v.union(
+      v.literal("open"),
+      v.literal("closed"),
+      v.literal("observed"),
+    ),
     title: v.string(),
     productTerms: v.array(v.string()),
     sourceUrl: v.string(),
@@ -2371,10 +2662,13 @@ export default defineSchema({
     signalId: v.id("marketSignals"),
     productMatchStatus: v.union(
       v.literal("matched"),
-      v.literal("not_relevant")
+      v.literal("not_relevant"),
     ),
     drugId: v.optional(v.id("drugs")),
-    productMatchMethod: v.union(v.literal("manual"), v.literal("automatic_exact")),
+    productMatchMethod: v.union(
+      v.literal("manual"),
+      v.literal("automatic_exact"),
+    ),
     ownershipCompanyId: v.optional(v.id("companies")),
     ownershipEvidenceUrl: v.optional(v.string()),
     ownershipEvidenceNote: v.optional(v.string()),
@@ -2418,27 +2712,34 @@ export default defineSchema({
     retrievedAt: v.number(),
     proposedCompanyId: v.optional(v.id("companies")),
     proposedCompanyName: v.optional(v.string()),
-    relationshipType: v.optional(v.union(
-      v.literal("manufacturer"),
-      v.literal("market_authorization_holder")
-    )),
+    relationshipType: v.optional(
+      v.union(
+        v.literal("manufacturer"),
+        v.literal("market_authorization_holder"),
+      ),
+    ),
     contactName: v.optional(v.string()),
     contactTitle: v.optional(v.string()),
     contactEmail: v.optional(v.string()),
     contactLinkedinUrl: v.optional(v.string()),
     country: v.optional(leadCountry),
-    registrationStatus: v.optional(v.union(
-      v.literal("registered"),
-      v.literal("not_found"),
-      v.literal("unverified")
-    )),
+    registrationStatus: v.optional(
+      v.union(
+        v.literal("registered"),
+        v.literal("not_found"),
+        v.literal("unverified"),
+      ),
+    ),
     status: researchFindingStatus,
     reviewedAt: v.optional(v.number()),
   })
     .index("by_research_run", ["researchRunId"])
     .index("by_drug_and_status", ["drugId", "status"])
     .index("by_company_and_status", ["companyId", "status"])
-    .index("by_decision_opportunity_and_status", ["decisionOpportunityId", "status"]),
+    .index("by_decision_opportunity_and_status", [
+      "decisionOpportunityId",
+      "status",
+    ]),
 
   approvedResearchEvidence: defineTable({
     researchFindingId: v.id("researchFindings"),
@@ -2457,7 +2758,10 @@ export default defineSchema({
     .index("by_research_finding", ["researchFindingId"])
     .index("by_drug_and_approved_at", ["drugId", "approvedAt"])
     .index("by_company_and_approved_at", ["companyId", "approvedAt"])
-    .index("by_decision_opportunity_and_approved_at", ["decisionOpportunityId", "approvedAt"]),
+    .index("by_decision_opportunity_and_approved_at", [
+      "decisionOpportunityId",
+      "approvedAt",
+    ]),
 
   leadContacts: defineTable({
     companyId: v.id("companies"),
@@ -2505,7 +2809,11 @@ export default defineSchema({
   })
     .index("by_stage_and_rank_score", ["stage", "rankScore"])
     .index("by_company_and_stage", ["companyId", "stage"])
-    .index("by_signal_and_drug_and_company", ["signalId", "drugId", "companyId"])
+    .index("by_signal_and_drug_and_company", [
+      "signalId",
+      "drugId",
+      "companyId",
+    ])
     .index("by_stale_after", ["staleAfter"])
     .index("by_updated_at", ["updatedAt"]),
 
@@ -2531,21 +2839,35 @@ export default defineSchema({
     qualificationReasons: v.array(v.string()),
     contactName: v.optional(v.string()),
     contactTitle: v.optional(v.string()),
-    contactRoute: v.optional(v.union(v.literal("email"), v.literal("linkedin"))),
+    contactRoute: v.optional(
+      v.union(v.literal("email"), v.literal("linkedin")),
+    ),
     lastQualifiedAt: v.number(),
     staleAfter: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_origin_and_rank_score", ["origin", "rankScore"])
-    .index("by_readiness_status_and_rank_score", ["readinessStatus", "rankScore"])
-    .index("by_drug_and_company_and_target_country", ["drugId", "companyId", "targetCountry"])
+    .index("by_readiness_status_and_rank_score", [
+      "readinessStatus",
+      "rankScore",
+    ])
+    .index("by_drug_and_company_and_target_country", [
+      "drugId",
+      "companyId",
+      "targetCountry",
+    ])
     .index("by_stale_after", ["staleAfter"])
     .index("by_updated_at", ["updatedAt"]),
 
   leadScanRuns: defineTable({
     trigger: v.union(v.literal("manual"), v.literal("scheduled")),
-    status: v.union(v.literal("running"), v.literal("completed"), v.literal("partial"), v.literal("error")),
+    status: v.union(
+      v.literal("running"),
+      v.literal("completed"),
+      v.literal("partial"),
+      v.literal("error"),
+    ),
     sourceSystems: v.array(leadSourceSystem),
     signalsFound: v.number(),
     leadsPublished: v.number(),
@@ -2574,10 +2896,22 @@ export default defineSchema({
     parsedAt: v.optional(v.number()),
     applyRequestedAt: v.optional(v.number()),
     appliedAt: v.optional(v.number()),
+    sourceFetchId: v.optional(v.id("sourceFetches")),
+    coverageChangePct: v.optional(v.number()),
+    coverageHealth: v.optional(
+      v.union(
+        v.literal("accepted"),
+        v.literal("needs_review"),
+        v.literal("rejected"),
+      ),
+    ),
+    evidencePublishedRows: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
   })
     .index("by_created_at", ["createdAt"])
+    .index("by_source_fetch", ["sourceFetchId"])
+    .index("by_source_type_and_created_at", ["sourceType", "createdAt"])
     .index("by_status", ["status"]),
 
   registrationImportRows: defineTable({
@@ -2594,7 +2928,7 @@ export default defineSchema({
     registrationStatus: v.union(
       v.literal("registered"),
       v.literal("not_found"),
-      v.literal("unverified")
+      v.literal("unverified"),
     ),
     sourceStatus: v.optional(v.string()),
     registrationNumber: v.optional(v.string()),
@@ -2608,7 +2942,9 @@ export default defineSchema({
     countryOfOrigin: v.optional(v.string()),
     bodySystem: v.optional(v.string()),
     therapeuticGroup: v.optional(v.string()),
-    productKind: v.optional(v.union(v.literal("medicine"), v.literal("device"))),
+    productKind: v.optional(
+      v.union(v.literal("medicine"), v.literal("device")),
+    ),
     matchExplanation: v.optional(v.string()),
     sourceNote: v.optional(v.string()),
     sourceSheet: v.string(),
@@ -2619,6 +2955,10 @@ export default defineSchema({
     matchedCompanyId: v.optional(v.id("companies")),
     validationIssues: v.array(v.string()),
     rawRow: v.record(v.string(), v.string()),
+    normalizedInn: v.optional(v.string()),
+    normalizedDosageForm: v.optional(v.string()),
+    normalizedStrength: v.optional(v.string()),
+    normalizedPresentationKey: v.optional(v.string()),
     appliedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -2632,5 +2972,9 @@ export default defineSchema({
       "applyState",
     ])
     .index("by_import_and_source_sheet", ["importId", "sourceSheet"])
+    .index("by_import_and_normalized_presentation_key", [
+      "importId",
+      "normalizedPresentationKey",
+    ])
     .index("by_import_and_source_record_id", ["importId", "sourceRecordId"]),
 });

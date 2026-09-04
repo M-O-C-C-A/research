@@ -1,6 +1,13 @@
 import React from "react";
 import { ConvexHttpClient } from "convex/browser";
-import { Document, Page, StyleSheet, Text, View, renderToBuffer } from "@react-pdf/renderer";
+import {
+  Document,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+  renderToBuffer,
+} from "@react-pdf/renderer";
 import { api } from "../../../../../../convex/_generated/api";
 import { Id } from "../../../../../../convex/_generated/dataModel";
 
@@ -101,6 +108,8 @@ type AssetExportPayload = {
     contactName?: string;
     targetRole?: string;
     howToEnterExplanation: string;
+    evidenceEngineVersion?: "v1.1";
+    normalizedPresentationKey?: string;
   };
   drug: {
     genericName: string;
@@ -116,6 +125,27 @@ type AssetExportPayload = {
   } | null;
   sizingInputs?: Array<{
     basis?: string;
+  }>;
+  assessments?: Array<{
+    country: string;
+    presenceStatement: string;
+    absenceConfidence?: string;
+    companyReasonCode?: string;
+    commercialApprovalStatus?: string;
+    intendedLocalApplicant?: string;
+    nomineeCovenantStatus?: string;
+    economicsSummary: string;
+    demandSummary: string;
+    blockers: string[];
+    gateSnapshot?: Record<string, string | number>;
+    sourceSnapshotDate?: number;
+  }>;
+  evidenceSignals?: Array<{
+    title: string;
+    sourceUrl: string;
+    sourceType: string;
+    observedAt: number;
+    reviewState: string;
   }>;
 };
 
@@ -134,7 +164,11 @@ function getConvexClient() {
   return new ConvexHttpClient(convexUrl);
 }
 
-function AssetBrief({ payload }: { payload: AssetExportPayload }): React.ReactElement<React.ComponentProps<typeof Document>> {
+function AssetBrief({
+  payload,
+}: {
+  payload: AssetExportPayload;
+}): React.ReactElement<React.ComponentProps<typeof Document>> {
   const opportunity = payload.opportunity;
   const drug = payload.drug;
   const runItem = payload.latestRunItem;
@@ -149,13 +183,21 @@ function AssetBrief({ payload }: { payload: AssetExportPayload }): React.ReactEl
       React.createElement(
         View,
         { style: styles.header },
-        React.createElement(Text, { style: styles.eyebrow }, "KEMEDICA Asset Brief"),
-        React.createElement(Text, { style: styles.title }, `${opportunity.productName} / ${drug.genericName}`),
+        React.createElement(
+          Text,
+          { style: styles.eyebrow },
+          "KEMEDICA Asset Brief",
+        ),
+        React.createElement(
+          Text,
+          { style: styles.title },
+          `${opportunity.productName} / ${drug.genericName}`,
+        ),
         React.createElement(
           Text,
           { style: styles.subtitle },
-          `${opportunity.approachEntityName} · ${runItem?.indication ?? drug.indication ?? "Indication UNKNOWN"}`
-        )
+          `${opportunity.approachEntityName} · ${runItem?.indication ?? drug.indication ?? "Indication UNKNOWN"}`,
+        ),
       ),
       React.createElement(
         View,
@@ -163,55 +205,256 @@ function AssetBrief({ payload }: { payload: AssetExportPayload }): React.ReactEl
         React.createElement(
           View,
           { style: styles.stat },
-          React.createElement(Text, { style: styles.statValue }, money(runItem?.peakSalesUsd)),
-          React.createElement(Text, { style: styles.statLabel }, "Peak sales")
+          React.createElement(
+            Text,
+            { style: styles.statValue },
+            money(runItem?.peakSalesUsd),
+          ),
+          React.createElement(Text, { style: styles.statLabel }, "Peak sales"),
         ),
         React.createElement(
           View,
           { style: styles.stat },
-          React.createElement(Text, { style: styles.statValue }, money(runItem?.riskAdjustedMargin)),
-          React.createElement(Text, { style: styles.statLabel }, "Risk-adjusted margin")
+          React.createElement(
+            Text,
+            { style: styles.statValue },
+            money(runItem?.riskAdjustedMargin),
+          ),
+          React.createElement(
+            Text,
+            { style: styles.statLabel },
+            "Risk-adjusted margin",
+          ),
         ),
         React.createElement(
           View,
           { style: styles.stat },
-          React.createElement(Text, { style: styles.statValue }, opportunity.priorityScore.toFixed(1)),
-          React.createElement(Text, { style: styles.statLabel }, "Opportunity score")
-        )
+          React.createElement(
+            Text,
+            { style: styles.statValue },
+            opportunity.priorityScore.toFixed(1),
+          ),
+          React.createElement(
+            Text,
+            { style: styles.statLabel },
+            "Opportunity score",
+          ),
+        ),
       ),
       React.createElement(
         View,
         { style: styles.section },
         React.createElement(Text, { style: styles.sectionTitle }, "Thesis"),
-        React.createElement(Text, { style: styles.body }, opportunity.commercialRationale)
-      ),
-      React.createElement(
-        View,
-        { style: styles.section },
-        React.createElement(Text, { style: styles.sectionTitle }, "Identity and rights"),
-        React.createElement(Row, { label: "INN", value: drug.genericName }),
-        React.createElement(Row, { label: "Company", value: opportunity.approachEntityName }),
-        React.createElement(Row, { label: "Approvals", value: runItem?.approvalsSummary ?? opportunity.approvalSummary ?? "UNKNOWN" }),
-        React.createElement(Row, { label: "MENA rights", value: runItem?.menaRightsSummary ?? "UNVALIDATED" }),
-        React.createElement(Row, { label: "Contact", value: opportunity.contactName ?? opportunity.targetRole ?? "UNKNOWN" })
-      ),
-      React.createElement(
-        View,
-        { style: styles.section },
-        React.createElement(Text, { style: styles.sectionTitle }, "Sizing basis"),
         React.createElement(
           Text,
           { style: styles.body },
-          runItem?.cascadeBasis ?? firstSizing?.basis ?? "UNVALIDATED"
-        )
+          opportunity.commercialRationale,
+        ),
       ),
       React.createElement(
         View,
         { style: styles.section },
-        React.createElement(Text, { style: styles.sectionTitle }, "Next action"),
-        React.createElement(Text, { style: styles.body }, opportunity.howToEnterExplanation)
-      )
-    )
+        React.createElement(
+          Text,
+          { style: styles.sectionTitle },
+          "Identity and rights",
+        ),
+        React.createElement(Row, { label: "INN", value: drug.genericName }),
+        React.createElement(Row, {
+          label: "Company",
+          value: opportunity.approachEntityName,
+        }),
+        React.createElement(Row, {
+          label: "Approvals",
+          value:
+            runItem?.approvalsSummary ??
+            opportunity.approvalSummary ??
+            "UNKNOWN",
+        }),
+        React.createElement(Row, {
+          label: "MENA rights",
+          value: runItem?.menaRightsSummary ?? "UNVALIDATED",
+        }),
+        React.createElement(Row, {
+          label: "Contact",
+          value: opportunity.contactName ?? opportunity.targetRole ?? "UNKNOWN",
+        }),
+      ),
+      React.createElement(
+        View,
+        { style: styles.section },
+        React.createElement(
+          Text,
+          { style: styles.sectionTitle },
+          "Sizing basis",
+        ),
+        React.createElement(
+          Text,
+          { style: styles.body },
+          runItem?.cascadeBasis ?? firstSizing?.basis ?? "UNVALIDATED",
+        ),
+      ),
+      React.createElement(
+        View,
+        { style: styles.section },
+        React.createElement(
+          Text,
+          { style: styles.sectionTitle },
+          "Next action",
+        ),
+        React.createElement(
+          Text,
+          { style: styles.body },
+          opportunity.howToEnterExplanation,
+        ),
+      ),
+    ),
+  ) as React.ReactElement<React.ComponentProps<typeof Document>>;
+}
+
+function EvidencePacket({
+  payload,
+}: {
+  payload: AssetExportPayload;
+}): React.ReactElement<React.ComponentProps<typeof Document>> {
+  const opportunity = payload.opportunity;
+  const assessments = payload.assessments ?? [];
+  const signals = (payload.evidenceSignals ?? []).filter(
+    (signal) => signal.reviewState === "approved",
+  );
+  return React.createElement(
+    Document,
+    null,
+    React.createElement(
+      Page,
+      { size: "A4", style: styles.page },
+      React.createElement(
+        View,
+        { style: styles.header },
+        React.createElement(
+          Text,
+          { style: styles.eyebrow },
+          "KEMEDICA Evidence Packet · v1.1",
+        ),
+        React.createElement(
+          Text,
+          { style: styles.title },
+          opportunity.productName,
+        ),
+        React.createElement(
+          Text,
+          { style: styles.subtitle },
+          `${opportunity.genericName ?? "INN not supplied"} · ${opportunity.approachEntityName}`,
+        ),
+        React.createElement(
+          Text,
+          { style: styles.subtitle },
+          opportunity.normalizedPresentationKey ??
+            "Presentation key unavailable",
+        ),
+      ),
+      React.createElement(
+        View,
+        { style: styles.section },
+        React.createElement(
+          Text,
+          { style: styles.sectionTitle },
+          "Evidence boundary",
+        ),
+        React.createElement(
+          Text,
+          { style: styles.body },
+          "A registry non-match is a dated result within the recorded snapshot, not proof of absolute absence. Commercial assumptions remain provisional until human approval. This packet does not authorize outreach.",
+        ),
+      ),
+      ...assessments.map((assessment) =>
+        React.createElement(
+          View,
+          { key: assessment.country, style: styles.section },
+          React.createElement(
+            Text,
+            { style: styles.sectionTitle },
+            `${assessment.country} · ${assessment.absenceConfidence ?? "low"} confidence`,
+          ),
+          React.createElement(
+            Text,
+            { style: styles.body },
+            assessment.presenceStatement,
+          ),
+          React.createElement(Row, {
+            label: "Snapshot",
+            value: assessment.sourceSnapshotDate
+              ? new Date(assessment.sourceSnapshotDate)
+                  .toISOString()
+                  .slice(0, 10)
+              : "NOT RECORDED",
+          }),
+          React.createElement(Row, {
+            label: "Company reason",
+            value: assessment.companyReasonCode ?? "UNCLASSIFIED",
+          }),
+          React.createElement(Row, {
+            label: "Commercial",
+            value: assessment.commercialApprovalStatus ?? "NOT REQUESTED",
+          }),
+          React.createElement(Row, {
+            label: "Local applicant",
+            value: assessment.intendedLocalApplicant ?? "NOT RECORDED",
+          }),
+          React.createElement(Row, {
+            label: "Nominee covenant",
+            value: assessment.nomineeCovenantStatus ?? "NOT REQUESTED",
+          }),
+          React.createElement(Row, {
+            label: "Demand",
+            value: assessment.demandSummary,
+          }),
+          React.createElement(Row, {
+            label: "Economics",
+            value: assessment.economicsSummary,
+          }),
+          React.createElement(Row, {
+            label: "Open blockers",
+            value: assessment.blockers.join("; ") || "None recorded",
+          }),
+          React.createElement(Row, {
+            label: "Gates",
+            value: assessment.gateSnapshot
+              ? Object.entries(assessment.gateSnapshot)
+                  .filter(([key]) => key.startsWith("g"))
+                  .map(
+                    ([key, value]) => `${key.toUpperCase()}: ${String(value)}`,
+                  )
+                  .join(" · ")
+              : "UNVALIDATED",
+          }),
+        ),
+      ),
+      React.createElement(
+        View,
+        { style: styles.section },
+        React.createElement(
+          Text,
+          { style: styles.sectionTitle },
+          "Approved references",
+        ),
+        ...(signals.length > 0
+          ? signals.map((signal, index) =>
+              React.createElement(
+                Text,
+                { key: `${signal.sourceUrl}-${index}`, style: styles.body },
+                `${index + 1}. ${signal.title} · ${signal.sourceType} · ${new Date(signal.observedAt).toISOString().slice(0, 10)} · ${signal.sourceUrl}`,
+              ),
+            )
+          : [
+              React.createElement(
+                Text,
+                { key: "none", style: styles.body },
+                "No supporting references approved.",
+              ),
+            ]),
+      ),
+    ),
   ) as React.ReactElement<React.ComponentProps<typeof Document>>;
 }
 
@@ -220,25 +463,35 @@ function Row({ label, value }: { label: string; value?: string }) {
     View,
     { style: styles.row },
     React.createElement(Text, { style: styles.label }, label),
-    React.createElement(Text, { style: styles.value }, value || "UNKNOWN")
+    React.createElement(Text, { style: styles.value }, value || "UNKNOWN"),
   );
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
   const { id } = await params;
   const client = getConvexClient();
-  const payload = await client.query(api.continuousOpportunityEngine.getAssetExportPayload, {
-    decisionOpportunityId: id as Id<"decisionOpportunities">,
-  });
+  const payload = await client.query(
+    api.continuousOpportunityEngine.getAssetExportPayload,
+    {
+      decisionOpportunityId: id as Id<"decisionOpportunities">,
+    },
+  );
   if (!payload?.opportunity || !payload?.drug) {
     return Response.json({ error: "Opportunity not found" }, { status: 404 });
   }
 
-  const buffer = await renderToBuffer(AssetBrief({ payload }));
+  const buffer = await renderToBuffer(
+    payload.opportunity.evidenceEngineVersion === "v1.1"
+      ? EvidencePacket({ payload })
+      : AssetBrief({ payload }),
+  );
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${payload.opportunity.productName}-asset-brief.pdf"`,
+      "Content-Disposition": `attachment; filename="${payload.opportunity.productName}-${payload.opportunity.evidenceEngineVersion === "v1.1" ? "evidence-packet" : "asset-brief"}.pdf"`,
     },
   });
 }

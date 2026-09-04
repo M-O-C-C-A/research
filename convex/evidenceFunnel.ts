@@ -13,6 +13,7 @@ import {
   evaluateEvidenceGates,
   whiteSpaceStatement,
 } from "./evidenceEngineV11Policy";
+import { isTop20OwnerName } from "./continuousOpportunityEngine";
 
 const country = v.union(
   v.literal("UAE"),
@@ -238,7 +239,8 @@ export const list = query({
       .filter(
         (opportunity) =>
           opportunity.evidenceEngineVersion === EVIDENCE_ENGINE_VERSION &&
-          !opportunity.legacyQuarantinedAt,
+          !opportunity.legacyQuarantinedAt &&
+          !isTop20OwnerName(opportunity.approachEntityName),
       )
       .filter(
         (opportunity) => !args.stage || opportunity.funnelStage === args.stage,

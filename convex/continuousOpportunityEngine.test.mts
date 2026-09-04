@@ -11,12 +11,22 @@ const {
   defaultMarketMarginRate,
   deriveInternationalPriceAnchorForTest,
   isTop20OwnerName,
-} = (await import(engineModulePath)) as typeof import("./continuousOpportunityEngine");
+  isTop20OwnerExcluded,
+} = (await import(
+  engineModulePath
+)) as typeof import("./continuousOpportunityEngine");
 
 test("top-20 owner matching excludes maintained parent names", () => {
   assert.equal(isTop20OwnerName("Amgen Europe B.V."), true);
   assert.equal(isTop20OwnerName("Janssen-Cilag International NV"), true);
   assert.equal(isTop20OwnerName("Small Therapeutics GmbH"), false);
+});
+
+test("top-20 exclusion fails closed when a classification fact is missing", () => {
+  assert.equal(isTop20OwnerExcluded("Eisai GmbH", undefined), true);
+  assert.equal(isTop20OwnerExcluded("AstraZeneca AB", false), true);
+  assert.equal(isTop20OwnerExcluded("Small Therapeutics GmbH", true), true);
+  assert.equal(isTop20OwnerExcluded("Small Therapeutics GmbH", false), false);
 });
 
 test("Model 1 economics includes operating burden and probability", () => {
@@ -120,7 +130,7 @@ test("verified absence requires authoritative registry search metadata", () => {
       searchedInnVariants: ["examplimab"],
       officialRegistry: "EDA",
     }),
-    true
+    true,
   );
   assert.equal(
     canMarkVerifiedAbsent({
@@ -129,7 +139,7 @@ test("verified absence requires authoritative registry search metadata", () => {
       searchedInnVariants: ["examplimab"],
       officialRegistry: "EDA",
     }),
-    false
+    false,
   );
   assert.equal(
     canMarkVerifiedAbsent({
@@ -138,6 +148,6 @@ test("verified absence requires authoritative registry search metadata", () => {
       searchedInnVariants: ["examplimab"],
       officialRegistry: "EDA",
     }),
-    false
+    false,
   );
 });

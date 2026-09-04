@@ -362,6 +362,13 @@ export function isTop20OwnerName(companyName?: string | null) {
   return isTop20Company(companyName).isTop20;
 }
 
+export function isTop20OwnerExcluded(
+  companyName?: string | null,
+  classifiedAsTop20?: boolean,
+) {
+  return classifiedAsTop20 === true || isTop20OwnerName(companyName);
+}
+
 export function canMarkVerifiedAbsent(args: {
   status: string;
   searchedNames: string[];

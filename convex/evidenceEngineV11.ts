@@ -12,6 +12,10 @@ import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { requireMember } from "./authz";
 import {
+  isTop20OwnerExcluded,
+  isTop20OwnerName,
+} from "./continuousOpportunityEngine";
+import {
   EVIDENCE_ENGINE_VERSION,
   canonicalPursuitKey as buildCanonicalPursuitKey,
   evaluateEvidenceGates,
@@ -492,7 +496,10 @@ export const materializeReferenceCandidates = mutation({
           productLifecycle: row.sourceStatus?.toLowerCase().includes("pipeline")
             ? "pipeline"
             : "marketed",
-          isTop20Pharma: classification[0]?.isTop20Pharma ?? false,
+          isTop20Pharma: isTop20OwnerExcluded(
+            company.name,
+            classification[0]?.isTop20Pharma,
+          ),
           isWholesaler: /wholesale|trading|distributor/i.test(company.name),
         })
       ) {
@@ -689,5 +696,68 @@ export const materializeAcceptedReferenceSnapshot = action({
       cursor = result.continueCursor;
     }
     return { processed, created, skipped };
+  },
+});
+
+export const quarantineIneligibleTop20Page = mutation({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: v.object({
+    quarantined: v.number(),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    await requireMember(ctx, ["admin", "analyst"]);
+    const page = await ctx.db
+      .query("decisionOpportunities")
+      .withIndex("by_evidence_engine_version_and_priority_score", (q) =>
+        q.eq("evidenceEngineVersion", EVIDENCE_ENGINE_VERSION),
+      )
+      .paginate(args.paginationOpts);
+    const now = Date.now();
+    let quarantined = 0;
+    for (const opportunity of page.page) {
+      if (
+        opportunity.legacyQuarantinedAt ||
+        !isTop20OwnerName(opportunity.approachEntityName)
+      ) {
+        continue;
+      }
+      await ctx.db.patch(opportunity._id, {
+        legacyQuarantinedAt: now,
+        legacyQuarantineReason:
+          "Owner matches the maintained top-20 pharma exclusion list.",
+        updatedAt: now,
+      });
+      quarantined += 1;
+    }
+    return {
+      quarantined,
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
+export const quarantineIneligibleTop20Candidates = action({
+  args: {},
+  returns: v.object({ quarantined: v.number() }),
+  handler: async (ctx) => {
+    let cursor: string | null = null;
+    let quarantined = 0;
+    for (;;) {
+      const result: {
+        quarantined: number;
+        continueCursor: string;
+        isDone: boolean;
+      } = await ctx.runMutation(
+        api.evidenceEngineV11.quarantineIneligibleTop20Page,
+        { paginationOpts: { numItems: 100, cursor } },
+      );
+      quarantined += result.quarantined;
+      if (result.isDone) break;
+      cursor = result.continueCursor;
+    }
+    return { quarantined };
   },
 });

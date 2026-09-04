@@ -510,6 +510,22 @@ export const materializeReferenceCandidates = mutation({
         row.normalizedPresentationKey,
         company._id,
       );
+      const existingProductOwnerPursuit = (
+        await ctx.db
+          .query("decisionOpportunities")
+          .withIndex("by_drug_and_company", (q) =>
+            q.eq("drugId", drug._id).eq("companyId", company._id),
+          )
+          .take(100)
+      ).find(
+        (opportunity) =>
+          opportunity.evidenceEngineVersion === EVIDENCE_ENGINE_VERSION &&
+          !opportunity.legacyQuarantinedAt,
+      );
+      if (existingProductOwnerPursuit) {
+        skipped += 1;
+        continue;
+      }
       const existing = await ctx.db
         .query("decisionOpportunities")
         .withIndex("by_canonical_pursuit_key", (q) =>
@@ -752,6 +768,82 @@ export const quarantineIneligibleTop20Candidates = action({
         isDone: boolean;
       } = await ctx.runMutation(
         api.evidenceEngineV11.quarantineIneligibleTop20Page,
+        { paginationOpts: { numItems: 100, cursor } },
+      );
+      quarantined += result.quarantined;
+      if (result.isDone) break;
+      cursor = result.continueCursor;
+    }
+    return { quarantined };
+  },
+});
+
+export const quarantineDuplicateProductOwnerPage = mutation({
+  args: { paginationOpts: paginationOptsValidator },
+  returns: v.object({
+    quarantined: v.number(),
+    continueCursor: v.string(),
+    isDone: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    await requireMember(ctx, ["admin", "analyst"]);
+    const page = await ctx.db
+      .query("decisionOpportunities")
+      .withIndex("by_evidence_engine_version_and_priority_score", (q) =>
+        q.eq("evidenceEngineVersion", EVIDENCE_ENGINE_VERSION),
+      )
+      .paginate(args.paginationOpts);
+    let quarantined = 0;
+    for (const opportunity of page.page) {
+      const current = await ctx.db.get(opportunity._id);
+      if (current?.legacyQuarantinedAt) continue;
+      const activePeers = (
+        await ctx.db
+          .query("decisionOpportunities")
+          .withIndex("by_drug_and_company", (q) =>
+            q
+              .eq("drugId", opportunity.drugId)
+              .eq("companyId", opportunity.companyId),
+          )
+          .take(100)
+      )
+        .filter(
+          (peer) =>
+            peer.evidenceEngineVersion === EVIDENCE_ENGINE_VERSION &&
+            !peer.legacyQuarantinedAt,
+        )
+        .sort((left, right) => left._creationTime - right._creationTime);
+      if (activePeers[0]?._id === opportunity._id) continue;
+      const now = Date.now();
+      await ctx.db.patch(opportunity._id, {
+        legacyQuarantinedAt: now,
+        legacyQuarantineReason:
+          "Duplicate product-owner pursuit; exact presentation evidence remains preserved in the source snapshot.",
+        updatedAt: now,
+      });
+      quarantined += 1;
+    }
+    return {
+      quarantined,
+      continueCursor: page.continueCursor,
+      isDone: page.isDone,
+    };
+  },
+});
+
+export const quarantineDuplicateProductOwnerCandidates = action({
+  args: {},
+  returns: v.object({ quarantined: v.number() }),
+  handler: async (ctx) => {
+    let cursor: string | null = null;
+    let quarantined = 0;
+    for (;;) {
+      const result: {
+        quarantined: number;
+        continueCursor: string;
+        isDone: boolean;
+      } = await ctx.runMutation(
+        api.evidenceEngineV11.quarantineDuplicateProductOwnerPage,
         { paginationOpts: { numItems: 100, cursor } },
       );
       quarantined += result.quarantined;

@@ -153,7 +153,7 @@ function workbookLooksLikeMohapCompleteList(workbook: XLSX.WorkBook) {
   return workbook.SheetNames.some((sheetName) => {
     const sheet = workbook.Sheets[sheetName];
     if (!sheet) return false;
-    const { headerRow, range } = detectedSheetRange(sheet);
+    const { range } = detectedSheetRange(sheet);
     const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet, {
       defval: "",
       raw: false,

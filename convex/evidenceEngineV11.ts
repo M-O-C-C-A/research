@@ -108,6 +108,10 @@ export const sourceCoverage = query({
       fetchedAt: v.optional(v.number()),
       expiresAt: v.optional(v.number()),
       sourceRegistry: v.string(),
+      accessMode: v.union(
+        v.literal("complete_snapshot"),
+        v.literal("targeted_check"),
+      ),
     }),
   ),
   handler: async (ctx) => {
@@ -131,11 +135,18 @@ export const sourceCoverage = query({
               : expiresAt! <= now
                 ? ("stale" as const)
                 : ("accepted" as const),
-          confidence: targetConfidence(target.country),
+          confidence:
+            !fetch && target.country === "Saudi Arabia"
+              ? ("medium" as const)
+              : targetConfidence(target.country),
           rowCount: fetch?.rowCount,
           fetchedAt: fetch?.fetchedAt,
           expiresAt,
           sourceRegistry: target.registry,
+          accessMode:
+            target.country === "UAE" || fetch
+              ? ("complete_snapshot" as const)
+              : ("targeted_check" as const),
         };
       }),
     );
@@ -150,6 +161,7 @@ export const inspectWhiteSpace = query({
       status: v.union(
         v.literal("matches_found"),
         v.literal("no_match_in_snapshot"),
+        v.literal("no_match_in_targeted_check"),
         v.literal("not_checked"),
         v.literal("source_unhealthy"),
       ),
@@ -309,15 +321,17 @@ function defaultAssessment(input: {
   country: TargetCountry;
   normalizedPresentationKey: string;
   matchCount: number;
-  sourceFetch: Doc<"sourceFetches">;
+  sourceFetch?: Doc<"sourceFetches">;
   freshnessMs: number;
 }) {
   const now = Date.now();
-  const status = whiteSpaceFinding(
-    input.matchCount,
-    input.sourceFetch.coverageHealth === "accepted" &&
-      input.sourceFetch.structureStatus === "passed",
-  );
+  const status = input.sourceFetch
+    ? whiteSpaceFinding(
+        input.matchCount,
+        input.sourceFetch.coverageHealth === "accepted" &&
+          input.sourceFetch.structureStatus === "passed",
+      )
+    : ("not_checked" as const);
   const gates = evaluateEvidenceGates({
     referenceApproved: true,
     eligibleCategory: true,
@@ -342,13 +356,13 @@ function defaultAssessment(input: {
     registrationEvidence: whiteSpaceStatement({
       country: input.country,
       status,
-      snapshotDate: input.sourceFetch.fetchedAt,
+      snapshotDate: input.sourceFetch?.fetchedAt,
     }),
     rightsStatus: "needs_review" as const,
     presenceStatement: whiteSpaceStatement({
       country: input.country,
       status,
-      snapshotDate: input.sourceFetch.fetchedAt,
+      snapshotDate: input.sourceFetch?.fetchedAt,
     }),
     agentPartnerEvidence: "No country-rights conclusion recorded.",
     demandStrength: "none" as const,
@@ -358,7 +372,9 @@ function defaultAssessment(input: {
     competitionSummary:
       input.matchCount > 0
         ? `${input.matchCount} exact presentation match(es) found.`
-        : "No exact presentation match in the accepted snapshot.",
+        : input.sourceFetch
+          ? "No exact presentation match in the accepted snapshot."
+          : "A documented targeted registry check is required.",
     economicsStatus: "unvalidated" as const,
     economicsSummary:
       "UNVALIDATED — no source-backed price chain or approved commercial assumptions.",
@@ -382,15 +398,21 @@ function defaultAssessment(input: {
     },
     weightedScore: status === "no_match_in_snapshot" ? 26 : 0,
     criticalReviewOpen: true,
-    evidenceObservedAt: input.sourceFetch.fetchedAt,
-    staleAfter: input.sourceFetch.fetchedAt + input.freshnessMs,
+    evidenceObservedAt: input.sourceFetch?.fetchedAt ?? now,
+    staleAfter: (input.sourceFetch?.fetchedAt ?? now) + input.freshnessMs,
     evidenceEngineVersion: EVIDENCE_ENGINE_VERSION,
     normalizedPresentationKey: input.normalizedPresentationKey,
     whiteSpaceStatus: status,
-    absenceConfidence: targetConfidence(input.country),
-    sourceSnapshotId: input.sourceFetch._id,
-    sourceSnapshotDate: input.sourceFetch.fetchedAt,
-    sourceExpiresAt: input.sourceFetch.fetchedAt + input.freshnessMs,
+    absenceConfidence:
+      !input.sourceFetch && input.country === "Saudi Arabia"
+        ? ("medium" as const)
+        : targetConfidence(input.country),
+    sourceSnapshotId: input.sourceFetch?._id,
+    sourceSnapshotDate: input.sourceFetch?.fetchedAt,
+    sourceExpiresAt: input.sourceFetch
+      ? input.sourceFetch.fetchedAt + input.freshnessMs
+      : undefined,
+    verificationMode: input.sourceFetch ? ("snapshot" as const) : undefined,
     companyReasonCode: "UNCLASSIFIED" as const,
     gateSnapshot: {
       ...gates,
@@ -596,14 +618,17 @@ export const materializeReferenceCandidates = mutation({
         });
       for (const target of TARGETS) {
         const targetImport = await latestAcceptedImport(ctx, target.sourceType);
-        if (!targetImport?.sourceFetchId) continue;
-        const targetFetch = await ctx.db.get(targetImport.sourceFetchId);
-        if (!targetFetch) continue;
-        const matches = await matchCount(
-          ctx,
-          targetImport._id,
-          row.normalizedPresentationKey,
-        );
+        const targetFetch = targetImport?.sourceFetchId
+          ? await ctx.db.get(targetImport.sourceFetchId)
+          : null;
+        const matches =
+          targetImport && targetFetch
+            ? await matchCount(
+                ctx,
+                targetImport._id,
+                row.normalizedPresentationKey,
+              )
+            : 0;
         await ctx.db.insert(
           "opportunityMarketAssessments",
           defaultAssessment({
@@ -611,7 +636,7 @@ export const materializeReferenceCandidates = mutation({
             country: target.country,
             normalizedPresentationKey: row.normalizedPresentationKey,
             matchCount: matches,
-            sourceFetch: targetFetch,
+            sourceFetch: targetFetch ?? undefined,
             freshnessMs: target.freshnessMs,
           }),
         );

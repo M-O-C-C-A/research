@@ -61,13 +61,17 @@ export function contactReadyBlockers(input: {
   if (!input.ownerConfirmed)
     blockers.push("Product owner or licensor is not confirmed.");
   if (input.evidenceEngineVersion === "v1.1") {
-    if (input.whiteSpaceStatus !== "no_match_in_snapshot")
+    if (
+      !["no_match_in_snapshot", "no_match_in_targeted_check"].includes(
+        input.whiteSpaceStatus ?? "",
+      )
+    )
       blockers.push(
-        "A healthy current registry snapshot has not produced a no-match finding.",
+        "A current snapshot or documented targeted registry check has not produced a scoped no-match finding.",
       );
     if (!input.sourceExpiresAt || input.sourceExpiresAt <= input.now)
       blockers.push(
-        "The target-country registry snapshot is stale or missing.",
+        "The target-country registry evidence is stale or missing.",
       );
     if (
       !["ALREADY_PARTNERED_ELSEWHERE", "OUT_LICENSING"].includes(

@@ -661,6 +661,7 @@ const evidenceEngineVersion = v.literal("v1.1");
 const whiteSpaceMatchStatus = v.union(
   v.literal("matches_found"),
   v.literal("no_match_in_snapshot"),
+  v.literal("no_match_in_targeted_check"),
   v.literal("not_checked"),
   v.literal("source_unhealthy"),
 );
@@ -1854,6 +1855,19 @@ export default defineSchema({
     sourceSnapshotId: v.optional(v.id("sourceFetches")),
     sourceSnapshotDate: v.optional(v.number()),
     sourceExpiresAt: v.optional(v.number()),
+    verificationMode: v.optional(
+      v.union(v.literal("snapshot"), v.literal("targeted_check")),
+    ),
+    targetedCheckResult: v.optional(
+      v.union(
+        v.literal("matches_found"),
+        v.literal("no_match_found"),
+        v.literal("inconclusive"),
+      ),
+    ),
+    targetedCheckSourceUrl: v.optional(v.string()),
+    targetedCheckSearchTerms: v.optional(v.string()),
+    targetedCheckEvidenceExcerpt: v.optional(v.string()),
     companyReasonCode: v.optional(companyReasonCode),
     companyReasonEvidenceUrl: v.optional(v.string()),
     companyReasonEvidenceExcerpt: v.optional(v.string()),

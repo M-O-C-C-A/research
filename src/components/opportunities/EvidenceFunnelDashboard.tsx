@@ -296,6 +296,27 @@ function AssessmentReview({
         referencePriceAvailable: form.get("referencePriceAvailable") === "on",
         priceChainPasses: form.get("priceChainPasses") === "on",
         economicsCalculated: form.get("economicsCalculated") === "on",
+        verificationMode:
+          target.country === "UAE" ? "snapshot" : "targeted_check",
+        targetedCheckResult:
+          target.country === "UAE"
+            ? undefined
+            : (String(form.get("targetedCheckResult")) as
+                | "matches_found"
+                | "no_match_found"
+                | "inconclusive"),
+        targetedCheckSourceUrl:
+          target.country === "UAE"
+            ? undefined
+            : String(form.get("targetedCheckSourceUrl") ?? ""),
+        targetedCheckSearchTerms:
+          target.country === "UAE"
+            ? undefined
+            : String(form.get("targetedCheckSearchTerms") ?? ""),
+        targetedCheckEvidenceExcerpt:
+          target.country === "UAE"
+            ? undefined
+            : String(form.get("targetedCheckEvidenceExcerpt") ?? ""),
       });
       const sourceUrl = String(form.get("sourceUrl") ?? "").trim();
       if (sourceUrl)
@@ -397,6 +418,47 @@ function AssessmentReview({
               title="Manufacturer or MAH confirmed"
               checked={Boolean(assessment.ownerConfirmed)}
             />
+            {target.country === "UAE" ? (
+              <p className="rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-xs text-emerald-100">
+                UAE is verified automatically against the accepted EDE directory
+                snapshot.
+              </p>
+            ) : (
+              <div className="space-y-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3">
+                <p className="text-xs leading-relaxed text-amber-100">
+                  No complete public API is assumed. Record the exact official
+                  registry check; a no-match is scoped to this search only.
+                </p>
+                <SelectField
+                  name="targetedCheckResult"
+                  title="Targeted registry result"
+                  defaultValue={String(
+                    assessment.targetedCheckResult ?? "inconclusive",
+                  )}
+                  options={["inconclusive", "no_match_found", "matches_found"]}
+                />
+                <TextField
+                  name="targetedCheckSourceUrl"
+                  title="Official registry URL"
+                  defaultValue={String(assessment.targetedCheckSourceUrl ?? "")}
+                  rows={1}
+                />
+                <TextField
+                  name="targetedCheckSearchTerms"
+                  title="Exact product, INN, form and strength searched"
+                  defaultValue={String(
+                    assessment.targetedCheckSearchTerms ?? "",
+                  )}
+                />
+                <TextField
+                  name="targetedCheckEvidenceExcerpt"
+                  title="Observed result or screenshot reference"
+                  defaultValue={String(
+                    assessment.targetedCheckEvidenceExcerpt ?? "",
+                  )}
+                />
+              </div>
+            )}
             <SelectField
               name="companyReasonCode"
               title="Cited company-intent reason"
@@ -729,8 +791,16 @@ export function EvidenceFunnelDashboard({
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-zinc-300">
               Every pursuit starts with a reference-market-approved presentation
-              and a dated target-registry comparison. Shortages and tenders
+              and the best available official country evidence. UAE uses a full
+              snapshot; Saudi Arabia and Egypt use dated targeted checks until
+              authorized exports become available. Shortages and tenders
               validate demand; they never create a lead.
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-sky-200">
+              Research assist: Tavily and OpenAI web search discover
+              source-backed company, rights, demand and contact evidence. Their
+              results always enter human review and never prove registry
+              absence.
             </p>
           </div>
           <div className="rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3">
@@ -781,7 +851,9 @@ export function EvidenceFunnelDashboard({
               <p className="mt-1 text-xs text-zinc-500">
                 {item.fetchedAt
                   ? `Snapshot ${new Date(item.fetchedAt).toLocaleDateString()}`
-                  : "Complete snapshot required"}
+                  : item.accessMode === "targeted_check"
+                    ? "Document each official product check"
+                    : "Complete snapshot required"}
               </p>
             </div>
           ))}
@@ -865,8 +937,9 @@ export function EvidenceFunnelDashboard({
               No evidence-safe pursuits in this view
             </p>
             <p className="mt-2 text-sm text-zinc-400">
-              Import and approve complete source snapshots, then materialize
-              reviewed reference-market candidates. Historical candidates remain
+              Approve a presentation-complete reference source, then materialize
+              reviewed candidates. UAE will compare automatically; Saudi and
+              Egypt will open targeted-check work. Historical candidates remain
               preserved but quarantined.
             </p>
           </div>
@@ -1044,6 +1117,12 @@ export function EvidenceFunnelDashboard({
                       ? `${row.contact.name} · verified ${new Date(row.contact.verifiedAt).toLocaleDateString()}`
                       : "No current named contact"}
                   </p>
+                  <Link
+                    href={`/drugs/${opportunity.drugId}`}
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-600 px-3 text-xs font-medium text-white transition-colors hover:bg-zinc-800"
+                  >
+                    Research product sources
+                  </Link>
                   {opportunity.funnelStage === "contact_ready" &&
                   opportunity.outreachPackage ? (
                     <>

@@ -11,6 +11,7 @@ import {
   canGenerateOutreach,
   EVIDENCE_ENGINE_VERSION,
   evaluateEvidenceGates,
+  whiteSpaceStatement,
 } from "./evidenceEngineV11Policy";
 
 const country = v.union(
@@ -381,6 +382,20 @@ export const reviewAssessment = mutation({
     referencePriceAvailable: v.boolean(),
     priceChainPasses: v.optional(v.boolean()),
     economicsCalculated: v.boolean(),
+    verificationMode: v.union(
+      v.literal("snapshot"),
+      v.literal("targeted_check"),
+    ),
+    targetedCheckResult: v.optional(
+      v.union(
+        v.literal("matches_found"),
+        v.literal("no_match_found"),
+        v.literal("inconclusive"),
+      ),
+    ),
+    targetedCheckSourceUrl: v.optional(v.string()),
+    targetedCheckSearchTerms: v.optional(v.string()),
+    targetedCheckEvidenceExcerpt: v.optional(v.string()),
   },
   returns: v.id("opportunityMarketAssessments"),
   handler: async (ctx, args) => {
@@ -426,30 +441,59 @@ export const reviewAssessment = mutation({
     const sourceSnapshot = sourceImport?.sourceFetchId
       ? await ctx.db.get(sourceImport.sourceFetchId)
       : null;
-    if (
-      !sourceImport ||
-      !sourceSnapshot ||
-      sourceSnapshot.coverageHealth !== "accepted" ||
-      sourceSnapshot.structureStatus !== "passed"
-    ) {
+    const healthySnapshot = Boolean(
+      sourceImport &&
+      sourceSnapshot &&
+      sourceSnapshot.coverageHealth === "accepted" &&
+      sourceSnapshot.structureStatus === "passed",
+    );
+    if (args.country === "UAE" && !healthySnapshot)
+      throw new Error("UAE review requires the latest accepted EDE snapshot");
+    if (args.verificationMode === "snapshot" && !healthySnapshot)
       throw new Error(
-        `Review requires the latest accepted ${TARGET_REGISTRY[args.country]} snapshot`,
+        `No accepted ${TARGET_REGISTRY[args.country]} snapshot is available; use a targeted check`,
       );
+    if (args.verificationMode === "targeted_check") {
+      if (args.country === "UAE")
+        throw new Error(
+          "UAE uses the accepted EDE snapshot, not targeted checks",
+        );
+      if (
+        !args.targetedCheckResult ||
+        !args.targetedCheckSourceUrl?.trim() ||
+        !args.targetedCheckSearchTerms?.trim() ||
+        !args.targetedCheckEvidenceExcerpt?.trim()
+      )
+        throw new Error(
+          "A targeted check requires its result, official source URL, exact search terms, and evidence note",
+        );
     }
-    const matchCount = (
-      await ctx.db
-        .query("registrationImportRows")
-        .withIndex("by_import_and_normalized_presentation_key", (q) =>
-          q
-            .eq("importId", sourceImport._id)
-            .eq("normalizedPresentationKey", args.normalizedPresentationKey),
-        )
-        .take(1)
-    ).length;
+    const matchCount =
+      args.verificationMode === "snapshot" && sourceImport
+        ? (
+            await ctx.db
+              .query("registrationImportRows")
+              .withIndex("by_import_and_normalized_presentation_key", (q) =>
+                q
+                  .eq("importId", sourceImport._id)
+                  .eq(
+                    "normalizedPresentationKey",
+                    args.normalizedPresentationKey,
+                  ),
+              )
+              .take(1)
+          ).length
+        : 0;
     const derivedWhiteSpaceStatus =
-      matchCount > 0
-        ? ("matches_found" as const)
-        : ("no_match_in_snapshot" as const);
+      args.verificationMode === "snapshot"
+        ? matchCount > 0
+          ? ("matches_found" as const)
+          : ("no_match_in_snapshot" as const)
+        : args.targetedCheckResult === "matches_found"
+          ? ("matches_found" as const)
+          : args.targetedCheckResult === "no_match_found"
+            ? ("no_match_in_targeted_check" as const)
+            : ("not_checked" as const);
     if (
       args.companyReasonCode !== "UNCLASSIFIED" &&
       (!args.companyReasonEvidenceUrl.trim() ||
@@ -508,7 +552,7 @@ export const reviewAssessment = mutation({
       ].every((gate) => gate === "PASS") &&
       ["PASS", "PROVISIONAL"].includes(gates.g6LifetimeEconomics);
     const stage =
-      args.registrationStatus === "registered" ||
+      derivedWhiteSpaceStatus === "matches_found" ||
       args.rightsStatus === "conflict" ||
       ["PARKED", "IGNORING", "STRUCTURAL_NO"].includes(args.companyReasonCode)
         ? ("watching" as const)
@@ -530,26 +574,65 @@ export const reviewAssessment = mutation({
     void _priceChainPasses;
     void _economicsCalculated;
     const sourceSnapshotDate =
-      sourceSnapshot?.fetchedAt ?? args.evidenceObservedAt;
+      args.verificationMode === "snapshot"
+        ? sourceSnapshot?.fetchedAt
+        : args.evidenceObservedAt;
     const sourceExpiresAt =
-      sourceSnapshotDate + TARGET_SNAPSHOT_FRESHNESS_MS[args.country];
+      args.verificationMode === "snapshot"
+        ? sourceSnapshotDate
+          ? sourceSnapshotDate + TARGET_SNAPSHOT_FRESHNESS_MS[args.country]
+          : undefined
+        : args.staleAfter;
+    const findingStatement = whiteSpaceStatement({
+      country: args.country,
+      status: derivedWhiteSpaceStatus,
+      snapshotDate: sourceSnapshotDate,
+    });
     const record = {
       ...assessmentFields,
       decisionOpportunityId: opportunityId,
       stage,
       weightedScore,
-      registrationStatus:
-        derivedWhiteSpaceStatus === "no_match_in_snapshot"
-          ? ("not_found_unverified" as const)
-          : ("registered" as const),
+      registrationStatus: [
+        "no_match_in_snapshot",
+        "no_match_in_targeted_check",
+      ].includes(derivedWhiteSpaceStatus)
+        ? ("not_found_unverified" as const)
+        : derivedWhiteSpaceStatus === "matches_found"
+          ? ("registered" as const)
+          : ("unverified" as const),
+      registrationEvidence: findingStatement,
+      presenceStatement: findingStatement,
       evidenceEngineVersion: EVIDENCE_ENGINE_VERSION,
       gateSnapshot,
       commercialApprovalStatus,
       whiteSpaceStatus: derivedWhiteSpaceStatus,
-      absenceConfidence: TARGET_CONFIDENCE[args.country],
-      sourceSnapshotId: sourceSnapshot?._id,
+      absenceConfidence:
+        args.verificationMode === "targeted_check" &&
+        args.country === "Saudi Arabia"
+          ? ("medium" as const)
+          : TARGET_CONFIDENCE[args.country],
+      sourceSnapshotId:
+        args.verificationMode === "snapshot" ? sourceSnapshot?._id : undefined,
       sourceSnapshotDate,
       sourceExpiresAt,
+      verificationMode: args.verificationMode,
+      targetedCheckResult:
+        args.verificationMode === "targeted_check"
+          ? args.targetedCheckResult
+          : undefined,
+      targetedCheckSourceUrl:
+        args.verificationMode === "targeted_check"
+          ? args.targetedCheckSourceUrl?.trim()
+          : undefined,
+      targetedCheckSearchTerms:
+        args.verificationMode === "targeted_check"
+          ? args.targetedCheckSearchTerms?.trim()
+          : undefined,
+      targetedCheckEvidenceExcerpt:
+        args.verificationMode === "targeted_check"
+          ? args.targetedCheckEvidenceExcerpt?.trim()
+          : undefined,
       reviewedByMemberId: member._id,
       reviewedAt: now,
       updatedAt: now,

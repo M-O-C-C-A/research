@@ -8,6 +8,7 @@ export type AbsenceConfidence = "high" | "medium" | "low";
 export type WhiteSpaceStatus =
   | "matches_found"
   | "no_match_in_snapshot"
+  | "no_match_in_targeted_check"
   | "not_checked"
   | "source_unhealthy";
 export type CompanyReasonCode =
@@ -114,11 +115,15 @@ export function whiteSpaceStatement(input: {
   if (input.status === "source_unhealthy")
     return `${input.country} source coverage is unhealthy; no conclusion is available.`;
   if (input.status === "not_checked")
-    return `${input.country} registration evidence has not been checked.`;
+    return input.country === "UAE"
+      ? "UAE registration evidence has not been checked against the authorized directory snapshot."
+      : `${input.country} requires a dated, documented targeted registry check.`;
   const date = input.snapshotDate
     ? new Date(input.snapshotDate).toISOString().slice(0, 10)
     : "the recorded date";
-  return `No match found in the ${input.country} snapshot dated ${date}.`;
+  return input.status === "no_match_in_targeted_check"
+    ? `No match found during the targeted ${input.country} registry check dated ${date}. This is not proof of market absence.`
+    : `No match found in the ${input.country} snapshot dated ${date}.`;
 }
 
 export function isPositiveCompanyReason(reason: CompanyReasonCode) {
@@ -144,12 +149,14 @@ export function evaluateEvidenceGates(input: {
     g2EligibleCategory: input.eligibleCategory
       ? ("PASS" as const)
       : ("FAIL" as const),
-    g3WhiteSpace:
-      input.whiteSpaceStatus === "no_match_in_snapshot"
-        ? ("PASS" as const)
-        : input.whiteSpaceStatus === "matches_found"
-          ? ("FAIL" as const)
-          : ("UNVALIDATED" as const),
+    g3WhiteSpace: [
+      "no_match_in_snapshot",
+      "no_match_in_targeted_check",
+    ].includes(input.whiteSpaceStatus)
+      ? ("PASS" as const)
+      : input.whiteSpaceStatus === "matches_found"
+        ? ("FAIL" as const)
+        : ("UNVALIDATED" as const),
     g4CompanyAndRights:
       isPositiveCompanyReason(input.companyReasonCode) && input.rightsCleared
         ? ("PASS" as const)

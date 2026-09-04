@@ -21,7 +21,7 @@ const workflow = [
   {
     icon: FileSearch,
     title: "2. Verify one country file",
-    body: "Review the dated Saudi, UAE, or Egypt registry comparison, company intent, country rights, reference price, economics, demand, applicant, and nominee covenant. A non-match is never presented as verified absence.",
+    body: "UAE is compared against the complete EDE snapshot. For Saudi Arabia and Egypt, record a dated targeted official-registry check with the exact search terms, result and evidence note. A non-match is never presented as verified absence.",
   },
   {
     icon: ListChecks,
@@ -49,6 +49,8 @@ export default function GuidePage() {
           KEMEDICA helps you choose the next supplier conversation worth having.
           It separates research from proof: research collects cited claims, a
           person approves the facts, and only then can a lead enter the queue.
+          Tavily and OpenAI web search help discover sources, but neither is
+          allowed to manufacture a registry conclusion.
         </p>
       </header>
 
@@ -117,11 +119,12 @@ export default function GuidePage() {
             When the queue is empty
           </h2>
           <p className="mt-4 text-sm leading-relaxed text-zinc-400">
-            An empty queue is evidence-safe. It means complete source snapshots
-            are missing or stale, no exact presentation passed the comparison,
-            company intent or rights are unresolved, economics are unvalidated,
-            or no current public contact exists. Do not fill it with guesses;
-            complete the missing evidence instead.
+            An empty queue is evidence-safe. It means no presentation-complete
+            reference candidate is ready, a UAE comparison or Saudi/Egypt
+            targeted check is incomplete, company intent or rights are
+            unresolved, economics are unvalidated, or no current public contact
+            exists. Do not fill it with guesses; complete the missing evidence
+            instead.
           </p>
           <Link
             href="/companies"

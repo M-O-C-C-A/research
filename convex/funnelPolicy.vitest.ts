@@ -112,6 +112,15 @@ describe("canonical funnel policy", () => {
     expect(contactReadyBlockers(readyV11)).toEqual([]);
   });
 
+  it("accepts a current reviewed targeted check as scoped G3 evidence", () => {
+    expect(
+      contactReadyBlockers({
+        ...readyV11,
+        whiteSpaceStatus: "no_match_in_targeted_check",
+      }),
+    ).toEqual([]);
+  });
+
   it("blocks provisional commercial assumptions until a human approves them", () => {
     expect(
       contactReadyBlockers({

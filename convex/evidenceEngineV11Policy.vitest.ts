@@ -52,6 +52,29 @@ describe("KEMEDICA evidence engine v1.1 policy", () => {
         snapshotDate: Date.UTC(2026, 8, 4),
       }),
     ).toBe("No match found in the Egypt snapshot dated 2026-09-04.");
+    expect(
+      whiteSpaceStatement({
+        country: "Saudi Arabia",
+        status: "no_match_in_targeted_check",
+        snapshotDate: Date.UTC(2026, 8, 4),
+      }),
+    ).toContain("This is not proof of market absence");
+  });
+
+  it("lets a documented targeted check satisfy G3 without claiming absence", () => {
+    const gates = evaluateEvidenceGates({
+      referenceApproved: true,
+      eligibleCategory: true,
+      whiteSpaceStatus: "no_match_in_targeted_check",
+      companyReasonCode: "OUT_LICENSING",
+      rightsCleared: true,
+      referencePriceAvailable: true,
+      priceChainPasses: true,
+      economicsCalculated: true,
+      commercialApproved: true,
+      demandQualified: true,
+    });
+    expect(gates.g3WhiteSpace).toBe("PASS");
   });
 
   it("keeps missing price and unapproved economics out of pass state", () => {

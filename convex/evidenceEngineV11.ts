@@ -209,7 +209,10 @@ export const inspectWhiteSpace = query({
         return {
           country: target.country,
           status,
-          confidence: targetConfidence(target.country),
+          confidence:
+            !fetch && target.country === "Saudi Arabia"
+              ? ("medium" as const)
+              : targetConfidence(target.country),
           matchCount: matches,
           statement: whiteSpaceStatement({
             country: target.country,

@@ -38,6 +38,7 @@ const EMPTY_IMPORTS: Array<{
   unresolvedRows: number;
   appliedRows?: number;
   parseErrorCount?: number;
+  presentationCompleteRows?: number;
   sheetNames?: string[];
   lastError?: string;
   coverageHealth?: "accepted" | "needs_review" | "rejected";
@@ -53,6 +54,12 @@ const STATUS_STYLES: Record<string, string> = {
     "bg-[color:var(--brand-surface)] text-[var(--brand-300)] border-[color:var(--brand-border)]",
   failed: "bg-red-500/15 text-red-300 border-red-500/30",
 };
+
+const REFERENCE_SNAPSHOT_SOURCE_TYPES = new Set([
+  "drugs_fda",
+  "ema_medicine_downloads",
+  "mhra_products",
+]);
 
 export function RegistrationImportWorkspace() {
   const router = useRouter();
@@ -106,6 +113,7 @@ export function RegistrationImportWorkspace() {
           skippedRows: number;
           appliedRows: number;
           parseErrorCount: number;
+          presentationCompleteRows?: number;
           sheetNames: string[];
           lastError?: string;
           coverageHealth?: "accepted" | "needs_review" | "rejected";
@@ -364,6 +372,11 @@ export function RegistrationImportWorkspace() {
   const selectedImportSheetNames = selectedImport?.sheetNames ?? [];
   const selectedImportAppliedRows = selectedImport?.appliedRows ?? 0;
   const selectedImportParseErrorCount = selectedImport?.parseErrorCount ?? 0;
+  const referencePresentationBlocked = Boolean(
+    selectedImport &&
+    REFERENCE_SNAPSHOT_SOURCE_TYPES.has(selectedImport.sourceType ?? "") &&
+    (selectedImport.presentationCompleteRows ?? 0) === 0,
+  );
   const hasPendingMatchedRows = selectedImport
     ? selectedImport.matchedRows > selectedImportAppliedRows
     : false;
@@ -596,7 +609,7 @@ export function RegistrationImportWorkspace() {
                       type="button"
                       size="sm"
                       variant="outline"
-                      disabled={busy}
+                      disabled={busy || referencePresentationBlocked}
                       onClick={approveCoverage}
                     >
                       Approve snapshot coverage
@@ -618,6 +631,23 @@ export function RegistrationImportWorkspace() {
                     </Button>
                   ) : null}
                 </div>
+
+                {REFERENCE_SNAPSHOT_SOURCE_TYPES.has(
+                  selectedImport.sourceType ?? "",
+                ) ? (
+                  <p
+                    className={`mt-3 text-sm ${
+                      referencePresentationBlocked
+                        ? "text-amber-300"
+                        : "text-emerald-300"
+                    }`}
+                  >
+                    Presentation-complete rows:{" "}
+                    {selectedImport.presentationCompleteRows ?? 0} of{" "}
+                    {selectedImport.totalRows}. Reference approval requires at
+                    least one row with exact INN, dosage form, and strength.
+                  </p>
+                ) : null}
 
                 {applyBlockedReason && (
                   <p className="mt-3 text-sm text-amber-300">

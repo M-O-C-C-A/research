@@ -61,7 +61,7 @@ export function NavBar() {
                       "rounded-md px-3 py-1.5 text-sm font-medium leading-tight transition-colors",
                       active
                         ? "bg-[color:var(--brand-surface)] text-white ring-1 ring-[color:var(--brand-border)]"
-                        : "text-zinc-400 hover:text-white hover:bg-[color:var(--brand-surface)]"
+                        : "text-zinc-400 hover:text-white hover:bg-[color:var(--brand-surface)]",
                     )}
                   >
                     {item.label}
@@ -71,7 +71,7 @@ export function NavBar() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <span className="hidden max-w-[18rem] truncate text-right text-xs leading-tight text-zinc-600 xl:block">
+            <span className="hidden max-w-[18rem] truncate text-right text-xs leading-tight text-zinc-600 2xl:block">
               {BRAND_TAGLINE}
             </span>
             <Link
@@ -84,11 +84,17 @@ export function NavBar() {
               type="button"
               aria-expanded={mobileOpen}
               aria-controls="mobile-navigation"
-              aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
+              aria-label={
+                mobileOpen ? "Close navigation menu" : "Open navigation menu"
+              }
               className="inline-flex h-10 w-10 items-center justify-center rounded-md border border-[color:var(--brand-border)] bg-zinc-900 text-zinc-200 transition-colors hover:bg-[color:var(--brand-surface)] lg:hidden"
               onClick={() => setMobileOpen((open) => !open)}
             >
-              {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+              {mobileOpen ? (
+                <X className="h-5 w-5" />
+              ) : (
+                <Menu className="h-5 w-5" />
+              )}
             </button>
           </div>
         </div>
@@ -96,10 +102,13 @@ export function NavBar() {
       <div
         className={cn(
           "overflow-hidden border-t border-[color:var(--brand-border)] bg-zinc-950/95 transition-[max-height,opacity] duration-200 lg:hidden",
-          mobileOpen ? "max-h-[24rem] opacity-100" : "max-h-0 opacity-0"
+          mobileOpen ? "max-h-[24rem] opacity-100" : "max-h-0 opacity-0",
         )}
       >
-        <div id="mobile-navigation" className="mx-auto max-w-7xl px-4 py-3 sm:px-6">
+        <div
+          id="mobile-navigation"
+          className="mx-auto max-w-7xl px-4 py-3 sm:px-6"
+        >
           <div className="flex flex-col gap-1">
             <Link
               href={startProcessHref}
@@ -123,7 +132,7 @@ export function NavBar() {
                     "rounded-lg px-4 py-3 text-sm font-medium transition-colors",
                     active
                       ? "bg-[color:var(--brand-surface)] text-white ring-1 ring-[color:var(--brand-border)]"
-                      : "text-zinc-300 hover:bg-[color:var(--brand-surface)] hover:text-white"
+                      : "text-zinc-300 hover:bg-[color:var(--brand-surface)] hover:text-white",
                   )}
                 >
                   {item.label}
@@ -131,7 +140,9 @@ export function NavBar() {
               );
             })}
           </div>
-          <p className="mt-4 px-1 text-xs text-zinc-500 sm:hidden">{BRAND_TAGLINE}</p>
+          <p className="mt-4 px-1 text-xs text-zinc-500 sm:hidden">
+            {BRAND_TAGLINE}
+          </p>
         </div>
       </div>
     </nav>

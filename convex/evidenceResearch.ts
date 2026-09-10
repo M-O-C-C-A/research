@@ -1,7 +1,7 @@
 "use node";
 
 import { action } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
 import { v } from "convex/values";
 import { createResearchClient, createStructuredWebSearchResponse, RESEARCH_MODEL } from "./openaiResearch";
@@ -146,6 +146,7 @@ function persistableFindings(args: {
 export const runProductResearch = action({
   args: { drugId: v.id("drugs") },
   handler: async (ctx, { drugId }): Promise<Id<"researchRuns">> => {
+    await ctx.runAction(api.sourceAccess.run, {});
     const runId: Id<"researchRuns"> = await ctx.runMutation(internal.researchWorkflow.createRun, {
       targetType: "product",
       drugId,
@@ -161,7 +162,7 @@ export const runProductResearch = action({
         .join("; ");
       const response = await createStructuredWebSearchResponse<{ findings: FindingDraft[] }>(client, {
         instructions: "You are an evidence researcher for Saudi Arabia, the UAE, and Egypt. Return only concise, source-backed facts. A sourceUrl must be one of the web sources you actually used. Never infer a missing registration, ownership, partner, or contact. Only propose ownership for a company named in the supplied known-owner list. UAE registration status comes only from authorized MoHAP imports, so never return a UAE registration finding from web search. Egypt's registration search may be access-controlled, so do not claim Egyptian registration unless an authorized record is supplied. Return no finding when the source does not support it.",
-        input: `Research product: ${context.drug.name} (${context.drug.genericName}).\nKnown owners/links: ${linkedOwners || "none"}.\nKnown companies: ${knownCompanies.map((company) => company.name).join("; ") || "none"}.\nFocus: Saudi Arabia, UAE, and Egypt. Find product identity, manufacturer/MAH confirmation, current official market context, authorized registry evidence only, conflicting local partners, and named public BD/licensing/export contacts. Existing official signal titles: ${context.matchingSignals.map((signal) => signal.title).join("; ") || "none"}.`,
+        input: `Research product: ${context.drug.name} (${context.drug.genericName}).\nKnown owners/links: ${linkedOwners || "none"}.\nKnown companies: ${knownCompanies.map((company) => company.name).join("; ") || "none"}.\nFocus: Saudi Arabia, UAE, and Egypt. Find product identity, manufacturer/MAH confirmation, current official market context, Germany reference prices via Lauer or documented proxies, UAE/KSA registered prices, NUPCO tender benchmarks, NHSBSA/CMS/WHO context (never mix price types), disease prevalence/incidence, target patients/procedures, public/private access, physician adoption, affordability, reimbursement constraints, country decision-makers, regulatory and supply feasibility, authorized registry evidence only, existing local partners, and named public BD/licensing/export contacts. Existing official signal titles: ${context.matchingSignals.map((signal) => signal.title).join("; ") || "none"}.`,
         formatName: "product_research_findings",
         schema: RESEARCH_FINDINGS_SCHEMA,
         maxOutputTokens: 3_000,
@@ -189,6 +190,7 @@ export const runProductResearch = action({
 export const runCompanyResearch = action({
   args: { companyId: v.id("companies") },
   handler: async (ctx, { companyId }): Promise<Id<"researchRuns">> => {
+    await ctx.runAction(api.sourceAccess.run, {});
     const runId: Id<"researchRuns"> = await ctx.runMutation(internal.researchWorkflow.createRun, {
       targetType: "company",
       companyId,
@@ -200,7 +202,7 @@ export const runCompanyResearch = action({
       const client = createResearchClient(process.env.OPENAI_API_KEY);
       const response = await createStructuredWebSearchResponse<{ findings: FindingDraft[] }>(client, {
         instructions: "You are an evidence researcher for Saudi Arabia, the UAE, and Egypt. Return only concise, source-backed facts. A sourceUrl must be one of the web sources you actually used. Never infer market access, ownership, partners, or contacts. Focus on public company pages, press releases, conferences, and direct LinkedIn profiles. Only return named contacts when the page contains a direct public work email or direct LinkedIn profile.",
-        input: `Research company: ${context.company.name} (${context.company.country}; website: ${context.company.website ?? "unknown"}).\nKnown portfolio: ${context.drugs.map((drug) => `${drug.name} (${drug.genericName})`).join("; ") || "none"}.\nFocus: company role, Saudi/UAE/Egypt partner or market presence, portfolio context, and named BD/licensing/export/commercial contacts.`,
+        input: `Research company: ${context.company.name} (${context.company.country}; website: ${context.company.website ?? "unknown"}).\nKnown portfolio: ${context.drugs.map((drug) => `${drug.name} (${drug.genericName})`).join("; ") || "none"}.\nFocus: company role; all six GCC countries plus Egypt relationships (NONE, DISTRIBUTOR_ONLY, EXCLUSIVE_AGENT, OWN_AFFILIATE or UNKNOWN), exact product scope and named partners; dated staff count; out-licensing in other emerging regions; partnering pages/BD contacts; partnering conference attendance; reputation and willingness; and named public contacts. Missing evidence is UNKNOWN, not NONE.`,
         formatName: "company_research_findings",
         schema: RESEARCH_FINDINGS_SCHEMA,
         maxOutputTokens: 3_000,

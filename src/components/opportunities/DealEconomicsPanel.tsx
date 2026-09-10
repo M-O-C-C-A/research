@@ -10,7 +10,7 @@ interface DealEconomicsPanelProps {
 }
 
 function formatMoney(value?: number) {
-  if (!value) return "UNVALIDATED";
+  if (value === undefined || !Number.isFinite(value)) return "UNVALIDATED";
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -26,7 +26,7 @@ function modelLabel(model: string) {
 
 function modelDescription(model: string) {
   return model === "MODEL_1_REGIONAL_AGENT"
-    ? "Provisional local-applicant scenario. KEMEDICA is coordinator/advisor unless a named regulated applicant and approved role are recorded."
+    ? "Commercial assessment scenario. Record the current MAH and proposed local applicant; KEMEDICA can be proposed as MAH if required, subject to feasibility review."
     : "Provisional broker or sub-license scenario; no fee or right is presented as agreed.";
 }
 

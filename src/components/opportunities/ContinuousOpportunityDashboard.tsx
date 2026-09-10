@@ -65,8 +65,8 @@ export function ContinuousOpportunityDashboard() {
   const [targetMarket, setTargetMarket] = useState<(typeof TARGET_MARKETS)[number] | "All">("All");
   const [productClass, setProductClass] = useState<string>("All");
   const [exclusions, setExclusions] = useState({
-    alreadyRegisteredTarget: true,
-    top20Pharma: true,
+    alreadyRegisteredTarget: false,
+    top20Pharma: false,
     menaRightsLicensed: true,
     withdrawnOrSuspended: true,
     belowMarginFloor: true,
@@ -122,7 +122,7 @@ export function ContinuousOpportunityDashboard() {
               Screen authorized small-company medicines for Middle East whitespace
             </h1>
             <p className="mt-2 text-sm leading-relaxed text-zinc-300">
-              The engine retains raw source payloads, applies provenance-gated facts, excludes top-20 pharma owners,
+              The engine retains raw source payloads, applies provenance-gated facts, deprioritizes large pharma owners,
               ranks by risk-adjusted margin, and writes change events when the opportunity picture moves.
             </p>
           </div>

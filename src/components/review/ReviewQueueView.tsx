@@ -54,7 +54,7 @@ export function ReviewQueueView() {
             Country evidence reviews
           </h2>
           <p className="mt-1 text-xs text-zinc-400">
-            These v1.1 pursuits still have unresolved G1–G7 evidence.
+            These v1.2 pursuits still have unresolved G1–G7 evidence.
           </p>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             {(evidenceReviews ?? []).filter(Boolean).flatMap((row) =>
@@ -81,7 +81,7 @@ export function ReviewQueueView() {
             {evidenceReviews !== undefined &&
             evidenceReviews.filter(Boolean).length === 0 ? (
               <p className="text-sm text-zinc-500">
-                No v1.1 country reviews are waiting.
+                No v1.2 country reviews are waiting.
               </p>
             ) : null}
           </div>

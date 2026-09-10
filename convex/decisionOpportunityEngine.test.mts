@@ -63,7 +63,7 @@ function makeMatch(overrides: Record<string, unknown> = {}) {
   } as unknown as MatchInput;
 }
 
-test("confirmed UAE registration removes UAE from focus markets and updates rationale", () => {
+test("confirmed UAE registration stays eligible and is deprioritized", () => {
   const draft = buildDecisionOpportunityDraft({
     gap: makeGap(["Saudi Arabia", "UAE"]),
     company: makeCompany(),
@@ -74,14 +74,14 @@ test("confirmed UAE registration removes UAE from focus markets and updates rati
   });
 
   assert.ok(draft);
-  assert.deepEqual(draft.focusMarkets, ["Saudi Arabia"]);
-  assert.deepEqual(draft.blockedFocusMarkets, ["UAE"]);
+  assert.deepEqual(draft.focusMarkets, ["Saudi Arabia", "UAE"]);
+  assert.equal(draft.blockedFocusMarkets, undefined);
   assert.match(draft.whyThisMarket, /UAE is already formally registered/i);
-  assert.match(draft.confidenceSummary, /scoped to Saudi Arabia/i);
-  assert.match(draft.scoreExplanation, /UAE was removed from whitespace scoring/i);
+  assert.ok(draft.scoreBreakdown.gapValidity <= 4);
+  assert.match(draft.whyThisMarket, /deprioritized but eligible/i);
 });
 
-test("confirmed UAE registration with no remaining focus market prevents promotion", () => {
+test("confirmed UAE registration alone does not prevent a pursuit", () => {
   const draft = buildDecisionOpportunityDraft({
     gap: makeGap(["UAE"]),
     company: makeCompany(),
@@ -91,7 +91,8 @@ test("confirmed UAE registration with no remaining focus market prevents promoti
     opportunities: [],
   });
 
-  assert.equal(draft, null);
+  assert.ok(draft);
+  assert.deepEqual(draft.focusMarkets, ["UAE"]);
 });
 
 test("non-focus registrations still apply as softer context while UAE remains eligible", () => {

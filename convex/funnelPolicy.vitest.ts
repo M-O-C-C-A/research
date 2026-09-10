@@ -134,8 +134,8 @@ describe("canonical funnel policy", () => {
     ).toContain("Provisional commercial assumptions need human approval.");
   });
 
-  it("keeps 15 as a planning target instead of a blocker", () => {
-    expect(MONTHLY_CONTACT_READY_TARGET).toBe(15);
+  it("has no monthly readiness target or cap", () => {
+    expect(MONTHLY_CONTACT_READY_TARGET).toBeNull();
     expect(contactReadyBlockers(readyV11)).toEqual([]);
   });
 });

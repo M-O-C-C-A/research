@@ -16,17 +16,17 @@ const workflow = [
   {
     icon: Search,
     title: "1. Choose from Opportunities",
-    body: "Start in the top-20 working queue. Every visible pursuit comes from an accepted FDA, EMA, or MHRA approval snapshot; historical candidates stay quarantined until they pass the new evidence engine.",
+    body: "Start with reference-approved products, standardized by INN, dose and formulation. FDA, EMA, MHRA, BfArM and EU national approvals qualify. Registration, large pharma and existing regional partners reduce priority while remaining eligible.",
   },
   {
     icon: FileSearch,
     title: "2. Verify one country file",
-    body: "UAE is compared against the complete EDE snapshot. For Saudi Arabia and Egypt, record a dated targeted official-registry check with the exact search terms, result and evidence note. A non-match is never presented as verified absence.",
+    body: "UAE is compared against the complete EDE snapshot. For Saudi Arabia and Egypt, record a dated targeted official-registry check with the exact search terms, result and evidence note. Show registered, not registered in the checked registry, or unresolved, with dated evidence. Record the current MAH and local distributors; KEMEDICA may be proposed as MAH subject to country feasibility.",
   },
   {
     icon: ListChecks,
     title: "3. Approve the evidence and assumptions",
-    body: "Clear G1–G7 only from cited evidence. Commercial values remain provisional until you approve the assumptions for that specific pursuit; the 15-per-month figure is a planning target, not a gate.",
+    body: "Clear G1–G7 only from cited evidence. Build the Germany/GCC/tender price corridor, volume reality check, five-year margin scenarios and entry recommendation. Approve assumptions relevant to the commercial assessment; no signed fee agreement is required. Every qualifying opportunity may become contact-ready.",
   },
   {
     icon: MessageSquare,
@@ -239,7 +239,7 @@ export default function GuidePage() {
           <div className="grid gap-2 py-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
             <dt className="font-semibold text-white">Opportunities</dt>
             <dd className="text-zinc-400">
-              The top-20 research queue and watchlist. Start here to choose and
+              The working queue, demand-validated top 20, and watchlist. Start here to choose and
               verify a product-country pursuit.
             </dd>
           </div>

@@ -93,6 +93,7 @@ async function fetchOfficialSource(source: (typeof SOURCES)[number]): Promise<So
 }
 
 async function runScan(ctx: ActionCtx, trigger: "manual" | "scheduled") {
+  await ctx.runAction(api.sourceAccess.run, {});
   const scanId: Id<"leadScanRuns"> = await ctx.runMutation(
     internal.actionableLeads.createScanRun,
     {

@@ -12,8 +12,10 @@ import {
   EVIDENCE_ENGINE_VERSION,
   evaluateEvidenceGates,
   whiteSpaceStatement,
+  normalizeEvidenceText,
 } from "./evidenceEngineV11Policy";
-import { isTop20OwnerName } from "./continuousOpportunityEngine";
+import { buildCommercialOutput } from "./commercialOutputPolicy";
+import { calculateCompanyFit, compareOpportunityRank } from "./opportunityAssessmentPolicy";
 
 const country = v.union(
   v.literal("UAE"),
@@ -68,11 +70,6 @@ const TARGET_IMPORT_SOURCE: Record<"Saudi Arabia" | "UAE" | "Egypt", string> = {
   UAE: "uae_official_directory",
   Egypt: "egypt_eda_authorized_export",
 };
-const TARGET_CONFIDENCE = {
-  "Saudi Arabia": "high",
-  UAE: "medium",
-  Egypt: "low",
-} as const;
 const TARGET_SNAPSHOT_FRESHNESS_MS = {
   "Saudi Arabia": 8 * 24 * 60 * 60 * 1_000,
   UAE: 31 * 24 * 60 * 60 * 1_000,
@@ -147,7 +144,7 @@ export const stats = query({
     contactReadyThisMonth: v.number(),
     staleAssessments: v.number(),
     unresolvedCriticalReviews: v.number(),
-    monthlyTarget: v.number(),
+    monthlyTarget: v.null(),
     aboveMonthlyTarget: v.number(),
   }),
   handler: async (ctx) => {
@@ -194,23 +191,7 @@ export const stats = query({
         (assessment) => assessment.criticalReviewOpen,
       ).length,
       monthlyTarget: MONTHLY_CONTACT_READY_TARGET,
-      aboveMonthlyTarget: Math.max(
-        0,
-        opportunities.filter(
-          (item) =>
-            item.lastQualifiedAt &&
-            item.lastQualifiedAt >= monthStart(Date.now()) &&
-            [
-              "contact_ready",
-              "assigned",
-              "contacted",
-              "engaged",
-              "diligence",
-              "negotiating",
-              "won",
-            ].includes(item.funnelStage ?? ""),
-        ).length - MONTHLY_CONTACT_READY_TARGET,
-      ),
+      aboveMonthlyTarget: 0,
     };
   },
 });
@@ -220,7 +201,7 @@ export const list = query({
     stage: v.optional(funnelStage),
     targetCountry: v.optional(country),
     limit: v.optional(v.number()),
-    queue: v.optional(v.union(v.literal("working"), v.literal("watchlist"))),
+    queue: v.optional(v.union(v.literal("working"), v.literal("watchlist"), v.literal("demand_top20"))),
     search: v.optional(v.string()),
   },
   returns: v.any(),
@@ -235,12 +216,15 @@ export const list = query({
       .order("desc")
       .take(Math.min(limit * 5, 500));
     const search = args.search?.trim().toLowerCase();
-    const opportunities = candidates
+    const rankedCandidates = await Promise.all(candidates.map(async opportunity => {
+      const fit = await ctx.db.query("opportunityCompanyFits").withIndex("by_opportunity", q => q.eq("opportunityId", opportunity._id)).unique();
+      return { ...opportunity, companyFitScore: fit ? calculateCompanyFit(fit.input).score : 5 };
+    }));
+    const opportunities = rankedCandidates
       .filter(
         (opportunity) =>
           opportunity.evidenceEngineVersion === EVIDENCE_ENGINE_VERSION &&
-          !opportunity.legacyQuarantinedAt &&
-          !isTop20OwnerName(opportunity.approachEntityName),
+          !opportunity.legacyQuarantinedAt,
       )
       .filter(
         (opportunity) => !args.stage || opportunity.funnelStage === args.stage,
@@ -262,7 +246,7 @@ export const list = query({
             opportunity.therapeuticArea,
           ].some((value) => value.toLowerCase().includes(search)),
       )
-      .slice(0, args.queue === "working" ? Math.min(limit, 20) : limit);
+      .sort(compareOpportunityRank);
     const rows = await Promise.all(
       opportunities.map(async (opportunity) => {
         const assessments = await ctx.db
@@ -282,7 +266,8 @@ export const list = query({
         return { opportunity, assessments: visible, contact, assignee };
       }),
     );
-    return rows.filter(Boolean);
+    const visibleRows = rows.filter((row): row is NonNullable<typeof row> => row !== null);
+    return args.queue === "demand_top20" ? visibleRows.filter(row => row.assessments.some(a => a.gateSnapshot?.g7Demand === "PASS" && ["qualified", "contact_ready", "assigned", "contacted", "engaged", "diligence", "negotiating", "won"].includes(a.stage))).slice(0, 20) : visibleRows.slice(0, limit);
   },
 });
 
@@ -337,6 +322,7 @@ export const reviewAssessment = mutation({
       v.literal("registered"),
       v.literal("under_registration"),
       v.literal("verified_absent"),
+      v.literal("checked_not_registered"),
       v.literal("not_found_unverified"),
       v.literal("unverified"),
     ),
@@ -379,6 +365,10 @@ export const reviewAssessment = mutation({
     companyReasonObservedAt: v.number(),
     intendedLocalApplicant: v.string(),
     nomineeCovenantStatus,
+    nomineeRequired: v.optional(v.boolean()),
+    currentMah: v.optional(v.string()),
+    localPartners: v.optional(v.string()),
+    registryMatchKind: v.optional(v.union(v.literal("exact"), v.literal("equivalent"), v.literal("none"), v.literal("unresolved"))),
     referenceApproved: v.boolean(),
     eligibleCategory: v.boolean(),
     referencePriceAvailable: v.boolean(),
@@ -416,30 +406,17 @@ export const reviewAssessment = mutation({
       );
     }
     if (
-      args.rightsStatus === "clear_no_conflict_found" &&
-      !/^No conflicting presence found as of \d{4}-\d{2}-\d{2}/i.test(
-        args.presenceStatement.trim(),
-      )
-    ) {
-      throw new Error(
-        "A clear rights review must use the dated wording “No conflicting presence found as of YYYY-MM-DD”.",
-      );
-    }
-    if (
       Object.values(args.scoreBreakdown).some(
         (score) => score < 0 || score > 100,
       )
     )
       throw new Error("Every score must be between 0 and 100");
-    const sourceImport = (
-      await ctx.db
-        .query("registrationImports")
-        .withIndex("by_source_type_and_created_at", (q) =>
-          q.eq("sourceType", TARGET_IMPORT_SOURCE[args.country]),
-        )
-        .order("desc")
-        .take(20)
-    ).find((item) => item.coverageHealth === "accepted" && item.sourceFetchId);
+    if (!args.normalizedPresentationKey || args.normalizedPresentationKey.split("|").length !== 3 || args.normalizedPresentationKey.split("|").some(part => !part.trim())) throw new Error("An exact INN, form and strength key is required.");
+    if (opportunity.normalizedPresentationKey && args.normalizedPresentationKey !== opportunity.normalizedPresentationKey) throw new Error("Resolve the canonical product identity before changing the registry comparison key.");
+    if (args.evidenceObservedAt > Date.now()) throw new Error("Evidence observation cannot be in the future.");
+    const sourceTypes = args.country === "UAE" ? ["mohap_uae_complete_product_list", "uae_official_directory"] : [TARGET_IMPORT_SOURCE[args.country]];
+    const sourceImports = (await Promise.all(sourceTypes.map(sourceType => ctx.db.query("registrationImports").withIndex("by_source_type_and_created_at", q => q.eq("sourceType", sourceType)).order("desc").take(20)))).flat().filter(item => item.coverageHealth === "accepted" && item.sourceFetchId);
+    const sourceImport = sourceImports.find(item => item.sourceType === "mohap_uae_complete_product_list") ?? sourceImports[0];
     const sourceSnapshot = sourceImport?.sourceFetchId
       ? await ctx.db.get(sourceImport.sourceFetchId)
       : null;
@@ -447,10 +424,10 @@ export const reviewAssessment = mutation({
       sourceImport &&
       sourceSnapshot &&
       sourceSnapshot.coverageHealth === "accepted" &&
-      sourceSnapshot.structureStatus === "passed",
+      sourceSnapshot.structureStatus === "passed" && sourceSnapshot.fetchedAt + TARGET_SNAPSHOT_FRESHNESS_MS[args.country] > Date.now(),
     );
     if (args.country === "UAE" && !healthySnapshot)
-      throw new Error("UAE review requires the latest accepted EDE snapshot");
+      throw new Error("UAE review requires the latest accepted UAE registry snapshot");
     if (args.verificationMode === "snapshot" && !healthySnapshot)
       throw new Error(
         `No accepted ${TARGET_REGISTRY[args.country]} snapshot is available; use a targeted check`,
@@ -458,7 +435,7 @@ export const reviewAssessment = mutation({
     if (args.verificationMode === "targeted_check") {
       if (args.country === "UAE")
         throw new Error(
-          "UAE uses the accepted EDE snapshot, not targeted checks",
+          "UAE uses the accepted uploaded registry snapshot",
         );
       if (
         !args.targetedCheckResult ||
@@ -470,25 +447,34 @@ export const reviewAssessment = mutation({
           "A targeted check requires its result, official source URL, exact search terms, and evidence note",
         );
     }
-    const matchCount =
-      args.verificationMode === "snapshot" && sourceImport
-        ? (
-            await ctx.db
-              .query("registrationImportRows")
-              .withIndex("by_import_and_normalized_presentation_key", (q) =>
-                q
-                  .eq("importId", sourceImport._id)
-                  .eq(
-                    "normalizedPresentationKey",
-                    args.normalizedPresentationKey,
-                  ),
-              )
-              .take(1)
-          ).length
-        : 0;
+    const matchingRows = args.verificationMode === "snapshot" && sourceImport
+      ? await ctx.db.query("registrationImportRows").withIndex("by_import_and_normalized_presentation_key", q => q.eq("importId", sourceImport._id).eq("normalizedPresentationKey", args.normalizedPresentationKey)).take(101) : [];
+    if (matchingRows.length > 100) throw new Error("Too many presentation matches; narrow and review product identity before concluding registration.");
+    const matchCount = matchingRows.length;
+    // A partial presentation for this molecule prevents a clean no-match conclusion.
+    const incompleteRows = args.verificationMode === "snapshot" && sourceImport
+      ? await ctx.db.query("registrationImportRows").withIndex("by_import_and_normalized_inn", q => q.eq("importId", sourceImport._id).eq("normalizedInn", args.normalizedPresentationKey.split("|")[0])).filter(q => q.eq(q.field("normalizedPresentationKey"), undefined)).take(1) : [];
+    const supplementalImport = args.country === "UAE" && args.verificationMode === "snapshot"
+      ? (await ctx.db.query("registrationImports").withIndex("by_source_type_and_created_at", q => q.eq("sourceType", "uae_supplementary_directory")).order("desc").take(20)).find(item => item.coverageHealth === "accepted") : undefined;
+    const supplementalRows = supplementalImport
+      ? await ctx.db.query("registrationImportRows").withIndex("by_import_and_normalized_presentation_key", q => q.eq("importId", supplementalImport._id).eq("normalizedPresentationKey", args.normalizedPresentationKey)).take(101) : [];
+    const candidateName = normalizeEvidenceText(opportunity.productName);
+    const supplementalExact = supplementalRows.filter(row => normalizeEvidenceText(row.productName) === candidateName);
+    const primaryExact = matchingRows.filter(row => normalizeEvidenceText(row.productName) === candidateName);
+    const conflictingSources = supplementalExact.some(row => !primaryExact.some(primary => primary.registrationStatus === row.registrationStatus));
+    const unresolvedSourceStatus = matchingRows.some(row => row.registrationStatus !== "registered") || incompleteRows.length > 0 || conflictingSources;
+
+    if (matchCount && args.registryMatchKind === "none") throw new Error("The snapshot contains presentation matches. Classify them as exact, equivalent or unresolved.");
+    if (!matchCount && args.verificationMode === "snapshot" && ["exact", "equivalent"].includes(args.registryMatchKind ?? "")) throw new Error("No matching presentation exists in this snapshot; review the product key.");
+    if (args.verificationMode === "targeted_check") {
+      const url = new URL(args.targetedCheckSourceUrl!);
+      const domain = args.country === "Saudi Arabia" ? "sfda.gov.sa" : "edaegypt.gov.eg";
+      if (url.protocol !== "https:" || !(url.hostname === domain || url.hostname.endsWith(`.${domain}`))) throw new Error("Use the target country's official registry domain.");
+      if (url.pathname.includes("formulary") || url.pathname.includes("the-egyptian-drug-registry")) throw new Error("The supplied EDA directory link redirects to a formulary; use the registration search and record its result.");
+    }
     const derivedWhiteSpaceStatus =
       args.verificationMode === "snapshot"
-        ? matchCount > 0
+        ? unresolvedSourceStatus ? ("not_checked" as const) : matchCount > 0
           ? ("matches_found" as const)
           : ("no_match_in_snapshot" as const)
         : args.targetedCheckResult === "matches_found"
@@ -505,7 +491,8 @@ export const reviewAssessment = mutation({
         "A classified company reason requires a source URL and excerpt",
       );
     }
-    const weightedScore = calculateWeightedScore(args.scoreBreakdown);
+    const adjustedScores = { ...args.scoreBreakdown, gapValidity: derivedWhiteSpaceStatus === "matches_found" ? Math.min(args.scoreBreakdown.gapValidity, 40) : args.scoreBreakdown.gapValidity };
+    const weightedScore = calculateWeightedScore(adjustedScores);
     const existing = await ctx.db
       .query("opportunityMarketAssessments")
       .withIndex("by_opportunity_and_country", (q) =>
@@ -515,7 +502,7 @@ export const reviewAssessment = mutation({
       )
       .unique();
     const commercialApprovalStatus =
-      existing?.commercialApprovalStatus === "approved"
+      existing?.commercialApprovalStatus === "approved" && existing.economicsSummary === args.economicsSummary && existing.economicsStatus === args.economicsStatus
         ? ("approved" as const)
         : args.economicsCalculated
           ? ("provisional" as const)
@@ -554,9 +541,7 @@ export const reviewAssessment = mutation({
       ].every((gate) => gate === "PASS") &&
       ["PASS", "PROVISIONAL"].includes(gates.g6LifetimeEconomics);
     const stage =
-      derivedWhiteSpaceStatus === "matches_found" ||
-      args.rightsStatus === "conflict" ||
-      ["PARKED", "IGNORING", "STRUCTURAL_NO"].includes(args.companyReasonCode)
+      args.rightsStatus === "conflict"
         ? ("watching" as const)
         : eligibleForQualification
           ? ("qualified" as const)
@@ -592,6 +577,7 @@ export const reviewAssessment = mutation({
     });
     const record = {
       ...assessmentFields,
+      scoreBreakdown: adjustedScores,
       decisionOpportunityId: opportunityId,
       stage,
       weightedScore,
@@ -599,21 +585,18 @@ export const reviewAssessment = mutation({
         "no_match_in_snapshot",
         "no_match_in_targeted_check",
       ].includes(derivedWhiteSpaceStatus)
-        ? ("not_found_unverified" as const)
+        ? ("checked_not_registered" as const)
         : derivedWhiteSpaceStatus === "matches_found"
-          ? ("registered" as const)
+          ? args.registryMatchKind === "exact" ? ("registered" as const) : args.registryMatchKind === "equivalent" ? ("checked_not_registered" as const) : ("unverified" as const)
           : ("unverified" as const),
-      registrationEvidence: findingStatement,
-      presenceStatement: findingStatement,
+      registrationEvidence: `${findingStatement} Match scope: ${args.registryMatchKind ?? "unresolved"}. ${args.targetedCheckEvidenceExcerpt ?? ""}`,
+      localPartners: args.localPartners || [...new Set(matchingRows.filter(row => args.registryMatchKind === "exact" && normalizeEvidenceText(row.productName) === normalizeEvidenceText(opportunity.productName)).map(row => row.supplierName).filter(Boolean))].join("; ") || "Unknown",
+      presenceStatement: `${findingStatement} ${args.registryMatchKind === "equivalent" ? "Equivalent competitor presentations; the candidate itself is not listed." : args.registryMatchKind === "exact" ? "Candidate is registered; deprioritized but eligible." : ""}`,
       evidenceEngineVersion: EVIDENCE_ENGINE_VERSION,
       gateSnapshot,
       commercialApprovalStatus,
       whiteSpaceStatus: derivedWhiteSpaceStatus,
-      absenceConfidence:
-        args.verificationMode === "targeted_check" &&
-        args.country === "Saudi Arabia"
-          ? ("medium" as const)
-          : TARGET_CONFIDENCE[args.country],
+      absenceConfidence: undefined,
       sourceSnapshotId:
         args.verificationMode === "snapshot" ? sourceSnapshot?._id : undefined,
       sourceSnapshotDate,
@@ -649,6 +632,9 @@ export const reviewAssessment = mutation({
         createdAt: now,
       });
     }
+    const countryAssessments = await ctx.db.query("opportunityMarketAssessments").withIndex("by_opportunity", q => q.eq("decisionOpportunityId", opportunity._id)).take(3);
+    const bestStage = countryAssessments.some(a => a.stage === "qualified") ? "qualified" as const : countryAssessments.some(a => a.stage === "needs_evidence") ? "needs_evidence" as const : stage;
+    const bestScore = Math.max(0, ...countryAssessments.filter(a => a.stage !== "watching").map(a => a.weightedScore));
     if (
       !opportunity.funnelStage ||
       ["needs_evidence", "qualified", "watching"].includes(
@@ -656,8 +642,8 @@ export const reviewAssessment = mutation({
       )
     ) {
       await ctx.db.patch(opportunity._id, {
-        funnelStage: stage,
-        priorityScore: Math.max(opportunity.priorityScore, weightedScore),
+        funnelStage: bestStage,
+        priorityScore: bestScore,
         evidenceEngineVersion: EVIDENCE_ENGINE_VERSION,
         normalizedPresentationKey: args.normalizedPresentationKey,
         legacyQuarantinedAt: undefined,
@@ -682,12 +668,21 @@ export const approveCommercialAssumptions = mutation({
       !assessment ||
       assessment.evidenceEngineVersion !== EVIDENCE_ENGINE_VERSION
     )
-      throw new Error("v1.1 assessment not found");
+      throw new Error("Current-policy assessment not found");
     if (!args.approvalNote.trim())
       throw new Error(
         "Record why these provisional assumptions are acceptable for this pursuit",
       );
+    const study = await ctx.db.query("commercialStudies").withIndex("by_opportunity_and_country", q => q.eq("opportunityId", assessment.decisionOpportunityId).eq("country", assessment.country)).unique();
+    if (!study) throw new Error("Save the five-year commercial assessment and scenarios before approval.");
+    const output = buildCommercialOutput(study.input);
+    if (!output.corridor?.complete) throw new Error("Commercial approval requires comparable Germany and GCC price anchors; tender benchmarks are optional.");
+    if (Object.values(study.input).some((value) => typeof value === "string" && !value.trim())) throw new Error("Complete the country feasibility and commercial evidence fields before approval.");
     const now = Date.now();
+    await ctx.db.patch(study._id, { reviewedAt: now });
+    const otherStudies = await ctx.db.query("commercialStudies").withIndex("by_opportunity_and_country", q => q.eq("opportunityId", assessment.decisionOpportunityId)).take(3);
+    const baseCash = otherStudies.filter(s => s._id === study._id || s.reviewedAt).map(s => buildCommercialOutput(s.input).forecasts.find(f => f.name === "base")!.cumulativeCash);
+    await ctx.db.patch(assessment.decisionOpportunityId, { forecastBaseCashUsd: Math.max(...baseCash), updatedAt: now });
     const gateSnapshot = assessment.gateSnapshot
       ? {
           ...assessment.gateSnapshot,
@@ -859,6 +854,9 @@ export const promoteContactReady = mutation({
       contactHasRoute: publicRoute(contact),
       now,
     });
+    const study = await ctx.db.query("commercialStudies").withIndex("by_opportunity_and_country", q => q.eq("opportunityId", opportunityId).eq("country", assessment.country)).unique();
+    if (!study?.reviewedAt || study.reviewedAt < study.updatedAt) blockers.push("Current five-year forecast requires commercial approval.");
+    if (study && !buildCommercialOutput(study.input).corridor?.complete) blockers.push("Current comparable Germany and GCC price anchors are required.");
     if (blockers.length > 0) return { promoted: false, blockers };
 
     await ctx.db.patch(assessmentId, {
@@ -932,6 +930,9 @@ export const generateOutreachPackage = mutation({
         q.eq("assessmentId", assessment._id).eq("reviewState", "approved"),
       )
       .take(100);
+    const contact = await latestContact(ctx, opportunity.companyId);
+    const readiness = contactReadyBlockers({ ...assessment, contactVerifiedAt: contact?.verifiedAt, contactHasRoute: publicRoute(contact), now: Date.now() });
+    if (readiness.length) throw new Error(readiness.join(" "));
     const email = buildReferralEmail(opportunity, assessment);
     const brief = buildBrief(opportunity, assessment, approvedSignals);
     const now = Date.now();

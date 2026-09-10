@@ -83,10 +83,21 @@ type MatchResult = {
   validationIssues: string[];
 };
 
+async function withWriteBackoff<T>(write: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try { return await write(); }
+    catch (error) {
+      if (attempt >= 5 || !String(error).includes("TooManyWrites")) throw error;
+      await new Promise(resolve => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  }
+}
+
 const TARGET_SNAPSHOT_SOURCE_TYPES = new Set([
   "sfda_registered_drugs",
   "uae_official_directory",
   "mohap_uae_complete_product_list",
+  "uae_supplementary_directory",
   "egypt_eda_authorized_export",
 ]);
 
@@ -189,6 +200,9 @@ function parseWorkbookRows(
       range,
     });
 
+    // Summary and dashboard tabs are not registration records.
+    const headers = Object.keys(rows[0] ?? {}).map(canonicalizeHeader);
+    if (!PRODUCT_NAME_HEADERS.some(header => headers.includes(canonicalizeHeader(header)))) continue;
     rows.forEach((rawRow, index) => {
       const canonicalRow = toCanonicalRow(rawRow);
       if (!rowHasData(canonicalRow)) return;
@@ -236,7 +250,7 @@ function parseWorkbookRows(
       const sourceStatus = compactText(
         getRowValue(canonicalRow, STATUS_HEADERS),
       );
-      const registrationStatus = normalizeRegistrationStatus(sourceStatus);
+      const registrationStatus = !sourceStatus && ["uae_official_directory", "mohap_uae_complete_product_list", "uae_supplementary_directory"].includes(options?.sourceType ?? "") ? "registered" : normalizeRegistrationStatus(sourceStatus);
       const registrationNumber = compactText(
         getRowValue(canonicalRow, REGISTRATION_NUMBER_HEADERS),
       );
@@ -825,21 +839,23 @@ export const parseImport = action({
       let resetSummary = true;
       for (;;) {
         const clearResult: { deletedCount: number; done: boolean } =
-          await ctx.runMutation(
+          await withWriteBackoff(() => ctx.runMutation(
             internal.registrationImports.clearImportRowsBatch,
             { importId, resetSummary },
-          );
+          ));
         if (clearResult.done) break;
+        await new Promise(resolve => setTimeout(resolve, 300));
         resetSummary = false;
       }
-      for (let index = 0; index < stagedRows.length; index += 100) {
-        await ctx.runMutation(
+      for (let index = 0; index < stagedRows.length; index += 50) {
+        await withWriteBackoff(() => ctx.runMutation(
           internal.registrationImports.insertImportRowsChunk,
           {
             importId,
-            rows: stagedRows.slice(index, index + 100),
+            rows: stagedRows.slice(index, index + 50),
           },
-        );
+        ));
+        await new Promise(resolve => setTimeout(resolve, 300));
       }
 
       const summary = summarizeRows(stagedRows);

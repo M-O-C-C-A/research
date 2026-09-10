@@ -1,7 +1,7 @@
-export const EVIDENCE_ENGINE_VERSION = "v1.1" as const;
+export const EVIDENCE_ENGINE_VERSION = "v1.2" as const;
 export const SNAPSHOT_COVERAGE_TOLERANCE_PCT = 5;
 export const PRESENTATION_SATURATION_THRESHOLD = 3;
-export const CONTACT_READY_MONTHLY_TARGET = 15;
+export const CONTACT_READY_MONTHLY_TARGET = null;
 
 export type TargetCountry = "Saudi Arabia" | "UAE" | "Egypt";
 export type AbsenceConfidence = "high" | "medium" | "low";
@@ -70,12 +70,6 @@ export function normalizedPresentationKey(input: {
   ].join("|");
 }
 
-export function targetConfidence(country: TargetCountry): AbsenceConfidence {
-  if (country === "Saudi Arabia") return "high";
-  if (country === "UAE") return "medium";
-  return "low";
-}
-
 export function evaluateSnapshotCoverage(
   currentRowCount: number,
   previousRowCount?: number,
@@ -122,8 +116,8 @@ export function whiteSpaceStatement(input: {
     ? new Date(input.snapshotDate).toISOString().slice(0, 10)
     : "the recorded date";
   return input.status === "no_match_in_targeted_check"
-    ? `No match found during the targeted ${input.country} registry check dated ${date}. This is not proof of market absence.`
-    : `No match found in the ${input.country} snapshot dated ${date}.`;
+    ? `Not registered in the checked ${input.country} registry as of ${date}; scoped to the recorded search.`
+    : `Not registered in the checked ${input.country} snapshot dated ${date}.`;
 }
 
 export function isPositiveCompanyReason(reason: CompanyReasonCode) {
@@ -152,18 +146,13 @@ export function evaluateEvidenceGates(input: {
     g3WhiteSpace: [
       "no_match_in_snapshot",
       "no_match_in_targeted_check",
+      "matches_found",
     ].includes(input.whiteSpaceStatus)
       ? ("PASS" as const)
       : input.whiteSpaceStatus === "matches_found"
         ? ("FAIL" as const)
         : ("UNVALIDATED" as const),
-    g4CompanyAndRights:
-      isPositiveCompanyReason(input.companyReasonCode) && input.rightsCleared
-        ? ("PASS" as const)
-        : input.companyReasonCode === "IGNORING" ||
-            input.companyReasonCode === "STRUCTURAL_NO"
-          ? ("FAIL" as const)
-          : ("UNVALIDATED" as const),
+    g4CompanyAndRights: input.rightsCleared ? ("PASS" as const) : ("UNVALIDATED" as const),
     g5PriceChain: !input.referencePriceAvailable
       ? ("UNVALIDATED" as const)
       : input.priceChainPasses
@@ -189,7 +178,6 @@ export function isReferenceMarketCandidate(input: {
   return (
     input.authorizationStatus === "approved" &&
     input.productLifecycle !== "pipeline" &&
-    !input.isTop20Pharma &&
     !input.isWholesaler
   );
 }

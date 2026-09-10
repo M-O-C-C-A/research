@@ -43,6 +43,8 @@ const REFERENCE_SNAPSHOT_SOURCE_TYPES = new Set([
   "drugs_fda",
   "ema_medicine_downloads",
   "mhra_products",
+  "bfarm_amice",
+  "eu_national",
 ]);
 
 const importRowValidator = v.object({
@@ -112,6 +114,14 @@ const IMPORT_SOURCE_CONFIG: Record<
     cadence: "weekly",
     parserVersion: "ede-directory-v1.1",
   },
+  uae_supplementary_directory: {
+    sourceRegistry: "uae_mohap_supplementary",
+    title: "UAE MOHAP supplementary supplier directory",
+    sourceType: "target_registration",
+    baseUrl: "https://mohap.gov.ae/en/w/registered-medications-list",
+    cadence: "manual",
+    parserVersion: "uae-supplementary-v1.2",
+  },
   mohap_uae_complete_product_list: {
     sourceRegistry: "uae_ede_directory",
     title: "UAE authorized complete product list",
@@ -145,6 +155,8 @@ const IMPORT_SOURCE_CONFIG: Record<
     cadence: "weekly",
     parserVersion: "ema-downloads-v1.1",
   },
+  bfarm_amice: { sourceRegistry: "bfarm_amice", title: "BfArM AMIce", sourceType: "home_authorization", baseUrl: "https://www.bfarm.de/EN/Medicinal-products/Information-on-medicinal-products/Research-medicinal-products/AMIce/_node.html", cadence: "manual", parserVersion: "bfarm-v1.2" },
+  eu_national: { sourceRegistry: "eu_national", title: "EU national approvals", sourceType: "home_authorization", baseUrl: "https://www.ema.europa.eu/en/medicines/national-registers-authorised-medicines", cadence: "manual", parserVersion: "eu-national-v1.2" },
   mhra_products: {
     sourceRegistry: "mhra_products",
     title: "MHRA authorized products",

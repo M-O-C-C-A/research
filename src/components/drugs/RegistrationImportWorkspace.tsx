@@ -59,6 +59,8 @@ const REFERENCE_SNAPSHOT_SOURCE_TYPES = new Set([
   "drugs_fda",
   "ema_medicine_downloads",
   "mhra_products",
+  "bfarm_amice",
+  "eu_national",
 ]);
 
 export function RegistrationImportWorkspace() {
@@ -86,6 +88,7 @@ export function RegistrationImportWorkspace() {
     api.registrationImports.approveInitialSnapshot,
   );
   const resolveRowMatch = useMutation(api.registrationImports.resolveRowMatch);
+  const importEgyptSales = useAction(api.egyptSalesImport.importWorkbook);
   const parseImport = useAction(api.registrationImportActions.parseImport);
   const applyImport = useAction(api.registrationImportActions.applyImport);
   const materializeReference = useAction(
@@ -204,6 +207,11 @@ export function RegistrationImportWorkspace() {
               ? "Egypt"
               : "Reference market");
       const { storageId } = await uploadFileToConvex(file, generateUploadUrl);
+      if (sourceType === "egypt_sales") {
+        const result = await importEgyptSales({ storageId: storageId as Id<"_storage">, fileName: file.name });
+        setMessage(`Imported ${result.inserted} sales rows (${result.parsed} parsed). Monthly, YTD and MAT remain separate; currency and unit definitions require review.`);
+        return;
+      }
       const importId = await createImport({
         storageId: storageId as Id<"_storage">,
         fileName: file.name,
@@ -424,7 +432,11 @@ export function RegistrationImportWorkspace() {
                     Egypt EDA authorized export
                   </option>
                 </optgroup>
+                <option value="uae_supplementary_directory">UAE supplementary supplier directory</option>
+                <option value="egypt_sales">Egypt commercial sales workbook</option>
                 <optgroup label="Reference approvals">
+                  <option value="bfarm_amice">BfArM AMIce approvals</option>
+                  <option value="eu_national">EU national approvals</option>
                   <option value="drugs_fda">Drugs@FDA approvals</option>
                   <option value="ema_medicine_downloads">
                     EMA authorized medicines
@@ -619,6 +631,8 @@ export function RegistrationImportWorkspace() {
                     "drugs_fda",
                     "ema_medicine_downloads",
                     "mhra_products",
+  "bfarm_amice",
+  "eu_national",
                   ].includes(selectedImport.sourceType ?? "") &&
                   selectedImport.coverageHealth === "accepted" ? (
                     <Button
@@ -627,7 +641,7 @@ export function RegistrationImportWorkspace() {
                       disabled={busy}
                       onClick={materializeCandidates}
                     >
-                      Create v1.1 research candidates
+                      Create v1.2 research candidates
                     </Button>
                   ) : null}
                 </div>

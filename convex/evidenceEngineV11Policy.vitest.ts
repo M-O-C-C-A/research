@@ -7,7 +7,6 @@ import {
   isReferenceMarketCandidate,
   normalizedPresentationKey,
   shouldReopenParked,
-  targetConfidence,
   whiteSpaceFinding,
   whiteSpaceStatement,
 } from "./evidenceEngineV11Policy";
@@ -42,23 +41,20 @@ describe("KEMEDICA evidence engine v1.1 policy", () => {
   });
 
   it("uses bounded country confidence and non-absolute language", () => {
-    expect(targetConfidence("Saudi Arabia")).toBe("high");
-    expect(targetConfidence("UAE")).toBe("medium");
-    expect(targetConfidence("Egypt")).toBe("low");
     expect(
       whiteSpaceStatement({
         country: "Egypt",
         status: "no_match_in_snapshot",
         snapshotDate: Date.UTC(2026, 8, 4),
       }),
-    ).toBe("No match found in the Egypt snapshot dated 2026-09-04.");
+    ).toBe("Not registered in the checked Egypt snapshot dated 2026-09-04.");
     expect(
       whiteSpaceStatement({
         country: "Saudi Arabia",
         status: "no_match_in_targeted_check",
         snapshotDate: Date.UTC(2026, 8, 4),
       }),
-    ).toContain("This is not proof of market absence");
+    ).toContain("scoped to the recorded search");
   });
 
   it("lets a documented targeted check satisfy G3 without claiming absence", () => {
@@ -127,10 +123,10 @@ describe("KEMEDICA evidence engine v1.1 policy", () => {
       commercialApproved: true,
       demandQualified: true,
     });
-    expect(gates.g4CompanyAndRights).toBe("UNVALIDATED");
+    expect(gates.g4CompanyAndRights).toBe("PASS");
   });
 
-  it("excludes pipeline assets, wholesalers, and top-20 owners", () => {
+  it("excludes pipeline assets and wholesalers but retains top-20 owners", () => {
     const base = {
       authorizationStatus: "approved",
       productLifecycle: "marketed",
@@ -145,7 +141,7 @@ describe("KEMEDICA evidence engine v1.1 policy", () => {
       false,
     );
     expect(isReferenceMarketCandidate({ ...base, isTop20Pharma: true })).toBe(
-      false,
+      true,
     );
   });
 
@@ -163,6 +159,6 @@ describe("KEMEDICA evidence engine v1.1 policy", () => {
   it("cannot generate outreach before v1.1 Contact Ready approval", () => {
     expect(canGenerateOutreach("qualified", "v1.1")).toBe(false);
     expect(canGenerateOutreach("contact_ready", "v1.0")).toBe(false);
-    expect(canGenerateOutreach("contact_ready", "v1.1")).toBe(true);
+    expect(canGenerateOutreach("contact_ready", "v1.2")).toBe(true);
   });
 });

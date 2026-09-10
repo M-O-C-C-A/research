@@ -17,6 +17,8 @@ import { normalizeExternalUrl } from "@/lib/urlUtils";
 import { Button } from "@/components/ui/button";
 import { CountryCellEditor } from "@/components/drugs/CountryCellEditor";
 import { MandateReportPanel } from "@/components/opportunities/MandateReportPanel";
+import { CommercialAssessmentWorkspace } from "./CommercialAssessmentWorkspace";
+import { registrationLabel } from "../../../convex/opportunityAssessmentPolicy";
 import { DealEconomicsPanel } from "@/components/opportunities/DealEconomicsPanel";
 import { SizingCascadePanel } from "@/components/opportunities/SizingCascadePanel";
 import {
@@ -80,7 +82,7 @@ export function OpportunityDetailView({
 
   if (!opportunity) return null;
 
-  if (opportunity.evidenceEngineVersion === "v1.1") {
+  if (opportunity.evidenceEngineVersion === "v1.2") {
     return (
       <div className="space-y-6">
         <GuidedFlowBanner
@@ -92,7 +94,7 @@ export function OpportunityDetailView({
             <div>
               <div className="flex flex-wrap gap-2">
                 <Badge className="border-emerald-500/40 bg-emerald-500/10 text-emerald-100">
-                  v1.1 evidence
+                  v1.2 evidence
                 </Badge>
                 <Badge className="border-zinc-600 bg-zinc-950 text-zinc-200">
                   {(opportunity.funnelStage ?? "needs_evidence").replaceAll(
@@ -107,6 +109,7 @@ export function OpportunityDetailView({
               <p className="mt-2 text-sm text-zinc-300">
                 {opportunity.genericName} · {opportunity.approachEntityName}
               </p>
+              <p className="mt-2 text-sm text-zinc-300">Company fit: {opportunity.companyFitScore ?? "Unassessed"} · {(opportunity.deprioritizationReasons ?? []).join("; ")}</p>
               <p className="mt-2 font-mono text-xs text-zinc-500">
                 {opportunity.normalizedPresentationKey}
               </p>
@@ -128,8 +131,8 @@ export function OpportunityDetailView({
           </div>
           <div className="mt-6 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm leading-relaxed text-amber-100">
             This is a research candidate. Commercial claims remain provisional
-            until the country assessment, price chain, intended local applicant,
-            nominee covenant, and human approval are recorded.
+            until the country assessment, price corridor, five-year forecast, proposed MAH/applicant,
+            applicable nominee arrangement, and human approval are recorded.
           </div>
         </section>
         <section className="grid gap-4 lg:grid-cols-3">
@@ -143,7 +146,7 @@ export function OpportunityDetailView({
                   {assessment.country}
                 </h3>
                 <Badge className="border-sky-500/30 bg-sky-500/10 text-sky-100">
-                  {assessment.absenceConfidence ?? "low"} confidence
+                  {registrationLabel(assessment.registrationStatus)}
                 </Badge>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-zinc-300">
@@ -161,12 +164,8 @@ export function OpportunityDetailView({
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-zinc-500">Company reason</dt>
-                  <dd className="mt-1 text-zinc-200">
-                    {(
-                      assessment.companyReasonCode ?? "UNCLASSIFIED"
-                    ).replaceAll("_", " ")}
-                  </dd>
+                  <dt className="text-xs text-zinc-500">Current MAH / local partners</dt>
+                  <dd className="mt-1 text-zinc-200">{assessment.currentMah || "Unknown MAH"} · {assessment.localPartners || "Unknown partners"}</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-zinc-500">
@@ -230,6 +229,8 @@ export function OpportunityDetailView({
             )}
           </div>
         </section>
+        <a href={`/api/opportunities/${opportunityId}/model.xlsx`} className="text-sky-300 underline">Download assessment workbook</a>
+        <CommercialAssessmentWorkspace opportunityId={opportunityId} />
       </div>
     );
   }
@@ -460,6 +461,8 @@ export function OpportunityDetailView({
       <SizingCascadePanel decisionOpportunityId={opportunityId} />
 
       <DealEconomicsPanel decisionOpportunityId={opportunityId} />
+      <a href={`/api/opportunities/${opportunityId}/model.xlsx`} className="text-sky-300 underline">Download assessment workbook</a>
+        <CommercialAssessmentWorkspace opportunityId={opportunityId} />
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-5">

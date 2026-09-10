@@ -305,12 +305,10 @@ export function resolveFocusMarketSelection(args: {
   const candidateFocusMarkets = FOCUS_MARKETS.filter((country) =>
     args.gap.targetCountries.includes(country)
   );
-  const blockedFocusMarkets = candidateFocusMarkets.filter((country) =>
-    hasConfirmedRegistrationInCountry(args.drug, country)
-  );
+  const blockedFocusMarkets: string[] = [];
   const selectedFocusMarkets =
     candidateFocusMarkets.length > 0
-      ? candidateFocusMarkets.filter((country) => !blockedFocusMarkets.includes(country))
+      ? candidateFocusMarkets
       : args.gap.targetCountries.slice(0, Math.min(2, args.gap.targetCountries.length));
   const secondaryMarkets = args.gap.targetCountries.filter(
     (country) =>
@@ -629,6 +627,8 @@ export function buildDecisionOpportunityDraft(args: {
     sourceCount: args.sourceCount,
     opportunities: args.opportunities,
   });
+  const registeredFocusMarkets = selectedFocusMarkets.filter(country => hasConfirmedRegistrationInCountry(args.drug, country));
+  if (registeredFocusMarkets.length) scoreBreakdown.gapValidity = Math.min(scoreBreakdown.gapValidity, 4);
   const priorityScore = averageScore(scoreBreakdown);
   const confidenceLevel = deriveConfidenceLevel(
     scoreBreakdown,
@@ -636,8 +636,8 @@ export function buildDecisionOpportunityDraft(args: {
     args.gap.validationStatus
   );
   const blockedMarketNote =
-    blockedFocusMarkets.length > 0
-      ? ` ${blockedFocusMarkets.join(" and ")} ${blockedFocusMarkets.length === 1 ? "is" : "are"} already formally registered and therefore excluded from whitespace targeting.`
+    registeredFocusMarkets.length > 0
+      ? ` ${registeredFocusMarkets.join(" and ")} ${registeredFocusMarkets.length === 1 ? "is" : "are"} already formally registered; deprioritized but eligible for a strong commercial case.`
       : "";
   const whyThisMarket = `${selectedFocusMarkets.join(" and ")} concentrate the clearest near-term whitespace, while ${secondaryMarkets.length > 0 ? secondaryMarkets.slice(0, 2).join(" and ") : "the rest of MENA"} remain secondary follow-on markets.${blockedMarketNote}`;
   const whyNow = args.gap.tenderSignals

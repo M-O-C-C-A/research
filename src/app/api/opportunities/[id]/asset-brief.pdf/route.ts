@@ -1,4 +1,6 @@
 import React from "react";
+import { buildCommercialOutput } from "../../../../../../convex/commercialOutputPolicy";
+import type { Doc } from "../../../../../../convex/_generated/dataModel";
 import { ConvexHttpClient } from "convex/browser";
 import {
   Document,
@@ -108,7 +110,7 @@ type AssetExportPayload = {
     contactName?: string;
     targetRole?: string;
     howToEnterExplanation: string;
-    evidenceEngineVersion?: "v1.1";
+    evidenceEngineVersion?: "v1.2";
     normalizedPresentationKey?: string;
   };
   drug: {
@@ -126,11 +128,14 @@ type AssetExportPayload = {
   sizingInputs?: Array<{
     basis?: string;
   }>;
+  commercialStudies?: Doc<"commercialStudies">[];
   assessments?: Array<{
     country: string;
     presenceStatement: string;
-    absenceConfidence?: string;
-    companyReasonCode?: string;
+    registrationStatus?: string;
+    currentMah?: string;
+    localPartners?: string;
+    nomineeRequired?: boolean;
     commercialApprovalStatus?: string;
     intendedLocalApplicant?: string;
     nomineeCovenantStatus?: string;
@@ -334,7 +339,7 @@ function EvidencePacket({
         React.createElement(
           Text,
           { style: styles.eyebrow },
-          "KEMEDICA Evidence Packet · v1.1",
+          "KEMEDICA Evidence Packet · v1.2",
         ),
         React.createElement(
           Text,
@@ -374,7 +379,7 @@ function EvidencePacket({
           React.createElement(
             Text,
             { style: styles.sectionTitle },
-            `${assessment.country} · ${assessment.absenceConfidence ?? "low"} confidence`,
+            `${assessment.country} · ${assessment.registrationStatus ?? "Unresolved"}`,
           ),
           React.createElement(
             Text,
@@ -390,8 +395,8 @@ function EvidencePacket({
               : "NOT RECORDED",
           }),
           React.createElement(Row, {
-            label: "Company reason",
-            value: assessment.companyReasonCode ?? "UNCLASSIFIED",
+            label: "Current MAH / local partners",
+            value: `${assessment.currentMah ?? "Unknown"} / ${assessment.localPartners ?? "Unknown"}`,
           }),
           React.createElement(Row, {
             label: "Commercial",
@@ -403,7 +408,7 @@ function EvidencePacket({
           }),
           React.createElement(Row, {
             label: "Nominee covenant",
-            value: assessment.nomineeCovenantStatus ?? "NOT REQUESTED",
+            value: assessment.nomineeRequired ? assessment.nomineeCovenantStatus ?? "NOT REQUESTED" : "Not required for selected route",
           }),
           React.createElement(Row, {
             label: "Demand",
@@ -430,6 +435,12 @@ function EvidencePacket({
           }),
         ),
       ),
+      ...(payload.commercialStudies ?? []).map(study => React.createElement(View, {key:study._id,style:styles.section},
+        React.createElement(Text,{style:styles.sectionTitle},`${study.country} commercial assessment · ${study.reviewedAt ? "Approved" : "Provisional"}`),
+        React.createElement(Text,{style:styles.body},buildCommercialOutput(study.input).summary),
+        ...Object.entries(study.input).filter(([,value])=>typeof value === "string").map(([key,value])=>React.createElement(Row,{key,label:key,value:String(value)})),
+        ...study.input.prices.map((price,index)=>React.createElement(Text,{key:index,style:styles.body},`${price.kind}: ${price.amount} ${price.currency} / ${price.unitsPerPack} ${price.unitBasis}; ${price.priceType}; ${price.source}; ${new Date(price.observedAt).toISOString().slice(0,10)}`))
+      )),
       React.createElement(
         View,
         { style: styles.section },
@@ -484,14 +495,14 @@ export async function GET(
   }
 
   const buffer = await renderToBuffer(
-    payload.opportunity.evidenceEngineVersion === "v1.1"
+    payload.opportunity.evidenceEngineVersion === "v1.2"
       ? EvidencePacket({ payload })
       : AssetBrief({ payload }),
   );
   return new Response(new Uint8Array(buffer), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${payload.opportunity.productName}-${payload.opportunity.evidenceEngineVersion === "v1.1" ? "evidence-packet" : "asset-brief"}.pdf"`,
+      "Content-Disposition": `attachment; filename="${payload.opportunity.productName}-${payload.opportunity.evidenceEngineVersion === "v1.2" ? "evidence-packet" : "asset-brief"}.pdf"`,
     },
   });
 }

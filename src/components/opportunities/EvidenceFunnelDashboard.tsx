@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { registrationLabel } from "../../../convex/opportunityAssessmentPolicy";
 import { useState } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { AlertTriangle, ArrowRight, Search, ShieldCheck } from "lucide-react";
@@ -20,14 +21,6 @@ const STAGES = [
   "diligence",
   "negotiating",
   "won",
-] as const;
-const REASONS = [
-  "UNCLASSIFIED",
-  "ALREADY_PARTNERED_ELSEWHERE",
-  "OUT_LICENSING",
-  "PARKED",
-  "IGNORING",
-  "STRUCTURAL_NO",
 ] as const;
 type Country = (typeof COUNTRIES)[number];
 type Stage = (typeof STAGES)[number];
@@ -270,18 +263,14 @@ function AssessmentReview({
             assessment.normalizedPresentationKey ??
             "",
         ),
-        companyReasonCode: String(
-          form.get("companyReasonCode"),
-        ) as (typeof REASONS)[number],
-        companyReasonEvidenceUrl: String(
-          form.get("companyReasonEvidenceUrl") ?? "",
-        ),
-        companyReasonEvidenceExcerpt: String(
-          form.get("companyReasonEvidenceExcerpt") ?? "",
-        ),
-        companyReasonObservedAt: new Date(
-          String(form.get("companyReasonObservedAt")),
-        ).getTime(),
+        companyReasonCode: "UNCLASSIFIED" as const,
+        companyReasonEvidenceUrl: "",
+        companyReasonEvidenceExcerpt: "",
+        companyReasonObservedAt: Date.now(),
+        currentMah: String(form.get("currentMah") ?? ""),
+        localPartners: String(form.get("localPartners") ?? ""),
+        registryMatchKind: String(form.get("registryMatchKind") ?? "unresolved") as "exact" | "equivalent" | "none" | "unresolved",
+        nomineeRequired: form.get("nomineeRequired") === "on",
         intendedLocalApplicant: String(
           form.get("intendedLocalApplicant") ?? "",
         ),
@@ -331,7 +320,7 @@ function AssessmentReview({
             | "medium"
             | "supporting",
           observedAt: Date.now(),
-          parserVersion: "analyst-reviewed-v1.1",
+          parserVersion: "analyst-reviewed-v1.2",
           confidence: "confirmed",
           reviewState: "approved",
         });
@@ -459,39 +448,9 @@ function AssessmentReview({
                 />
               </div>
             )}
-            <SelectField
-              name="companyReasonCode"
-              title="Cited company-intent reason"
-              defaultValue={String(
-                assessment.companyReasonCode ?? "UNCLASSIFIED",
-              )}
-              options={REASONS}
-            />
-            <TextField
-              name="companyReasonEvidenceUrl"
-              title="Company-intent source URL"
-              defaultValue={String(assessment.companyReasonEvidenceUrl ?? "")}
-              required={false}
-              rows={1}
-            />
-            <TextField
-              name="companyReasonEvidenceExcerpt"
-              title="Relevant excerpt"
-              defaultValue={String(
-                assessment.companyReasonEvidenceExcerpt ?? "",
-              )}
-              required={false}
-            />
-            <label className="block text-xs font-medium text-zinc-300">
-              Company evidence observed
-              <input
-                name="companyReasonObservedAt"
-                type="date"
-                required
-                defaultValue={dateValue(assessment.companyReasonObservedAt)}
-                className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 p-2.5 text-white"
-              />
-            </label>
+            <SelectField name="registryMatchKind" title="Registry match: exact product or equivalent competitor" defaultValue={String(assessment.registryMatchKind ?? "unresolved")} options={["unresolved", "exact", "equivalent", "none"]} />
+            <TextField name="currentMah" title="Current MAH (source required in registration evidence)" defaultValue={String(assessment.currentMah ?? target.opportunity.marketAuthorizationHolderName ?? "")} required={false} rows={1} />
+            <TextField name="localPartners" title="Distributors / local partners and source; state unknown if not established" defaultValue={String(assessment.localPartners ?? "")} required={false} />
             <SelectField
               name="rightsStatus"
               title="Country rights status"
@@ -525,7 +484,7 @@ function AssessmentReview({
             />
             <CheckField
               name="economicsCalculated"
-              title="G6: Source-backed scenario calculated"
+              title="G6: Five-year forecast relevant to the commercial assessment"
               checked={String(assessment.economicsStatus) !== "unvalidated"}
             />
             <SelectField
@@ -572,13 +531,13 @@ function AssessmentReview({
             <legend className="px-2 font-semibold text-white">
               Operating structure
             </legend>
-            <TextField
-              name="intendedLocalApplicant"
-              title="Intended local applicant (never default KEMEDICA)"
-              defaultValue={String(assessment.intendedLocalApplicant ?? "")}
-              required={false}
-              rows={1}
-            />
+            <label className="block text-xs font-medium text-zinc-300">
+              Proposed local MAH / applicant
+              <input name="intendedLocalApplicant" list="mah-options" defaultValue={String(assessment.intendedLocalApplicant ?? "")} className="mt-1 w-full rounded-lg border border-zinc-600 bg-zinc-950 p-2.5 text-sm text-white" />
+              <datalist id="mah-options"><option value="KEMEDICA" /><option value={String(assessment.currentMah ?? "Current MAH")} /></datalist>
+              <span className="mt-1 block text-zinc-400">KEMEDICA may hold the MA if required and supported by country feasibility.</span>
+            </label>
+            <CheckField name="nomineeRequired" title="Selected route requires a nominee arrangement" checked={Boolean(assessment.nomineeRequired)} />
             <SelectField
               name="nomineeCovenantStatus"
               title="Nominee covenant"
@@ -750,7 +709,7 @@ export function EvidenceFunnelDashboard({
 }) {
   const [stage, setStage] = useState<Stage | "All">(initialStage);
   const [country, setCountry] = useState<Country | "All">("All");
-  const [queue, setQueue] = useState<"working" | "watchlist">("working");
+  const [queue, setQueue] = useState<"working" | "watchlist" | "demand_top20">("working");
   const [search, setSearch] = useState("");
   const [reviewTarget, setReviewTarget] = useState<ReviewTarget>();
   const [feedback, setFeedback] = useState<string>();
@@ -762,7 +721,7 @@ export function EvidenceFunnelDashboard({
     targetCountry: country === "All" ? undefined : country,
     queue,
     search: search.trim() || undefined,
-    limit: queue === "working" ? 20 : 100,
+    limit: 150,
   });
   const members = useQuery(api.workspaceMembers.listAssignable);
   const approveCommercial = useMutation(
@@ -782,12 +741,12 @@ export function EvidenceFunnelDashboard({
       ) : null}
       <header className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5 sm:p-7">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--brand-300)]">
-          KEMEDICA Evidence Engine v1.1
+          KEMEDICA Evidence Engine v1.2
         </p>
         <div className="mt-2 flex flex-wrap justify-between gap-5">
           <div className="max-w-3xl">
             <h1 className="text-3xl font-semibold text-white">
-              Screen the open slot. Then prove somebody wants it.
+              Assess registration, commercial value, and demand.
             </h1>
             <p className="mt-3 text-sm leading-relaxed text-zinc-300">
               Every pursuit starts with a reference-market-approved presentation
@@ -797,7 +756,7 @@ export function EvidenceFunnelDashboard({
               validate demand; they never create a lead.
             </p>
             <p className="mt-2 text-xs leading-relaxed text-sky-200">
-              Research assist: Tavily and OpenAI web search discover
+              Funnel: candidate universe → category and registration screening (low hundreds) → commercial pursuits (30–60) → demand-validated top 20 → contact-ready. Counts are planning expectations. Research assist: Tavily and OpenAI web search discover
               source-backed company, rights, demand and contact evidence. Their
               results always enter human review and never prove registry
               absence.
@@ -805,12 +764,12 @@ export function EvidenceFunnelDashboard({
           </div>
           <div className="rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3">
             <p className="text-xs font-semibold text-sky-100">
-              Monthly planning target
+              Contact-ready this month
             </p>
             <p className="mt-1 text-2xl font-semibold text-white">
-              {stats?.contactReadyThisMonth ?? 0} / {stats?.monthlyTarget ?? 15}
+              {stats?.contactReadyThisMonth ?? 0}
             </p>
-            <p className="text-xs text-sky-200">Never a hard cap</p>
+            <p className="text-xs text-sky-200">All opportunities that pass the evidence workflow</p>
           </div>
         </div>
         <ol className="mt-6 grid gap-2 sm:grid-cols-4">
@@ -865,8 +824,9 @@ export function EvidenceFunnelDashboard({
             variant={queue === "working" ? "default" : "outline"}
             onClick={() => setQueue("working")}
           >
-            Top-20 working queue
+            Working pursuits
           </Button>
+          <Button variant={queue === "demand_top20" ? "default" : "outline"} onClick={() => setQueue("demand_top20")}>Demand-validated top 20</Button>
           <Button
             variant={queue === "watchlist" ? "default" : "outline"}
             onClick={() => setQueue("watchlist")}
@@ -958,7 +918,7 @@ export function EvidenceFunnelDashboard({
                       <Pill value={opportunity.funnelStage}>
                         {label(opportunity.funnelStage ?? "needs_evidence")}
                       </Pill>
-                      <Pill value="accepted">v1.1 evidence</Pill>
+                      <Pill value="accepted">v1.2 evidence</Pill>
                     </div>
                     <Link
                       href={`/opportunities/${opportunity._id}`}
@@ -976,7 +936,7 @@ export function EvidenceFunnelDashboard({
                     <strong className="text-xl text-white">
                       {opportunity.priorityScore}
                     </strong>
-                    /100
+                    /100 · Company fit {opportunity.companyFitScore ?? "unassessed"}
                   </p>
                 </div>
                 <div className="mt-5 grid gap-3 lg:grid-cols-3">
@@ -989,10 +949,7 @@ export function EvidenceFunnelDashboard({
                         <h2 className="font-semibold text-white">
                           {assessment.country}
                         </h2>
-                        <Pill value={assessment.absenceConfidence}>
-                          {label(assessment.absenceConfidence ?? "low")}{" "}
-                          confidence
-                        </Pill>
+                        <Pill value={assessment.registrationStatus}>{registrationLabel(assessment.registrationStatus)}</Pill>
                       </div>
                       <p className="mt-3 text-sm text-zinc-300">
                         {assessment.presenceStatement}
@@ -1010,14 +967,13 @@ export function EvidenceFunnelDashboard({
                           : null}
                       </div>
                       <p className="mt-3 text-xs text-zinc-400">
-                        Reason:{" "}
-                        {label(assessment.companyReasonCode ?? "UNCLASSIFIED")}{" "}
-                        · Economics:{" "}
+                        MAH: {assessment.currentMah || "Unknown"} · Partners: {assessment.localPartners || "Unknown"} · Economics:{" "}
                         {label(
                           assessment.commercialApprovalStatus ??
                             "not_requested",
                         )}
                       </p>
+                      <Link href={`/opportunities/${opportunity._id}#commercial-assessment`} className="mt-3 block text-sm text-sky-300 underline">Price corridor, margin simulator and entry strategy</Link>
                       <div className="mt-4 flex flex-wrap gap-2">
                         <Button
                           size="sm"

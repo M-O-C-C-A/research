@@ -13,14 +13,12 @@ import type { Doc, Id } from "./_generated/dataModel";
 import { requireMember } from "./authz";
 import {
   isTop20OwnerExcluded,
-  isTop20OwnerName,
 } from "./continuousOpportunityEngine";
 import {
   EVIDENCE_ENGINE_VERSION,
   canonicalPursuitKey as buildCanonicalPursuitKey,
   evaluateEvidenceGates,
   isReferenceMarketCandidate,
-  targetConfidence,
   whiteSpaceFinding,
   whiteSpaceStatement,
   type TargetCountry,
@@ -60,12 +58,18 @@ const REFERENCE_SOURCE_TYPES = new Set([
   "drugs_fda",
   "ema_medicine_downloads",
   "mhra_products",
+  "bfarm_amice",
+  "eu_national",
 ]);
 
 async function latestAcceptedImport(
   ctx: QueryCtx | MutationCtx,
   sourceType: string,
-) {
+): Promise<Doc<"registrationImports"> | undefined> {
+  if (sourceType === "uae_official_directory") {
+    const primary = await latestAcceptedImport(ctx, "mohap_uae_complete_product_list");
+    if (primary) return primary;
+  }
   return (
     await ctx.db
       .query("registrationImports")
@@ -139,10 +143,7 @@ export const sourceCoverage = query({
               : expiresAt! <= now
                 ? ("stale" as const)
                 : ("accepted" as const),
-          confidence:
-            !fetch && target.country === "Saudi Arabia"
-              ? ("medium" as const)
-              : targetConfidence(target.country),
+          confidence: fetch ? ("medium" as const) : ("low" as const),
           rowCount: fetch?.rowCount,
           fetchedAt: fetch?.fetchedAt,
           expiresAt,
@@ -213,10 +214,7 @@ export const inspectWhiteSpace = query({
         return {
           country: target.country,
           status,
-          confidence:
-            !fetch && target.country === "Saudi Arabia"
-              ? ("medium" as const)
-              : targetConfidence(target.country),
+          confidence: fetch ? ("medium" as const) : ("low" as const),
           matchCount: matches,
           statement: whiteSpaceStatement({
             country: target.country,
@@ -354,12 +352,10 @@ function defaultAssessment(input: {
     decisionOpportunityId: input.opportunityId,
     country: input.country,
     stage: "needs_evidence" as const,
-    productIdentityConfirmed: true,
-    ownerConfirmed: true,
-    registrationStatus:
-      input.matchCount > 0
-        ? ("registered" as const)
-        : ("not_found_unverified" as const),
+    productIdentityConfirmed: false,
+    ownerConfirmed: false,
+    registrationStatus: "unverified" as const,
+    registryMatchKind: input.matchCount > 0 ? ("unresolved" as const) : ("none" as const),
     registrationEvidence: whiteSpaceStatement({
       country: input.country,
       status,
@@ -388,7 +384,7 @@ function defaultAssessment(input: {
     feasibilityReviewed: false,
     feasibilitySummary: "Route-to-market feasibility has not been reviewed.",
     blockers: [
-      "Company intent, country rights, price chain, economics, demand, applicant, nominee covenant, and contact require review.",
+      "Registration, country rights, price corridor, five-year forecast, demand, proposed MAH, and contact require review.",
     ],
     scoreBreakdown: {
       gapValidity: status === "no_match_in_snapshot" ? 70 : 0,
@@ -396,12 +392,7 @@ function defaultAssessment(input: {
       urgencyDemand: 0,
       regulatoryFeasibility: 0,
       partnerRightsReachability: 0,
-      evidenceConfidence:
-        input.country === "Saudi Arabia"
-          ? 80
-          : input.country === "UAE"
-            ? 60
-            : 40,
+      evidenceConfidence: input.sourceFetch ? 60 : 0,
     },
     weightedScore: status === "no_match_in_snapshot" ? 26 : 0,
     criticalReviewOpen: true,
@@ -410,10 +401,6 @@ function defaultAssessment(input: {
     evidenceEngineVersion: EVIDENCE_ENGINE_VERSION,
     normalizedPresentationKey: input.normalizedPresentationKey,
     whiteSpaceStatus: status,
-    absenceConfidence:
-      !input.sourceFetch && input.country === "Saudi Arabia"
-        ? ("medium" as const)
-        : targetConfidence(input.country),
     sourceSnapshotId: input.sourceFetch?._id,
     sourceSnapshotDate: input.sourceFetch?.fetchedAt,
     sourceExpiresAt: input.sourceFetch
@@ -619,14 +606,14 @@ export const materializeReferenceCandidates = mutation({
           dosageForm: row.form ?? "Not supplied",
           strength: row.strength ?? "Not supplied",
           route: "Not supplied",
-          mah: row.mahName ?? company.name,
+          mah: row.mahName ?? "Unknown",
           manufacturer: row.manufacturerName ?? company.name,
           authorizationMarket:
             importDoc.sourceType === "drugs_fda"
               ? "FDA"
               : importDoc.sourceType === "mhra_products"
                 ? "MHRA"
-                : "EMA",
+                : importDoc.sourceType === "bfarm_amice" ? "BfArM" : importDoc.sourceType === "eu_national" ? "EU_NATIONAL" : "EMA",
           authorizationStatus: "approved",
           authorizationDate: row.approvalDate,
           sourceRecordId: row.sourceRecordId,
@@ -730,23 +717,8 @@ export const quarantineIneligibleTop20Page = mutation({
         q.eq("evidenceEngineVersion", EVIDENCE_ENGINE_VERSION),
       )
       .paginate(args.paginationOpts);
-    const now = Date.now();
-    let quarantined = 0;
-    for (const opportunity of page.page) {
-      if (
-        opportunity.legacyQuarantinedAt ||
-        !isTop20OwnerName(opportunity.approachEntityName)
-      ) {
-        continue;
-      }
-      await ctx.db.patch(opportunity._id, {
-        legacyQuarantinedAt: now,
-        legacyQuarantineReason:
-          "Owner matches the maintained top-20 pharma exclusion list.",
-        updatedAt: now,
-      });
-      quarantined += 1;
-    }
+    // v1.2 keeps large pharma eligible. Retained endpoint for old callers.
+    const quarantined = 0;
     return {
       quarantined,
       continueCursor: page.continueCursor,

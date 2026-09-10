@@ -239,8 +239,9 @@ export const importPharmaDirectoryStarterPack = action({
   args: {
     storageId: v.id("_storage"),
     fileName: v.optional(v.string()),
+    enrich: v.optional(v.boolean()),
   },
-  handler: async (ctx, { storageId }) => {
+  handler: async (ctx, { storageId, enrich }) => {
     const blob = await ctx.storage.get(storageId as Id<"_storage">);
     if (!blob) throw new Error("Starter pack workbook could not be loaded from storage.");
 
@@ -269,7 +270,7 @@ export const importPharmaDirectoryStarterPack = action({
       updatedIds.push(...result.updatedIds);
     }
 
-    const enrichment = await enrichImportedCompanies(ctx, [...createdIds, ...updatedIds]);
+    const enrichment = enrich === false ? null : await enrichImportedCompanies(ctx, [...createdIds, ...updatedIds]);
 
     return {
       totalFound: rows.length,

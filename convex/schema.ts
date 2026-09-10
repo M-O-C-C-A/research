@@ -1,5 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
+import { salesRowFields } from "./salesValidators";
+import { companyFitInput, studyInput, accessEntry } from "./commercialAssessmentValidators";
 
 const logEntry = v.object({
   timestamp: v.number(),
@@ -657,7 +659,7 @@ const registrationFactStatus = v.union(
   v.literal("unknown"),
 );
 
-const evidenceEngineVersion = v.literal("v1.1");
+const evidenceEngineVersion = v.union(v.literal("v1.1"), v.literal("v1.2"));
 const whiteSpaceMatchStatus = v.union(
   v.literal("matches_found"),
   v.literal("no_match_in_snapshot"),
@@ -970,6 +972,7 @@ export default defineSchema({
             v.literal("registered"),
             v.literal("under_registration"),
             v.literal("verified_absent"),
+      v.literal("checked_not_registered"),
             v.literal("not_found"),
             v.literal("not_found_unverified"),
             v.literal("unverified"),
@@ -1035,6 +1038,9 @@ export default defineSchema({
     .index("by_inn", ["inn"]),
 
   canonicalProducts: defineTable({
+    mahCountry: v.optional(v.string()),
+    standardizedDosageForm: v.optional(v.string()),
+    referenceStatus: v.optional(v.union(v.literal("ACTIVE"), v.literal("WITHDRAWN"), v.literal("SUSPENDED"))),
     canonicalKey: v.string(),
     normalizedBrandName: v.optional(v.string()),
     normalizedInn: v.optional(v.string()),
@@ -1657,6 +1663,9 @@ export default defineSchema({
     .index("by_drug_and_normalized_alias", ["drugId", "normalizedAlias"]),
 
   decisionOpportunities: defineTable({
+    companyFitScore: v.optional(v.number()),
+    forecastBaseCashUsd: v.optional(v.number()),
+    deprioritizationReasons: v.optional(v.array(v.string())),
     drugId: v.id("drugs"),
     companyId: v.optional(v.id("companies")),
     gapOpportunityId: v.optional(v.id("gapOpportunities")),
@@ -1800,7 +1809,37 @@ export default defineSchema({
     ])
     .index("by_canonical_pursuit_key", ["canonicalPursuitKey"]),
 
+  opportunityCompanyFits: defineTable({
+    opportunityId: v.id("decisionOpportunities"),
+    input: companyFitInput,
+    updatedAt: v.number(),
+  }).index("by_opportunity", ["opportunityId"]),
+
+  egyptSalesRows: defineTable({ ...salesRowFields, normalizedMolecule: v.string() })
+    .index("by_file_hash_and_row", ["fileHash", "sourceRow"])
+    .index("by_normalized_molecule", ["normalizedMolecule"]),
+
+  commercialStudies: defineTable({
+    opportunityId: v.id("decisionOpportunities"),
+    country: assessmentCountry,
+    input: studyInput,
+    version: v.string(),
+    reviewedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  }).index("by_opportunity_and_country", ["opportunityId", "country"]),
+
+  sourceAccessLogs: defineTable({
+    opportunityId: v.optional(v.id("decisionOpportunities")),
+    entries: v.array(accessEntry),
+    startedAt: v.number(),
+    completedAt: v.number(),
+  }).index("by_opportunity", ["opportunityId"]),
+
   opportunityMarketAssessments: defineTable({
+    currentMah: v.optional(v.string()),
+    localPartners: v.optional(v.string()),
+    nomineeRequired: v.optional(v.boolean()),
+    registryMatchKind: v.optional(v.union(v.literal("exact"), v.literal("equivalent"), v.literal("none"), v.literal("unresolved"))),
     decisionOpportunityId: v.id("decisionOpportunities"),
     country: assessmentCountry,
     stage: funnelStage,
@@ -1810,6 +1849,7 @@ export default defineSchema({
       v.literal("registered"),
       v.literal("under_registration"),
       v.literal("verified_absent"),
+      v.literal("checked_not_registered"),
       v.literal("not_found_unverified"),
       v.literal("unverified"),
     ),
@@ -2210,6 +2250,8 @@ export default defineSchema({
     .index("by_normalized_name", ["normalizedName"]),
 
   authorizedProductFacts: defineTable({
+    mahCountry: v.optional(v.string()),
+    atcCode: v.optional(v.string()),
     canonicalProductId: v.optional(v.id("canonicalProducts")),
     drugId: v.optional(v.id("drugs")),
     substanceFactId: v.optional(v.id("substanceFacts")),
@@ -2987,6 +3029,7 @@ export default defineSchema({
       "applyState",
     ])
     .index("by_import_and_source_sheet", ["importId", "sourceSheet"])
+    .index("by_import_and_normalized_inn", ["importId", "normalizedInn"])
     .index("by_import_and_normalized_presentation_key", [
       "importId",
       "normalizedPresentationKey",

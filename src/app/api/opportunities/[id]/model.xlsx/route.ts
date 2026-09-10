@@ -1,3 +1,5 @@
+import { buildCommercialOutput } from "../../../../../../convex/commercialOutputPolicy";
+import { calculateCompanyFit } from "../../../../../../convex/opportunityAssessmentPolicy";
 import { ConvexHttpClient } from "convex/browser";
 import * as XLSX from "xlsx";
 import { api } from "../../../../../../convex/_generated/api";
@@ -155,6 +157,15 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     safeSheetName("Evidence")
   );
 
+  XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet((payload.referenceProducts ?? []).map(row => ({ ...row.product, missingFields: row.missingFields.join(", "), sourceUrl: row.sourceUrl, rawDosageForm: row.rawDosageForm }))), "Reference products");
+  const studies = payload.commercialStudies ?? [];
+  if (studies.length) {
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(studies.flatMap(study => buildCommercialOutput(study.input).forecasts.flatMap(scenario => scenario.years.map(year => ({country:study.country, scenario:scenario.name, calendarYear:study.input.startYear+year.year-1, ...year, currency:"USD", review:study.reviewedAt ? "approved" : "provisional"}))))), "Five-year forecasts");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(studies.flatMap(study => study.input.scenarios.map(scenario => ({country:study.country,...scenario,adoptionPct:scenario.adoptionPct.join(", "),unitBasis:study.input.unitBasis,assumptions:study.input.assumptionEvidence})))), "Forecast inputs");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(studies.flatMap(study => buildCommercialOutput(study.input).prices.map(price => ({assessmentCountry:study.country,...price, observedAt:new Date(price.observedAt).toISOString(),fxObservedAt:new Date(price.fxObservedAt).toISOString()})))), "Price corridor");
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(studies.map(study => ({country:study.country,...Object.fromEntries(Object.entries(study.input).filter(([,value]) => typeof value === "string")),...buildCommercialOutput(study.input).recommendation}))), "Country feasibility");
+  }
+  if (payload.companyFit) XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet([{...calculateCompanyFit(payload.companyFit.input).contributions,fitScore:calculateCompanyFit(payload.companyFit.input).score}]), "Company fit");
   const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
   return new Response(new Uint8Array(buffer), {
     headers: {

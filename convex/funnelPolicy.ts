@@ -1,6 +1,6 @@
 export const CONTACT_READY_SCORE = 70;
 export const CONTACT_FRESHNESS_MS = 90 * 24 * 60 * 60 * 1_000;
-export const MONTHLY_CONTACT_READY_TARGET = 15;
+export const MONTHLY_CONTACT_READY_TARGET = null;
 
 export type AssessmentScores = {
   gapValidity: number;
@@ -45,6 +45,7 @@ export function contactReadyBlockers(input: {
   commercialApprovalStatus?: string;
   intendedLocalApplicant?: string;
   nomineeCovenantStatus?: string;
+  nomineeRequired?: boolean;
   gateSnapshot?: {
     g1ReferenceApproval: string;
     g2EligibleCategory: string;
@@ -60,33 +61,26 @@ export function contactReadyBlockers(input: {
     blockers.push("Product identity is not confirmed from official evidence.");
   if (!input.ownerConfirmed)
     blockers.push("Product owner or licensor is not confirmed.");
-  if (input.evidenceEngineVersion === "v1.1") {
+  if (["v1.1", "v1.2"].includes(input.evidenceEngineVersion ?? "")) {
     if (
-      !["no_match_in_snapshot", "no_match_in_targeted_check"].includes(
+      !["no_match_in_snapshot", "no_match_in_targeted_check", "matches_found"].includes(
         input.whiteSpaceStatus ?? "",
       )
     )
       blockers.push(
-        "A current snapshot or documented targeted registry check has not produced a scoped no-match finding.",
+        "A current snapshot or documented targeted registry check has not resolved the registration check.",
       );
+    if (!["registered", "checked_not_registered"].includes(input.registrationStatus) && input.evidenceEngineVersion === "v1.2") blockers.push("Registration identity remains unresolved.");
     if (!input.sourceExpiresAt || input.sourceExpiresAt <= input.now)
       blockers.push(
         "The target-country registry evidence is stale or missing.",
       );
-    if (
-      !["ALREADY_PARTNERED_ELSEWHERE", "OUT_LICENSING"].includes(
-        input.companyReasonCode ?? "UNCLASSIFIED",
-      )
-    ) {
-      blockers.push("A cited positive company-intent reason is not approved.");
-    }
-    if (!input.companyReasonEvidenceUrl)
-      blockers.push("Company-intent evidence needs a source URL.");
     if (input.commercialApprovalStatus !== "approved")
       blockers.push("Provisional commercial assumptions need human approval.");
     if (!input.intendedLocalApplicant?.trim())
       blockers.push("The intended local applicant is not recorded.");
     if (
+      input.nomineeRequired &&
       !["reviewed", "accepted"].includes(
         input.nomineeCovenantStatus ?? "not_requested",
       )

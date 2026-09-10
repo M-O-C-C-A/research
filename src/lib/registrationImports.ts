@@ -131,6 +131,7 @@ export const GENERIC_NAME_HEADERS = [
   "generic name",
   "inn",
   "active ingredient",
+  "ingredient",
   "ingredients",
   "molecule",
   "international non proprietary name inn common name",
@@ -153,7 +154,6 @@ export const MAH_HEADERS = [
   "marketing authorization holder",
   "license holder",
   "commercial owner",
-  "supplier name",
   "marketing authorisation developer applicant holder",
 ] as const;
 

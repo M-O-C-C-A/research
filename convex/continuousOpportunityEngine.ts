@@ -1,3 +1,4 @@
+import { referenceProduct } from "./referenceProductPolicy";
 import {
   action,
   internalAction,
@@ -680,17 +681,10 @@ function gateReasons(args: {
       "Home authorization is not yet validated from FDA/EMA/BfArM evidence.",
     );
   if (!companyKnown) reasons.push("Owner, manufacturer, or MAH is not known.");
-  if (args.isTop20)
-    reasons.push("Owner matches the maintained top-20 pharma exclusion list.");
   if (args.menaRightsLicensed)
     reasons.push("MENA rights already appear licensed or unavailable.");
   if (args.drug?.approvalStatus === "withdrawn")
     reasons.push("Product is withdrawn or suspended.");
-  if (args.registeredTargetMarkets.length > 0) {
-    reasons.push(
-      `Already registered in ${args.registeredTargetMarkets.join(", ")}.`,
-    );
-  }
   if (args.belowMarginFloor)
     reasons.push("Risk-adjusted margin is below the active floor.");
   if (args.distributionInfeasible)
@@ -1012,8 +1006,8 @@ export const getScreeningDashboard = query({
           .take(500)
       : [];
     const defaults = {
-      alreadyRegisteredTarget: true,
-      top20Pharma: true,
+      alreadyRegisteredTarget: false,
+      top20Pharma: false,
       menaRightsLicensed: true,
       withdrawnOrSuspended: true,
       belowMarginFloor: true,
@@ -1184,7 +1178,13 @@ export const getAssetExportPayload = query({
       [...runItems].sort(
         (left, right) => right.createdAt - left.createdAt,
       )[0] ?? null;
+    const commercialStudies = await ctx.db.query("commercialStudies").withIndex("by_opportunity_and_country", q => q.eq("opportunityId", args.decisionOpportunityId)).take(3);
+    const companyFit = await ctx.db.query("opportunityCompanyFits").withIndex("by_opportunity", q => q.eq("opportunityId", args.decisionOpportunityId)).unique();
+    const referenceProducts = (await ctx.db.query("authorizedProductFacts").withIndex("by_drug", q => q.eq("drugId", opportunity.drugId)).take(100)).map(referenceProduct);
     return {
+      referenceProducts,
+      commercialStudies,
+      companyFit,
       opportunity,
       drug,
       company,
@@ -1778,7 +1778,7 @@ export const ensureDefaultAssumptionSet = internalMutation({
       minimumRiskAdjustedMargin: 500000,
       targetMarkets: ["Saudi Arabia", "UAE", "Egypt"],
       secondaryMarkets: ["Kuwait", "Qatar", "Algeria"],
-      top20ExclusionEnabled: true,
+      top20ExclusionEnabled: false,
       model1Assumptions: {
         grossMarginPct: 28,
         tenderDiscountPct: 18,
@@ -2151,7 +2151,7 @@ export const createOpportunityRun = mutation({
           belowMarginFloor,
           distributionInfeasible,
         },
-        isTop20Excluded: top20.isTop20,
+        isTop20Excluded: false,
         registeredTargetMarkets,
         homeAuthorizationStatus: drug?.approvalStatus ?? "unknown",
         approvalsSummary:

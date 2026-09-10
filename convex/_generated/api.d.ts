@@ -54,6 +54,7 @@ import type * as mandateOpportunityReports from "../mandateOpportunityReports.js
 import type * as medicineDiscovery from "../medicineDiscovery.js";
 import type * as medicineDiscoveryActions from "../medicineDiscoveryActions.js";
 import type * as medicineDiscoveryPolicy from "../medicineDiscoveryPolicy.js";
+import type * as medicineDiscoveryRetrieval from "../medicineDiscoveryRetrieval.js";
 import type * as medicineDiscoveryValidators from "../medicineDiscoveryValidators.js";
 import type * as migrations from "../migrations.js";
 import type * as openaiResearch from "../openaiResearch.js";
@@ -134,6 +135,7 @@ declare const fullApi: ApiFromModules<{
   medicineDiscovery: typeof medicineDiscovery;
   medicineDiscoveryActions: typeof medicineDiscoveryActions;
   medicineDiscoveryPolicy: typeof medicineDiscoveryPolicy;
+  medicineDiscoveryRetrieval: typeof medicineDiscoveryRetrieval;
   medicineDiscoveryValidators: typeof medicineDiscoveryValidators;
   migrations: typeof migrations;
   openaiResearch: typeof openaiResearch;

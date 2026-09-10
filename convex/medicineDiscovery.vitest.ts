@@ -10,6 +10,8 @@ import {
   parseFdaNovel,
   moleculeMatches,
   normalizedSourceUrl,
+  excerptIsSupported,
+  claimScopeIsSupported,
 } from "./medicineDiscoveryPolicy";
 const modules = import.meta.glob(["./**/*.ts", "!./**/*.vitest.ts"]);
 const source = {
@@ -187,5 +189,52 @@ describe("new medicine discovery", () => {
       (await t.query(internal.medicineDiscovery.getInternal, { id: row!._id }))
         .researchStatus,
     ).toBe("error");
+  });
+});
+
+describe("source verification", () => {
+  it("requires a real contiguous source excerpt", () => {
+    expect(
+      excerptIsSupported(
+        "The agreement covers Saudi Arabia and Egypt",
+        "The agreement covers Saudi Arabia and Egypt, with approvals pending.",
+      ),
+    ).toBe(true);
+    expect(
+      excerptIsSupported(
+        "The agreement covers all countries in MENA",
+        "The agreement covers Saudi Arabia and Egypt.",
+      ),
+    ).toBe(false);
+  });
+  it("does not turn a European deal into a MENA partner finding", () => {
+    expect(
+      claimScopeIsSupported({
+        country: "Regional",
+        kind: "partner",
+        claim: "European deal",
+        excerpt:
+          "Distribution across a broad multi-country territory in Europe",
+      }),
+    ).toBe(false);
+    expect(
+      claimScopeIsSupported({
+        country: "Global",
+        kind: "partner",
+        claim: "European deal",
+        excerpt:
+          "Distribution across a broad multi-country territory in Europe",
+      }),
+    ).toBe(true);
+  });
+  it("does not relabel broad fatty-liver prevalence as MASH", () => {
+    expect(
+      claimScopeIsSupported({
+        country: "Saudi Arabia",
+        kind: "demand",
+        claim: "MASH prevalence increased in Saudi Arabia",
+        excerpt: "MASLD prevalence increased in the Saudi Arabia population",
+      }),
+    ).toBe(false);
   });
 });

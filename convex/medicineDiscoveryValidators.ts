@@ -44,7 +44,11 @@ export const discoveryMarket = v.object({
   checkedAt: v.number(),
 });
 export const discoveryClaim = v.object({
-  country: v.union(discoveryCountry, v.literal("Regional")),
+  country: v.union(
+    discoveryCountry,
+    v.literal("Regional"),
+    v.literal("Global"),
+  ),
   kind: v.union(
     v.literal("local_presence"),
     v.literal("partner"),

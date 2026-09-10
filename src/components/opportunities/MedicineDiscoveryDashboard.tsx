@@ -52,15 +52,18 @@ function MedicineCard({
   const disposition = useMutation(api.medicineDiscovery.setDisposition);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const evidence = m.claims.filter(
+    (c) => c.verification === "page_excerpt_verified",
+  );
   const market = m.markets.find((x) => x.country === country);
-  const claims = m.claims.filter(
+  const claims = evidence.filter(
     (x) => x.country === country || x.country === "Regional",
   );
   const presence = claims.filter(
     (x) => x.kind === "local_presence" || x.kind === "partner",
   );
   const need = claims.find((c) => c.kind === "demand");
-  const contact = m.claims.find((c) => c.kind === "contact");
+  const contact = evidence.find((c) => c.kind === "contact");
   const pending = ["queued", "running"].includes(m.researchStatus);
   const title = presence.length
     ? "Existing presence or partner to assess"
@@ -184,16 +187,16 @@ function MedicineCard({
       </div>
       <details className="mt-5 border-t border-zinc-700 pt-4">
         <summary className="cursor-pointer text-sm font-semibold text-zinc-100">
-          Research evidence ({m.claims.length}) and local comparisons
+          Research evidence ({evidence.length}) and local comparisons
         </summary>
         <div className="mt-4 space-y-4">
           <p className="text-xs leading-5 text-zinc-400">
-            Findings are source-cited research, awaiting analyst review. They do
-            not establish available rights or an approved commercial
-            opportunity. A regulatory approval does not establish that the
-            medicine is commercially supplied.
+            Excerpts have been matched to retrieved source text. Findings still
+            require analyst review. They do not establish available rights or an
+            approved commercial opportunity. A regulatory approval does not
+            establish that the medicine is commercially supplied.
           </p>
-          {m.claims.map((c, i) => (
+          {evidence.map((c, i) => (
             <div
               key={`${c.url}-${i}`}
               className="border-l-2 border-sky-600 pl-3"
@@ -202,13 +205,15 @@ function MedicineCard({
                 {c.country} · {c.kind.replaceAll("_", " ")}
               </p>
               <p className="mt-1 text-sm leading-6 text-zinc-100">{c.claim}</p>
-              <blockquote className="mt-1 text-xs leading-5 text-zinc-400">
-                “{c.excerpt}”
-              </blockquote>
+              {evidence.findIndex((x) => x.url === c.url) === i && (
+                <blockquote className="mt-1 text-xs leading-5 text-zinc-400">
+                  “{c.excerpt}”
+                </blockquote>
+              )}
               <SourceLink url={c.url}>{c.title}</SourceLink>
             </div>
           ))}
-          {!m.claims.length && (
+          {!evidence.length && (
             <p className="text-sm text-zinc-400">
               {pending
                 ? "Research is working on local presence, territory partners, need and a public partnering route."
@@ -240,7 +245,7 @@ function MedicineCard({
           ? "Review the named partner’s product and territory scope before approaching another supplier."
           : market?.status === "molecule_listed"
             ? "Check whether the exact product is covered and identify a differentiated access or partnering case."
-            : m.researchStatus === "completed"
+            : m.claims.some((c) => c.verification === "page_excerpt_verified")
               ? "Review the cited need and company route, then verify the exact country presentation and territory rights."
               : "Research local launches, licensing partners, unmet need and the owner’s partnering route."}
       </p>
@@ -323,7 +328,9 @@ export function MedicineDiscoveryDashboard() {
   const [error, setError] = useState("");
   const [starting, setStarting] = useState(false);
   const medicines = data?.candidates ?? [];
-  const researched = medicines.filter((m) => m.researchStatus === "completed");
+  const researched = medicines.filter((m) =>
+    m.claims.some((c) => c.verification === "page_excerpt_verified"),
+  );
   const shortlist = medicines.filter((m) => m.disposition === "shortlisted");
   const pending = medicines.filter((m) =>
     ["running", "queued"].includes(m.researchStatus),
@@ -336,10 +343,12 @@ export function MedicineDiscoveryDashboard() {
           : view === "parked"
             ? m.disposition === "parked"
             : m.disposition !== "parked") &&
-        (view !== "researched" || m.researchStatus === "completed") &&
+        (view !== "researched" ||
+          m.claims.some((c) => c.verification === "page_excerpt_verified")) &&
         (view !== "need" ||
           m.claims.some(
             (c) =>
+              c.verification === "page_excerpt_verified" &&
               c.kind === "demand" &&
               (c.country === country || c.country === "Regional"),
           )) &&
@@ -349,8 +358,12 @@ export function MedicineDiscoveryDashboard() {
     )
     .sort(
       (a, b) =>
-        Number(b.researchStatus === "completed") -
-          Number(a.researchStatus === "completed") ||
+        Number(
+          b.claims.some((c) => c.verification === "page_excerpt_verified"),
+        ) -
+          Number(
+            a.claims.some((c) => c.verification === "page_excerpt_verified"),
+          ) ||
         b.priority - a.priority ||
         b.firstApprovalDate.localeCompare(a.firstApprovalDate),
     );

@@ -223,3 +223,35 @@ export function isPrimaryResearchUrl(value: string) {
     return false;
   }
 }
+
+export function excerptIsSupported(excerpt: string, page: string) {
+  const quote = discoveryTerm(excerpt);
+  return quote.split(" ").length >= 6 && discoveryTerm(page).includes(quote);
+}
+export function claimScopeIsSupported(finding: {
+  country: string;
+  kind: string;
+  claim: string;
+  excerpt: string;
+}) {
+  const text = finding.excerpt;
+  if (
+    /\bMASH\b|steatohepatitis/i.test(finding.claim) &&
+    !/\bMASH\b|\bNASH\b|steatohepatitis/i.test(text)
+  )
+    return false;
+  if (
+    ["owner", "contact", "reference_status"].includes(finding.kind) &&
+    finding.country === "Global"
+  )
+    return true;
+  const countryPatterns: Record<string, RegExp> = {
+    UAE: /\bUAE\b|United Arab Emirates|Dubai|Abu Dhabi/i,
+    "Saudi Arabia": /Saudi|\bKSA\b/i,
+    Egypt: /Egypt/i,
+  };
+  if (finding.country === "Regional")
+    return /Middle East|North Africa|\bMENA\b|\bGCC\b|Gulf/i.test(text);
+  if (finding.country === "Global") return finding.kind === "partner";
+  return countryPatterns[finding.country]?.test(text) ?? false;
+}

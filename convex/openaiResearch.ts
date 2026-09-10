@@ -58,11 +58,10 @@ interface TextResponseOptions extends BaseResponseOptions {
   maxToolCalls?: number;
 }
 
-interface StructuredEvidenceResponseOptions
-  extends Omit<
-    StructuredResponseOptions,
-    "searchContextSize" | "allowedDomains" | "maxToolCalls"
-  > {
+interface StructuredEvidenceResponseOptions extends Omit<
+  StructuredResponseOptions,
+  "searchContextSize" | "allowedDomains" | "maxToolCalls"
+> {
   evidence: ResearchEvidence[];
   requestIds?: string[];
   provider?: "openai" | "tavily_hybrid";
@@ -74,13 +73,13 @@ export function createResearchClient(apiKey: string): OpenAI {
 
 export async function createStructuredWebSearchResponse<T>(
   client: OpenAI,
-  options: StructuredResponseOptions
+  options: StructuredResponseOptions,
 ): Promise<ResearchResponse<T>> {
   const { response, retryCount } = await createWithRetry(
     client,
     options,
     true,
-    true
+    true,
   );
   const text = getOutputText(response);
 
@@ -98,13 +97,13 @@ export async function createStructuredWebSearchResponse<T>(
 
 export async function createWebSearchTextResponse(
   client: OpenAI,
-  options: TextResponseOptions
+  options: TextResponseOptions,
 ): Promise<ResearchResponse<string>> {
   const { response, retryCount } = await createWithRetry(
     client,
     options,
     false,
-    true
+    true,
   );
   const text = getOutputText(response);
 
@@ -122,13 +121,13 @@ export async function createWebSearchTextResponse(
 
 export async function createTextResponse(
   client: OpenAI,
-  options: BaseResponseOptions
+  options: BaseResponseOptions,
 ): Promise<ResearchResponse<string>> {
   const { response, retryCount } = await createWithRetry(
     client,
     options,
     false,
-    false
+    false,
   );
   const text = getOutputText(response);
 
@@ -146,13 +145,16 @@ export async function createTextResponse(
 
 export async function createStructuredResponse<T>(
   client: OpenAI,
-  options: Omit<StructuredResponseOptions, "searchContextSize" | "allowedDomains" | "maxToolCalls">
+  options: Omit<
+    StructuredResponseOptions,
+    "searchContextSize" | "allowedDomains" | "maxToolCalls"
+  >,
 ): Promise<ResearchResponse<T>> {
   const { response, retryCount } = await createWithRetry(
     client,
     options,
     true,
-    false
+    false,
   );
   const text = getOutputText(response);
 
@@ -170,12 +172,12 @@ export async function createStructuredResponse<T>(
 
 export async function createStructuredResponseFromEvidence<T>(
   client: OpenAI,
-  options: StructuredEvidenceResponseOptions
+  options: StructuredEvidenceResponseOptions,
 ): Promise<ResearchResponse<T>> {
   const response = await createStructuredResponse<T>(client, {
     instructions: options.instructions,
     input: `${coerceInputToString(options.input)}\n\nSupplied evidence\n${buildEvidenceContext(
-      options.evidence
+      options.evidence,
     )}`,
     formatName: options.formatName,
     schema: options.schema,
@@ -187,7 +189,10 @@ export async function createStructuredResponseFromEvidence<T>(
   return {
     ...response,
     provider: options.provider ?? "tavily_hybrid",
-    requestIds: compactRequestIds([...(options.requestIds ?? []), response.requestId]),
+    requestIds: compactRequestIds([
+      ...(options.requestIds ?? []),
+      response.requestId,
+    ]),
     sources: dedupeSources([
       ...response.sources,
       ...options.evidence.map((item) => ({ title: item.title, url: item.url })),
@@ -204,13 +209,13 @@ export function buildEvidenceContext(evidence: ResearchEvidence[]): string {
   return evidence
     .map(
       (item, index) =>
-        `[${index + 1}] ${item.title}\nURL: ${item.url}\nDomain: ${item.domain}\nSource kind: ${item.sourceKind}\nConfidence: ${item.confidence}\nSnippet: ${item.snippet}`
+        `[${index + 1}] ${item.title}\nURL: ${item.url}\nDomain: ${item.domain}\nSource kind: ${item.sourceKind}\nConfidence: ${item.confidence}\nSnippet: ${item.snippet}`,
     )
     .join("\n\n");
 }
 
 function buildWebSearchTool(
-  options: Pick<TextResponseOptions, "searchContextSize" | "allowedDomains">
+  options: Pick<TextResponseOptions, "searchContextSize" | "allowedDomains">,
 ) {
   return {
     type: "web_search_preview" as const,
@@ -234,7 +239,7 @@ async function createWithRetry(
   client: OpenAI,
   options: StructuredResponseOptions | TextResponseOptions,
   structured: boolean,
-  withWebSearch: boolean
+  withWebSearch: boolean,
 ) {
   let attempt = 0;
 
@@ -247,7 +252,8 @@ async function createWithRetry(
         max_output_tokens: options.maxOutputTokens,
         ...(withWebSearch
           ? {
-              max_tool_calls: (options as TextResponseOptions).maxToolCalls ?? 6,
+              max_tool_calls:
+                (options as TextResponseOptions).maxToolCalls ?? 6,
               tools: [buildWebSearchTool(options)],
               include: ["web_search_call.action.sources" as const],
             }
@@ -297,7 +303,10 @@ function isRetryableRateLimit(error: unknown): boolean {
   );
 }
 
-function getOutputText(response: { output_text?: string; output?: unknown[] }): string {
+function getOutputText(response: {
+  output_text?: string;
+  output?: unknown[];
+}): string {
   if (response.output_text?.trim()) {
     return response.output_text;
   }
@@ -325,7 +334,9 @@ function getOutputText(response: { output_text?: string; output?: unknown[] }): 
   return text;
 }
 
-function extractSources(response: { output?: unknown[] }): ResearchSource[] {
+export function extractSources(response: {
+  output?: unknown[];
+}): ResearchSource[] {
   const byUrl = new Map<string, ResearchSource>();
 
   for (const item of response.output ?? []) {
@@ -336,11 +347,15 @@ function extractSources(response: { output?: unknown[] }): ResearchSource[] {
       action?: {
         sources?: Array<{ url?: string }>;
       };
+      content?: Array<{
+        annotations?: Array<{ type?: string; url?: string; title?: string }>;
+      }>;
     };
 
-    if (typedItem.type !== "web_search_call") continue;
-
-    for (const source of typedItem.action?.sources ?? []) {
+    const citations = (typedItem.content ?? [])
+      .flatMap((c) => c.annotations ?? [])
+      .filter((a) => a.type === "url_citation");
+    for (const source of [...(typedItem.action?.sources ?? []), ...citations]) {
       const normalizedUrl = normalizeExternalUrl(source.url);
       if (!normalizedUrl || byUrl.has(normalizedUrl)) continue;
       byUrl.set(normalizedUrl, {

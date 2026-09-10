@@ -59,6 +59,8 @@ function MedicineCard({
   const presence = claims.filter(
     (x) => x.kind === "local_presence" || x.kind === "partner",
   );
+  const need = claims.find((c) => c.kind === "demand");
+  const contact = m.claims.find((c) => c.kind === "contact");
   const pending = ["queued", "running"].includes(m.researchStatus);
   const title = presence.length
     ? "Existing presence or partner to assess"
@@ -145,6 +147,32 @@ function MedicineCard({
               </SourceLink>
             </div>
           ))}
+        </div>
+      )}
+      {(need || contact) && (
+        <div className="mt-4 space-y-3 rounded-xl bg-zinc-950/60 p-4">
+          {need && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-sky-300">
+                Why investigate · {need.country}
+              </p>
+              <p className="mt-1 text-sm leading-6 text-zinc-200">
+                {need.claim}
+              </p>
+              <SourceLink url={need.url}>{need.title}</SourceLink>
+            </div>
+          )}
+          {contact && (
+            <div>
+              <p className="text-xs font-semibold uppercase text-sky-300">
+                Company route to check
+              </p>
+              <p className="mt-1 text-sm leading-6 text-zinc-200">
+                {contact.claim}
+              </p>
+              <SourceLink url={contact.url}>{contact.title}</SourceLink>
+            </div>
+          )}
         </div>
       )}
       <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2">
@@ -309,6 +337,12 @@ export function MedicineDiscoveryDashboard() {
             ? m.disposition === "parked"
             : m.disposition !== "parked") &&
         (view !== "researched" || m.researchStatus === "completed") &&
+        (view !== "need" ||
+          m.claims.some(
+            (c) =>
+              c.kind === "demand" &&
+              (c.country === country || c.country === "Regional"),
+          )) &&
         `${m.brand} ${m.inn} ${m.owner} ${m.indication}`
           .toLowerCase()
           .includes(search.toLowerCase()),
@@ -364,7 +398,7 @@ export function MedicineDiscoveryDashboard() {
       </div>
       <div className="my-7 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          [medicines.length, "Reference medicines"],
+          [medicines.length, "Medicine records"],
           [researched.length, "With research evidence"],
           [pending.length, "Research in progress"],
           [shortlist.length, "Shortlisted for review"],
@@ -446,6 +480,7 @@ export function MedicineDiscoveryDashboard() {
         >
           <option value="all">All discoveries</option>
           <option value="researched">With research evidence</option>
+          <option value="need">With local need evidence</option>
           <option value="shortlisted">Shortlisted</option>
           <option value="parked">Parked</option>
         </select>

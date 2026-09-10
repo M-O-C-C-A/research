@@ -263,6 +263,7 @@ export const researchOne = mutation({
     )
       return null;
     if (
+      m.claims.some((c) => c.verification === "page_excerpt_verified") &&
       m.researchStatus !== "error" &&
       m.researchedAt &&
       Date.now() - m.researchedAt < 5 * 60_000
@@ -294,6 +295,21 @@ export const markResearchRunning = internalMutation({
   handler: async (ctx, { id }) => {
     const m = await ctx.db.get(id);
     if (!m || m.researchStatus !== "queued") return false;
+    const active = await ctx.db
+      .query("medicineDiscoveries")
+      .withIndex("by_research_status_and_priority", (q) =>
+        q.eq("researchStatus", "running"),
+      )
+      .take(20);
+    if (
+      active.some((x) => Date.now() - (x.researchStartedAt ?? 0) < 10 * 60_000)
+    )
+      return false;
+    for (const stale of active)
+      await ctx.db.patch(stale._id, {
+        researchStatus: "error",
+        researchError: "Research timed out. Retry this medicine.",
+      });
     await ctx.db.patch(id, {
       researchStatus: "running",
       researchStartedAt: Date.now(),
@@ -307,9 +323,10 @@ export const saveResearch = internalMutation({
     claims: v.array(discoveryClaim),
     warnings: v.array(v.string()),
     error: v.optional(v.string()),
+    auditStorageId: v.optional(v.id("_storage")),
   },
   returns: v.null(),
-  handler: async (ctx, { id, claims, warnings, error }) => {
+  handler: async (ctx, { id, claims, warnings, error, auditStorageId }) => {
     const old = await ctx.db.get(id);
     if (!old) return null;
     await ctx.db.patch(id, {
@@ -320,6 +337,7 @@ export const saveResearch = internalMutation({
           ? "completed"
           : "no_findings",
       researchWarnings: warnings,
+      researchAuditStorageId: auditStorageId ?? old.researchAuditStorageId,
       researchError: error,
       researchedAt: Date.now(),
       updatedAt: Date.now(),
@@ -359,5 +377,38 @@ export const dashboard = query({
       .order("desc")
       .first();
     return { candidates, run, bounded: candidates.length === 1000 };
+  },
+});
+
+export const processResearchQueue = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const next = await ctx.db
+      .query("medicineDiscoveries")
+      .withIndex("by_research_status_and_priority", (q) =>
+        q.eq("researchStatus", "queued"),
+      )
+      .order("desc")
+      .first();
+    if (next)
+      await ctx.scheduler.runAfter(
+        0,
+        internal.medicineDiscoveryActions.research,
+        { id: next._id },
+      );
+    return null;
+  },
+});
+
+export const researchAudit = query({
+  args: { id: v.id("medicineDiscoveries") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, { id }) => {
+    await requireMember(ctx);
+    const m = await ctx.db.get(id);
+    return m?.researchAuditStorageId
+      ? ctx.storage.getUrl(m.researchAuditStorageId)
+      : null;
   },
 });

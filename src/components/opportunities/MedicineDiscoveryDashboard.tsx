@@ -56,22 +56,27 @@ function MedicineCard({
     (c) => c.verification === "page_excerpt_verified",
   );
   const market = m.markets.find((x) => x.country === country);
-  const claims = evidence.filter(
-    (x) => x.country === country || x.country === "Regional",
-  );
+  const claims = evidence.filter((x) => x.country === country);
   const presence = claims.filter(
     (x) => x.kind === "local_presence" || x.kind === "partner",
+  );
+  const regionalPresence = evidence.filter(
+    (x) =>
+      x.country === "Regional" &&
+      (x.kind === "partner" || x.kind === "local_presence"),
   );
   const need = claims.find((c) => c.kind === "demand");
   const contact = evidence.find((c) => c.kind === "contact");
   const pending = ["queued", "running"].includes(m.researchStatus);
   const title = presence.length
     ? "Existing presence or partner to assess"
-    : market?.status === "molecule_listed"
-      ? "Related medicine listed locally"
-      : market?.status === "no_molecule_match"
-        ? "Potential access gap to investigate"
-        : "Country access needs checking";
+    : regionalPresence.length
+      ? "Regional partner scope needs checking"
+      : market?.status === "molecule_listed"
+        ? "Related medicine listed locally"
+        : market?.status === "no_molecule_match"
+          ? "Potential access gap to investigate"
+          : "Country access needs checking";
   async function act(fn: () => Promise<unknown>) {
     setBusy(true);
     setError("");
@@ -149,6 +154,18 @@ function MedicineCard({
                 {c.country} · {c.title}
               </SourceLink>
             </div>
+          ))}
+        </div>
+      )}
+      {regionalPresence.length > 0 && (
+        <div className="mt-4 text-sm text-amber-100">
+          <p className="font-semibold">
+            Regional evidence · confirm the exact country scope
+          </p>
+          {regionalPresence.map((c, i) => (
+            <p key={i} className="mt-2">
+              {c.claim} <SourceLink url={c.url}>Source</SourceLink>
+            </p>
           ))}
         </div>
       )}

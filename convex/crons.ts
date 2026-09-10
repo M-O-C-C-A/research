@@ -47,4 +47,6 @@ crons.cron(
 
 crons.daily("Research next new-medicine batch", {hourUTC:9, minuteUTC:15}, internal.medicineDiscovery.researchNextBatch);
 
+crons.interval("Process queued medicine research", {minutes:2}, internal.medicineDiscovery.processResearchQueue);
+
 export default crons;

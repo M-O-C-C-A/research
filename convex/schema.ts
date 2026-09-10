@@ -767,6 +767,7 @@ export default defineSchema({
     markets: v.array(discoveryMarket), priority: v.number(),
     researchStatus: discoveryResearchStatus, researchStartedAt: v.optional(v.number()),
     researchedAt: v.optional(v.number()), researchError: v.optional(v.string()),
+    researchAuditStorageId: v.optional(v.id("_storage")),
     researchWarnings: v.optional(v.array(v.string())), claims: v.array(discoveryClaim),
     disposition: v.union(v.literal("new"), v.literal("shortlisted"), v.literal("parked")),
     checkedAt: v.number(), createdAt: v.number(), updatedAt: v.number(),

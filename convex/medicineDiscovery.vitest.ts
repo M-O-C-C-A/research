@@ -238,3 +238,46 @@ describe("source verification", () => {
     ).toBe(false);
   });
 });
+
+it("runs one research action at a time without losing queued medicines", async () => {
+  const t = convexTest(schema, modules);
+  const a = parseEmaMedicines(feed([source]), 2023, Date.UTC(2026, 8, 10))
+    .medicines[0];
+  await t.mutation(internal.medicineDiscovery.ingest, {
+    medicines: [
+      { medicine: a, markets: [] },
+      { medicine: { ...a, key: "second", brand: "Second" }, markets: [] },
+    ],
+  });
+  const rows = await t.run((ctx) =>
+    ctx.db.query("medicineDiscoveries").take(2),
+  );
+  await t.run(async (ctx) => {
+    for (const r of rows)
+      await ctx.db.patch(r._id, { researchStatus: "queued" });
+  });
+  expect(
+    await t.mutation(internal.medicineDiscovery.markResearchRunning, {
+      id: rows[0]._id,
+    }),
+  ).toBe(true);
+  expect(
+    await t.mutation(internal.medicineDiscovery.markResearchRunning, {
+      id: rows[1]._id,
+    }),
+  ).toBe(false);
+  expect(
+    (await t.query(internal.medicineDiscovery.getInternal, { id: rows[1]._id }))
+      .researchStatus,
+  ).toBe("queued");
+  await t.mutation(internal.medicineDiscovery.saveResearch, {
+    id: rows[0]._id,
+    claims: [],
+    warnings: [],
+  });
+  expect(
+    await t.mutation(internal.medicineDiscovery.markResearchRunning, {
+      id: rows[1]._id,
+    }),
+  ).toBe(true);
+});

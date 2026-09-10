@@ -226,15 +226,32 @@ export function isPrimaryResearchUrl(value: string) {
 
 export function excerptIsSupported(excerpt: string, page: string) {
   const quote = discoveryTerm(excerpt);
-  return quote.split(" ").length >= 6 && discoveryTerm(page).includes(quote);
+  return (
+    quote.split(" ").length >= 6 &&
+    discoveryTerm(page.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")).includes(quote)
+  );
 }
-export function claimScopeIsSupported(finding: {
-  country: string;
-  kind: string;
-  claim: string;
-  excerpt: string;
-}) {
+export function claimScopeIsSupported(
+  finding: {
+    country: string;
+    kind: string;
+    claim: string;
+    excerpt: string;
+  },
+  sourceText?: string,
+) {
   const text = finding.excerpt;
+  const normalizedPage = discoveryTerm(
+    (sourceText ?? text).replace(/\[([^\]]+)\]\([^)]*\)/g, "$1"),
+  );
+  const position = normalizedPage.indexOf(discoveryTerm(text));
+  const geography =
+    position < 0
+      ? text
+      : normalizedPage.slice(
+          Math.max(0, position - 250),
+          position + discoveryTerm(text).length + 250,
+        );
   if (
     /\bMASH\b|steatohepatitis/i.test(finding.claim) &&
     !/\bMASH\b|\bNASH\b|steatohepatitis/i.test(text)
@@ -251,7 +268,7 @@ export function claimScopeIsSupported(finding: {
     Egypt: /Egypt/i,
   };
   if (finding.country === "Regional")
-    return /Middle East|North Africa|\bMENA\b|\bGCC\b|Gulf/i.test(text);
+    return /Middle East|North Africa|\bMENA\b|\bGCC\b|Gulf/i.test(geography);
   if (finding.country === "Global") return finding.kind === "partner";
-  return countryPatterns[finding.country]?.test(text) ?? false;
+  return countryPatterns[finding.country]?.test(geography) ?? false;
 }

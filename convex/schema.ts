@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { salesRowFields } from "./salesValidators";
 import { companyFitInput, studyInput, accessEntry } from "./commercialAssessmentValidators";
+import { discoveryReference, discoveryMarket, discoveryClaim, discoveryResearchStatus } from "./medicineDiscoveryValidators";
 
 const logEntry = v.object({
   timestamp: v.number(),
@@ -759,6 +760,24 @@ const exclusionFlags = v.object({
 });
 
 export default defineSchema({
+  medicineDiscoveries: defineTable({
+    key: v.string(), brand: v.string(), inn: v.string(), owner: v.string(),
+    indication: v.string(), area: v.string(), orphan: v.boolean(), advanced: v.boolean(),
+    references: v.array(discoveryReference), firstApprovalDate: v.string(),
+    markets: v.array(discoveryMarket), priority: v.number(),
+    researchStatus: discoveryResearchStatus, researchStartedAt: v.optional(v.number()),
+    researchedAt: v.optional(v.number()), researchError: v.optional(v.string()),
+    researchWarnings: v.optional(v.array(v.string())), claims: v.array(discoveryClaim),
+    disposition: v.union(v.literal("new"), v.literal("shortlisted"), v.literal("parked")),
+    checkedAt: v.number(), createdAt: v.number(), updatedAt: v.number(),
+  }).index("by_key", ["key"]).index("by_priority", ["priority"])
+    .index("by_research_status_and_priority", ["researchStatus", "priority"]),
+  medicineDiscoveryRuns: defineTable({
+    status: v.union(v.literal("running"), v.literal("completed"), v.literal("partial"), v.literal("error")),
+    sinceYear: v.number(), startedAt: v.number(), completedAt: v.optional(v.number()),
+    sourceCounts: v.array(v.object({name:v.string(),url:v.string(),parsed:v.number(),eligible:v.number(),sourceDate:v.optional(v.string())})),
+    candidateCount: v.number(), researchQueued: v.number(), warnings: v.array(v.string()),
+  }).index("by_started_at", ["startedAt"]),
   workspaceMembers: defineTable({
     userId: v.optional(v.string()),
     openKey: v.optional(v.string()),

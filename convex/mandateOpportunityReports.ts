@@ -315,16 +315,14 @@ export const getByDecisionOpportunity = query({
       .unique();
     if (!report) return null;
 
-    const [countries, evidence] = await Promise.all([
-      ctx.db
+    const countries = await ctx.db
         .query("mandateCountryAssessments")
         .withIndex("by_report", (q) => q.eq("reportId", report._id))
-        .collect(),
-      ctx.db
+        .collect();
+    const evidence = await ctx.db
         .query("mandateEvidenceClaims")
         .withIndex("by_report", (q) => q.eq("reportId", report._id))
-        .collect(),
-    ]);
+        .collect();
 
     const countryOrder = new Map<MandateCountry, number>([
       ["Saudi Arabia", 0],

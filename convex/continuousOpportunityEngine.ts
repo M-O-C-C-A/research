@@ -739,6 +739,7 @@ async function insertChangeEventWithInAppDelivery(
 
 export const seedSourceRegistry = mutation({
   args: {},
+  returns: v.object({ seeded: v.number() }),
   handler: async (ctx) => {
     const now = Date.now();
     const seeded: Id<"sourceRegistries">[] = [];
@@ -749,6 +750,12 @@ export const seedSourceRegistry = mutation({
           q.eq("sourceRegistry", source.sourceRegistry),
         )
         .unique();
+      // Bootstrap runs before dispatch. Never move an existing due date or
+      // erase a parser failure/operator setting while ensuring defaults exist.
+      if (existing) {
+        seeded.push(existing._id);
+        continue;
+      }
       const doc = {
         ...source,
         status: "active" as const,
@@ -768,17 +775,12 @@ export const seedSourceRegistry = mutation({
           60 *
           60 *
           1000,
-        nextFetchAt: nextFetchAt(source.cadence, now),
+        nextFetchAt: source.cadence === "manual" ? undefined : now,
         updatedAt: now,
       };
-      if (existing) {
-        await ctx.db.patch(existing._id, doc);
-        seeded.push(existing._id);
-      } else {
-        seeded.push(
-          await ctx.db.insert("sourceRegistries", { ...doc, createdAt: now }),
-        );
-      }
+      seeded.push(
+        await ctx.db.insert("sourceRegistries", { ...doc, createdAt: now }),
+      );
     }
     return { seeded: seeded.length };
   },

@@ -708,20 +708,18 @@ async function deriveCommercialSummary(
   country: string,
   opportunity?: OpportunityDoc | null
 ) {
-  const [priceRows, signals] = await Promise.all([
-    ctx.db
+  const priceRows = await ctx.db
       .query("priceEvidence")
       .withIndex("by_drug_and_country", (q) =>
         q.eq("drugId", drugId).eq("country", country)
       )
-      .collect(),
-    ctx.db
+      .collect();
+  const signals = await ctx.db
       .query("commercialSignals")
       .withIndex("by_drug_and_country", (q) =>
         q.eq("drugId", drugId).eq("country", country)
       )
-      .collect(),
-  ]);
+      .collect();
 
   const pricingConfidence = getPricingConfidence(priceRows);
   const evidenceStatus = getCommercialEvidenceStatus(priceRows, signals);
@@ -1455,16 +1453,14 @@ function buildSimulationResult(args: {
 export const getMarketSimulation = query({
   args: { drugId: v.id("drugs"), country: v.string() },
   handler: async (ctx, { drugId, country }) => {
-    const [opportunity, simulation] = await Promise.all([
-      ctx.db
+    const opportunity = await ctx.db
         .query("opportunities")
         .withIndex("by_drug_and_country", (q) => q.eq("drugId", drugId).eq("country", country))
-        .unique(),
-      ctx.db
+        .unique();
+    const simulation = await ctx.db
         .query("marketSimulations")
         .withIndex("by_drug_and_country", (q) => q.eq("drugId", drugId).eq("country", country))
-        .unique(),
-    ]);
+        .unique();
     return {
       opportunity,
       simulation,

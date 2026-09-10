@@ -4,6 +4,13 @@ import { internal } from "./_generated/api";
 const crons = cronJobs();
 
 crons.cron(
+  "weekly new EU and US medicine discovery",
+  "0 8 * * 2",
+  internal.medicineDiscovery.scheduledRun,
+  {},
+);
+
+crons.cron(
   "weekly evidence-first lead scan",
   "0 6 * * 1",
   internal.leadScans.runWeeklyInternal,
@@ -37,5 +44,7 @@ crons.cron(
   internal.evidenceEngineV11.reopenChangedParkedInternal,
   {},
 );
+
+crons.daily("Research next new-medicine batch", {hourUTC:9, minuteUTC:15}, internal.medicineDiscovery.researchNextBatch);
 
 export default crons;

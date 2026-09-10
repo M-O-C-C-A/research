@@ -11,6 +11,8 @@ import {
   moleculeMatches,
   normalizedSourceUrl,
   excerptIsSupported,
+  verifiedShortExcerpt,
+  verifyDiscoveryFindings,
   claimScopeIsSupported,
 } from "./medicineDiscoveryPolicy";
 const modules = import.meta.glob(["./**/*.ts", "!./**/*.vitest.ts"]);
@@ -280,4 +282,58 @@ it("runs one research action at a time without losing queued medicines", async (
       id: rows[1]._id,
     }),
   ).toBe(true);
+});
+
+describe("bounded quotes from original source records", () => {
+  it("can retain a long valid quote without discarding the underlying finding", () => {
+    const quote =
+      "one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty twentyone twentytwo twentythree twentyfour twentyfive twentysix";
+    expect(verifiedShortExcerpt(quote, quote)?.split(" ")).toHaveLength(25);
+  });
+  it("accepts omitted text only when every quoted segment exists in source order", () => {
+    const source =
+      "The exclusive distribution agreement covers Saudi Arabia, United Arab Emirates and Egypt after approvals.";
+    expect(
+      verifiedShortExcerpt(
+        "The exclusive distribution agreement covers Saudi Arabia ... Egypt after approvals.",
+        source,
+      ),
+    ).toBe("The exclusive distribution agreement covers Saudi Arabia");
+    expect(
+      verifiedShortExcerpt(
+        "The exclusive distribution agreement covers Saudi Arabia ... France after approvals.",
+        source,
+      ),
+    ).toBeNull();
+  });
+  it("prioritizes country partner evidence over repeated reference approvals", () => {
+    const page =
+      "An exclusive distribution agreement covers Saudi Arabia and the United Arab Emirates. This medicine received approval in the European Union during February last year.";
+    const findings = [
+      {
+        country: "Global",
+        kind: "reference_status",
+        claim: "EU approval",
+        excerpt:
+          "This medicine received approval in the European Union during February last year.",
+        url: "https://example.com/source",
+        title: "Source",
+      },
+      {
+        country: "Saudi Arabia",
+        kind: "partner",
+        claim: "Partner agreement covers Saudi Arabia",
+        excerpt:
+          "An exclusive distribution agreement covers Saudi Arabia and the United Arab Emirates.",
+        url: "https://example.com/source",
+        title: "Source",
+      },
+    ];
+    expect(
+      verifyDiscoveryFindings(
+        findings,
+        new Map([["https://example.com/source", page]]),
+      )[0].kind,
+    ).toBe("partner");
+  });
 });

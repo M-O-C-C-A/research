@@ -412,3 +412,17 @@ export const researchAudit = query({
       : null;
   },
 });
+
+export const recheckEvidence = mutation({
+  args: { id: v.id("medicineDiscoveries") },
+  returns: v.null(),
+  handler: async (ctx, { id }) => {
+    await requireMember(ctx, ["admin", "analyst"]);
+    await ctx.scheduler.runAfter(
+      0,
+      internal.medicineDiscoveryActions.revalidateAudit,
+      { id },
+    );
+    return null;
+  },
+});

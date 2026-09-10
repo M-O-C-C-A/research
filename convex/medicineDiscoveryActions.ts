@@ -13,10 +13,7 @@ import {
   moleculeMatches,
   DISCOVERY_COUNTRIES,
   normalizedSourceUrl,
-  isPrimaryResearchUrl,
-  cleanText,
-  excerptIsSupported,
-  claimScopeIsSupported,
+  verifyDiscoveryFindings,
   type RegistryRow,
   type ReferenceMedicine,
 } from "./medicineDiscoveryPolicy";
@@ -400,72 +397,18 @@ export const research = internalAction({
       warnings.push(
         `Research checked ${retrieved.sources.length} cited sources and extracted ${response.data.findings.length} candidate findings.`,
       );
-      const sources = new Set(
-        response.sources.map((s) => normalizedSourceUrl(s.url)).filter(Boolean),
-      );
-      const claims: Claim[] = [];
-      const seen = new Set<string>();
-      const quotedWords = new Map<string, number>();
-      const seenExcerpts = new Set<string>();
-      for (const finding of response.data.findings) {
-        const url = normalizedSourceUrl(finding.url);
-        if (
-          !url ||
-          !sources.has(url) ||
-          !isPrimaryResearchUrl(url) ||
-          !finding.claim.trim() ||
-          !finding.excerpt.trim()
-        ) {
-          warnings.push(
-            "A finding was omitted because its cited evidence was missing or inadmissible.",
-          );
-          continue;
-        }
-        if (
-          /not registered|no (?:local |regional |existing )?(?:partner|registration)|rights (?:are )?(?:available|free)|not available in/i.test(
-            finding.claim,
-          )
-        ) {
-          warnings.push("An unsupported negative market claim was omitted.");
-          continue;
-        }
-        if (
-          !excerptIsSupported(finding.excerpt, pages.get(url) ?? "") ||
-          !claimScopeIsSupported(finding, pages.get(url))
-        ) {
-          warnings.push(
-            "A finding was omitted because its exact excerpt or geographic/disease scope could not be verified.",
-          );
-          continue;
-        }
-        const key = `${url}|${finding.claim}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        const quoteKey = `${url}|${finding.excerpt}`;
-        const remaining = seenExcerpts.has(quoteKey)
-          ? 25
-          : 25 - (quotedWords.get(url) ?? 0);
-        if (remaining < finding.excerpt.split(/\s+/).length) continue;
-        const excerpt = cleanText(finding.excerpt)
-          .split(/\s+/)
-          .slice(0, remaining)
-          .join(" ");
-        if (!seenExcerpts.has(quoteKey))
-          quotedWords.set(
-            url,
-            (quotedWords.get(url) ?? 0) + excerpt.split(/\s+/).length,
-          );
-        seenExcerpts.add(quoteKey);
-        claims.push({
-          ...finding,
-          url,
-          claim: cleanText(finding.claim).slice(0, 1200),
-          excerpt,
-          title: cleanText(finding.title).slice(0, 200),
-          observedAt: Date.now(),
-          verification: "page_excerpt_verified",
-        });
-      }
+      const claims: Claim[] = verifyDiscoveryFindings(
+        response.data.findings,
+        pages,
+      ).map((f) => ({
+        ...f,
+        observedAt: Date.now(),
+        verification: "page_excerpt_verified",
+      }));
+      if (claims.length < response.data.findings.length)
+        warnings.push(
+          `${response.data.findings.length - claims.length} findings omitted because source, scope or quote-budget checks did not pass.`,
+        );
       if (!claims.length)
         warnings.push(
           "Research completed without admissible findings. Registration, territory rights and commercial demand remain unresolved.",
@@ -486,6 +429,45 @@ export const research = internalAction({
           : String(e).slice(0, 1200),
       });
     }
+    return null;
+  },
+});
+
+export const revalidateAudit = internalAction({
+  args: { id: v.id("medicineDiscoveries") },
+  returns: v.null(),
+  handler: async (ctx, { id }) => {
+    const m: Doc<"medicineDiscoveries"> = await ctx.runQuery(
+      internal.medicineDiscovery.getInternal,
+      { id },
+    );
+    if (
+      !m?.researchAuditStorageId ||
+      ["queued", "running"].includes(m.researchStatus)
+    )
+      return null;
+    const blob = await ctx.storage.get(m.researchAuditStorageId);
+    if (!blob) return null;
+    const audit = JSON.parse(await blob.text()) as {
+      pages: Array<[string, string]>;
+      findings: Array<Omit<Claim, "observedAt" | "verification">>;
+    };
+    const claims: Claim[] = verifyDiscoveryFindings(
+      audit.findings,
+      new Map(audit.pages),
+    ).map((f) => ({
+      ...f,
+      observedAt: Date.now(),
+      verification: "page_excerpt_verified",
+    }));
+    await ctx.runMutation(internal.medicineDiscovery.saveResearch, {
+      id,
+      claims,
+      warnings: [
+        `Original source record rechecked: ${claims.length} of ${audit.findings.length} findings retained.`,
+      ],
+      auditStorageId: m.researchAuditStorageId,
+    });
     return null;
   },
 });

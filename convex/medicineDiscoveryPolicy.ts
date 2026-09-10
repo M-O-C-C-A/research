@@ -272,3 +272,101 @@ export function claimScopeIsSupported(
   if (finding.country === "Global") return finding.kind === "partner";
   return countryPatterns[finding.country]?.test(geography) ?? false;
 }
+
+export type DiscoveryFinding = {
+  country: string;
+  kind: string;
+  claim: string;
+  excerpt: string;
+  url: string;
+  title: string;
+};
+export function verifiedShortExcerpt(excerpt: string, page: string) {
+  const normalized = discoveryTerm(
+    page.replace(/\[([^\]]+)\]\([^)]*\)/g, "$1"),
+  );
+  const segments = excerpt
+    .split(/\s*(?:\.\.\.|…)\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  let offset = 0;
+  for (const segment of segments) {
+    const token = discoveryTerm(segment);
+    const index = normalized.indexOf(token, offset);
+    if (!token || index < 0) return null;
+    offset = index + token.length;
+  }
+  const longest = [...segments].sort(
+    (a, b) => b.split(/\s+/).length - a.split(/\s+/).length,
+  )[0];
+  if (!longest || longest.split(/\s+/).length < 6) return null;
+  return longest.split(/\s+/).slice(0, 25).join(" ");
+}
+export function verifyDiscoveryFindings<T extends DiscoveryFinding>(
+  findings: T[],
+  pages: Map<string, string>,
+) {
+  const accepted: T[] = [];
+  const quotes = new Map<string, Set<string>>();
+  const used = new Map<string, number>();
+  const seen = new Set<string>();
+  const rank: Record<string, number> = {
+    partner: 0,
+    local_presence: 0,
+    demand: 1,
+    contact: 2,
+    owner: 3,
+    reference_status: 4,
+  };
+  for (let finding of [...findings].sort(
+    (a, b) => (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9),
+  )) {
+    const url = normalizedSourceUrl(finding.url);
+    const page = url ? pages.get(url) : undefined;
+    if (
+      !url ||
+      !page ||
+      !isPrimaryResearchUrl(url) ||
+      !finding.claim.trim() ||
+      /not registered|no (?:local |regional |existing )?(?:partner|registration)|rights (?:are )?(?:available|free)|not available in|\[email.protected\]/i.test(
+        finding.claim,
+      )
+    )
+      continue;
+    if (
+      finding.kind === "owner" &&
+      !/acquir|subsidiary|rights|licens|owned|develop|manufactur|commercial/i.test(
+        finding.excerpt,
+      )
+    ) {
+      if (/contact/i.test(url))
+        finding = {
+          ...finding,
+          kind: "contact",
+          country: "Global",
+          claim:
+            "Public company contact page; confirm the appropriate partnering team.",
+        };
+      else continue;
+    }
+    const excerpt = verifiedShortExcerpt(finding.excerpt, page);
+    if (!excerpt || !claimScopeIsSupported(finding, page)) continue;
+    const key = `${url}|${finding.country}|${finding.claim}`;
+    if (seen.has(key)) continue;
+    const sourceQuotes = quotes.get(url) ?? new Set<string>();
+    const words = sourceQuotes.has(excerpt) ? 0 : excerpt.split(/\s+/).length;
+    if ((used.get(url) ?? 0) + words > 25) continue;
+    sourceQuotes.add(excerpt);
+    quotes.set(url, sourceQuotes);
+    used.set(url, (used.get(url) ?? 0) + words);
+    seen.add(key);
+    accepted.push({
+      ...finding,
+      url,
+      excerpt,
+      claim: cleanText(finding.claim).slice(0, 1200),
+      title: cleanText(finding.title).slice(0, 200),
+    });
+  }
+  return accepted;
+}

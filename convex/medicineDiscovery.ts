@@ -262,7 +262,11 @@ export const researchOne = mutation({
       Date.now() - (m.researchStartedAt ?? 0) < 12 * 60_000
     )
       return null;
-    if (m.researchedAt && Date.now() - m.researchedAt < 5 * 60_000)
+    if (
+      m.researchStatus !== "error" &&
+      m.researchedAt &&
+      Date.now() - m.researchedAt < 5 * 60_000
+    )
       throw new Error(
         "Research just completed. Review its evidence before rerunning.",
       );

@@ -101,38 +101,40 @@ export const collect = internalAction({
             (_, i) =>
               `https://www.fda.gov/drugs/novel-drug-approvals-fda/novel-drug-approvals-${sinceYear + i}`,
           );
-        for (const url of urls) {
-          try {
-            const year = Number(url.slice(-4));
-            const parsed = parseFdaNovel(
-              await (await get(url)).text(),
-              url,
-              year,
-            );
-            medicines.push(...parsed);
-            sourceCounts.push({
-              name: `FDA novel medicines ${year}`,
-              url,
-              parsed: parsed.length,
-              eligible: parsed.length,
-            });
-          } catch (e) {
-            const saved = fdaSnapshot.pages.find((p) => p.url === url);
-            if (saved) {
-              medicines.push(...(saved.medicines as ReferenceMedicine[]));
-              sourceCounts.push({
-                name: `FDA novel medicines ${saved.year} (dated fallback)`,
+        await Promise.all(
+          urls.map(async (url) => {
+            try {
+              const year = Number(url.slice(-4));
+              const parsed = parseFdaNovel(
+                await (await get(url)).text(),
                 url,
-                parsed: saved.medicines.length,
-                eligible: saved.medicines.length,
-                sourceDate: fdaSnapshot.fetchedAt,
-              });
-              warnings.push(
-                `Live FDA ${saved.year} unavailable; using the official-page snapshot fetched ${fdaSnapshot.fetchedAt.slice(0, 10)}. New approvals after that date may be missing. ${String(e)}`,
+                year,
               );
-            } else warnings.push(String(e));
-          }
-        }
+              medicines.push(...parsed);
+              sourceCounts.push({
+                name: `FDA novel medicines ${year}`,
+                url,
+                parsed: parsed.length,
+                eligible: parsed.length,
+              });
+            } catch (e) {
+              const saved = fdaSnapshot.pages.find((p) => p.url === url);
+              if (saved) {
+                medicines.push(...(saved.medicines as ReferenceMedicine[]));
+                sourceCounts.push({
+                  name: `FDA novel medicines ${saved.year} (dated fallback)`,
+                  url,
+                  parsed: saved.medicines.length,
+                  eligible: saved.medicines.length,
+                  sourceDate: fdaSnapshot.fetchedAt,
+                });
+                warnings.push(
+                  `Live FDA ${saved.year} unavailable; using the official-page snapshot fetched ${fdaSnapshot.fetchedAt.slice(0, 10)}. New approvals after that date may be missing. ${String(e)}`,
+                );
+              } else warnings.push(String(e));
+            }
+          }),
+        );
       } catch (e) {
         warnings.push(String(e));
       }

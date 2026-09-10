@@ -248,7 +248,10 @@ async function createWithRetry(
       const response = await client.responses.create({
         model: RESEARCH_MODEL,
         instructions: options.instructions,
-        input: options.input as never,
+        input:
+          typeof options.input === "string" || Array.isArray(options.input)
+            ? (options.input as never)
+            : JSON.stringify(options.input),
         max_output_tokens: options.maxOutputTokens,
         ...(withWebSearch
           ? {

@@ -12,9 +12,19 @@ import {
   discoveredMedicine,
   discoveryMarket,
   discoveryClaim,
+  discoveryCountry,
+  discoveryResearchCheck,
 } from "./medicineDiscoveryValidators";
 import { isTop20OwnerName } from "./continuousOpportunityEngine";
 import type { MutationCtx } from "./_generated/server";
+
+import {
+  reviewBasis,
+  researchReviewBlockers,
+  shortlistBlockers,
+  commercialSignals,
+  validEvidenceUrl,
+} from "./medicineDiscoveryReviewPolicy";
 
 async function start(ctx: MutationCtx) {
   const latest = await ctx.db
@@ -215,7 +225,8 @@ export const finishRun = internalMutation({
         : "error",
       completedAt: Date.now(),
     });
-    const queued = fields.candidateCount ? await queueResearch(ctx) : 0;
+    // Automatic expansion stays paused until the research benchmark is accepted.
+    const queued = 0;
     await ctx.db.patch(runId, { researchQueued: queued });
     return null;
   },
@@ -324,18 +335,55 @@ export const saveResearch = internalMutation({
     warnings: v.array(v.string()),
     error: v.optional(v.string()),
     auditStorageId: v.optional(v.id("_storage")),
+    checks: v.optional(v.array(discoveryResearchCheck)),
+    policyVersion: v.optional(v.number()),
+    signals: v.optional(v.array(discoveryClaim)),
   },
   returns: v.null(),
-  handler: async (ctx, { id, claims, warnings, error, auditStorageId }) => {
+  handler: async (
+    ctx,
+    {
+      id,
+      claims,
+      warnings,
+      error,
+      auditStorageId,
+      checks,
+      policyVersion,
+      signals,
+    },
+  ) => {
     const old = await ctx.db.get(id);
     if (!old) return null;
     await ctx.db.patch(id, {
       claims: error ? old.claims : claims,
+      researchChecks: checks ?? [],
+      researchPolicyVersion: policyVersion,
+      reviewSignals: [
+        ...new Map(
+          [
+            ...(old.reviewSignals ?? []),
+            ...old.claims.filter((c) =>
+              ["partner", "possible_partner", "local_presence"].includes(
+                c.kind,
+              ),
+            ),
+            ...(signals ?? []),
+          ].map((c) => [`${c.url}|${c.country}`, c]),
+        ).values(),
+      ].slice(0, 24),
+      disposition: old.disposition === "shortlisted" ? "new" : old.disposition,
+      shortlistCountry: undefined,
       researchStatus: error
         ? "error"
-        : claims.length
-          ? "completed"
-          : "no_findings",
+        : policyVersion === 2 &&
+            (!checks ||
+              checks.length !== 8 ||
+              checks.some((c) => c.status !== "completed"))
+          ? "partial"
+          : claims.length
+            ? "completed"
+            : "no_findings",
       researchWarnings: warnings,
       researchAuditStorageId: auditStorageId ?? old.researchAuditStorageId,
       researchError: error,
@@ -348,6 +396,7 @@ export const saveResearch = internalMutation({
 export const setDisposition = mutation({
   args: {
     id: v.id("medicineDiscoveries"),
+    country: v.optional(discoveryCountry),
     disposition: v.union(
       v.literal("new"),
       v.literal("shortlisted"),
@@ -355,9 +404,20 @@ export const setDisposition = mutation({
     ),
   },
   returns: v.null(),
-  handler: async (ctx, { id, disposition }) => {
+  handler: async (ctx, { id, disposition, country }) => {
     await requireMember(ctx, ["admin", "analyst"]);
-    await ctx.db.patch(id, { disposition, updatedAt: Date.now() });
+    const medicine = await ctx.db.get(id);
+    if (!medicine) throw new Error("Medicine not found");
+    if (disposition === "shortlisted") {
+      if (!country) throw new Error("Choose the country for this shortlist.");
+      const blockers = shortlistBlockers(medicine, country);
+      if (blockers.length) throw new Error(blockers.join(" "));
+    }
+    await ctx.db.patch(id, {
+      disposition,
+      shortlistCountry: disposition === "shortlisted" ? country : undefined,
+      updatedAt: Date.now(),
+    });
     return null;
   },
 });
@@ -376,7 +436,16 @@ export const dashboard = query({
       .withIndex("by_started_at")
       .order("desc")
       .first();
-    return { candidates, run, bounded: candidates.length === 1000 };
+    return {
+      candidates: candidates.map((m) =>
+        m.disposition === "shortlisted" &&
+        shortlistBlockers(m, m.shortlistCountry ?? "UAE").length
+          ? { ...m, disposition: "new" as const }
+          : m,
+      ),
+      run,
+      bounded: candidates.length === 1000,
+    };
   },
 });
 
@@ -423,6 +492,62 @@ export const recheckEvidence = mutation({
       internal.medicineDiscoveryActions.revalidateAudit,
       { id },
     );
+    return null;
+  },
+});
+
+export const recordCommercialReview = mutation({
+  args: {
+    id: v.id("medicineDiscoveries"),
+    country: discoveryCountry,
+    expectedBasis: v.string(),
+    reviewer: v.string(),
+    registrationNote: v.string(),
+    rightsNote: v.string(),
+    rationale: v.string(),
+    evidenceUrls: v.array(v.string()),
+    resolvedSignalUrls: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, { id, expectedBasis, ...review }) => {
+    await requireMember(ctx, ["admin", "analyst"]);
+    const medicine = await ctx.db.get(id);
+    if (!medicine) throw new Error("Medicine not found");
+    if (expectedBasis !== reviewBasis(medicine))
+      throw new Error(
+        "Evidence changed. Reload and review the current findings.",
+      );
+    const blockers = researchReviewBlockers(medicine, review.country);
+    if (blockers.length) throw new Error(blockers.join(" "));
+    if (review.reviewer.trim().length < 2 || review.reviewer.length > 120)
+      throw new Error("Enter the reviewing analyst's name.");
+    for (const note of [
+      review.registrationNote,
+      review.rightsNote,
+      review.rationale,
+    ])
+      if (note.trim().length < 40 || note.length > 4000)
+        throw new Error("Explain each review decision in 40–4,000 characters.");
+    if (
+      !review.evidenceUrls.length ||
+      review.evidenceUrls.length > 12 ||
+      !review.evidenceUrls.every(validEvidenceUrl)
+    )
+      throw new Error("Add 1–12 supporting evidence links.");
+    const signals = commercialSignals(medicine, review.country);
+    if (
+      review.resolvedSignalUrls.length > 36 ||
+      signals.some((c) => !review.resolvedSignalUrls.includes(c.url))
+    )
+      throw new Error(
+        "Review and explicitly resolve every relevant commercial warning.",
+      );
+    const entry = { ...review, basis: expectedBasis, reviewedAt: Date.now() };
+    await ctx.db.insert("medicineCommercialReviews", {
+      medicineId: id,
+      review: entry,
+    });
+    await ctx.db.patch(id, { commercialReview: entry, updatedAt: Date.now() });
     return null;
   },
 });

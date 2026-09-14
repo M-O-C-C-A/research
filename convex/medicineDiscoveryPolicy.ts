@@ -269,7 +269,8 @@ export function claimScopeIsSupported(
   };
   if (finding.country === "Regional")
     return /Middle East|North Africa|\bMENA\b|\bGCC\b|Gulf/i.test(geography);
-  if (finding.country === "Global") return finding.kind === "partner";
+  if (finding.country === "Global")
+    return ["partner", "possible_partner"].includes(finding.kind);
   return countryPatterns[finding.country]?.test(geography) ?? false;
 }
 
@@ -305,6 +306,7 @@ export function verifiedShortExcerpt(excerpt: string, page: string) {
 export function verifyDiscoveryFindings<T extends DiscoveryFinding>(
   findings: T[],
   pages: Map<string, string>,
+  medicine?: { brand: string; inn: string },
 ) {
   const accepted: T[] = [];
   const quotes = new Map<string, Set<string>>();
@@ -312,6 +314,7 @@ export function verifyDiscoveryFindings<T extends DiscoveryFinding>(
   const seen = new Set<string>();
   const rank: Record<string, number> = {
     partner: 0,
+    possible_partner: 0,
     local_presence: 0,
     demand: 1,
     contact: 2,
@@ -348,6 +351,21 @@ export function verifyDiscoveryFindings<T extends DiscoveryFinding>(
             "Public company contact page; confirm the appropriate partnering team.",
         };
       else continue;
+    }
+    if (
+      medicine &&
+      ["partner", "local_presence"].includes(finding.kind) &&
+      ![medicine.brand, medicine.inn].some(
+        (term) =>
+          term.length >= 3 && discoveryTerm(page).includes(discoveryTerm(term)),
+      )
+    ) {
+      finding = {
+        ...finding,
+        kind: "possible_partner",
+        claim:
+          "A potentially relevant commercial relationship was found, but this source does not explicitly name the medicine. Product and territory scope require review.",
+      };
     }
     const excerpt = verifiedShortExcerpt(finding.excerpt, page);
     if (!excerpt || !claimScopeIsSupported(finding, page)) continue;

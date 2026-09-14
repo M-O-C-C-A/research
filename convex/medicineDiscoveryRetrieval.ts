@@ -13,7 +13,7 @@ export async function retrieveEvidencePages(urls: string[]) {
         return false;
       }
     })
-    .slice(0, 16);
+    .slice(0, 32);
   if (process.env.TAVILY_API_KEY) {
     await Promise.all(
       Array.from({ length: Math.ceil(selected.length / 5) }, async (_, i) => {

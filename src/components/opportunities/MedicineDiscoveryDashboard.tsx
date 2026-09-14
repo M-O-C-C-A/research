@@ -11,6 +11,11 @@ import {
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
 import { Button } from "@/components/ui/button";
+import { CommercialReviewPanel } from "./CommercialReviewPanel";
+import {
+  commercialSignals,
+  shortlistBlockers,
+} from "../../../convex/medicineDiscoveryReviewPolicy";
 import { Input } from "@/components/ui/input";
 
 type Medicine = Doc<"medicineDiscoveries">;
@@ -57,9 +62,13 @@ function MedicineCard({
   );
   const market = m.markets.find((x) => x.country === country);
   const claims = evidence.filter((x) => x.country === country);
-  const presence = claims.filter(
-    (x) => x.kind === "local_presence" || x.kind === "partner",
-  );
+  const presence = [
+    ...claims,
+    ...(m.reviewSignals ?? []).filter(
+      (c) =>
+        c.country === country && c.verification === "page_excerpt_verified",
+    ),
+  ].filter((x) => x.kind === "local_presence" || x.kind === "partner");
   const regionalPresence = evidence.filter(
     (x) =>
       x.country === "Regional" &&
@@ -68,15 +77,20 @@ function MedicineCard({
   const need = claims.find((c) => c.kind === "demand");
   const contact = evidence.find((c) => c.kind === "contact");
   const pending = ["queued", "running"].includes(m.researchStatus);
-  const title = presence.length
-    ? "Existing presence or partner to assess"
-    : regionalPresence.length
-      ? "Regional partner scope needs checking"
-      : market?.status === "molecule_listed"
-        ? "Related medicine listed locally"
-        : market?.status === "no_molecule_match"
-          ? "Potential access gap to investigate"
-          : "Country access needs checking";
+  const signals = commercialSignals(m, country);
+  const blockers = shortlistBlockers(m, country);
+  const possibleSignals = signals.filter(
+    (c) =>
+      c.kind === "possible_partner" ||
+      c.verification !== "page_excerpt_verified",
+  );
+  const title = possibleSignals.length
+    ? "Possible regional agreement — review required"
+    : presence.length
+      ? "Existing presence or partner to assess"
+      : regionalPresence.length
+        ? "Regional partner scope needs checking"
+        : "Representation remains unconfirmed";
   async function act(fn: () => Promise<unknown>) {
     setBusy(true);
     setError("");
@@ -125,12 +139,18 @@ function MedicineCard({
         className={`mt-4 rounded-xl border p-4 ${presence.length || market?.status === "molecule_listed" ? "border-amber-700 bg-amber-950/30" : "border-sky-800 bg-sky-950/30"}`}
       >
         <p className="text-xs font-semibold uppercase tracking-wide text-zinc-300">
-          {country}
+          {country} · Registration evidence
         </p>
-        <h3 className="mt-1 font-semibold text-white">{title}</h3>
+        <h3 className="mt-1 font-semibold text-white">
+          {market?.status === "molecule_listed"
+            ? "Related medicine listed locally"
+            : market?.status === "no_molecule_match"
+              ? "No match in the supplied snapshot"
+              : "Registration not checked"}
+        </h3>
         <p className="mt-2 text-sm leading-6 text-zinc-300">
           {market?.status === "no_molecule_match"
-            ? "No related molecule or exact brand matched in the supplied UAE snapshot. Confirm current registration, equivalent treatments and local demand before pursuing."
+            ? `No related molecule or exact brand matched in the supplied ${country} snapshot. Current registration remains unconfirmed. This says nothing about representation or available rights.`
             : market?.status === "molecule_listed"
               ? `${market.matches.length}${market.matches.length === 20 ? "+" : ""} related records found. Compare the exact presentation, owner and commercial route; a molecule match is not an exact registration decision.`
               : "No complete country registry comparison is available. Targeted official checks and local partner research remain necessary."}
@@ -141,6 +161,23 @@ function MedicineCard({
             Source content date unconfirmed.
           </p>
         )}
+      </div>
+      <div className="mt-4 rounded-xl border border-amber-800/70 bg-amber-950/20 p-4">
+        <p className="text-xs font-semibold uppercase tracking-wide text-amber-200">
+          Representation and rights
+        </p>
+        <h3 className="mt-1 font-semibold text-white">{title}</h3>
+        <p className="mt-2 text-sm text-zinc-200">
+          {signals.length
+            ? "Commercial relationships require a product and country scope review."
+            : "No relationship is recorded in this evidence file. Representation and available rights remain unknown."}
+        </p>
+        {possibleSignals.map((c, i) => (
+          <div key={`${c.url}-${i}`} className="mt-3 text-sm text-amber-100">
+            <p>{c.claim}</p>
+            <SourceLink url={c.url}>{c.title}</SourceLink>
+          </div>
+        ))}
       </div>
       {presence.length > 0 && (
         <div className="mt-4 space-y-2">
@@ -256,9 +293,10 @@ function MedicineCard({
           ))}
         </div>
       </details>
+      <CommercialReviewPanel medicine={m} country={country} />
       <p className="mt-4 text-sm text-zinc-300">
         <strong className="text-white">Next action: </strong>
-        {presence.length
+        {signals.length
           ? "Review the named partner’s product and territory scope before approaching another supplier."
           : market?.status === "molecule_listed"
             ? "Check whether the exact product is covered and identify a differentiated access or partnering case."
@@ -286,11 +324,14 @@ function MedicineCard({
         </Button>
         <Button
           variant="outline"
-          disabled={busy}
+          disabled={
+            busy || (m.disposition !== "shortlisted" && blockers.length > 0)
+          }
           onClick={() =>
             act(() =>
               disposition({
                 id: m._id,
+                country,
                 disposition:
                   m.disposition === "shortlisted" ? "new" : "shortlisted",
               }),
@@ -303,7 +344,7 @@ function MedicineCard({
               Shortlisted
             </>
           ) : (
-            "Shortlist for review"
+            "Add to actionable shortlist"
           )}
         </Button>
         <Button
@@ -348,7 +389,9 @@ export function MedicineDiscoveryDashboard() {
   const researched = medicines.filter((m) =>
     m.claims.some((c) => c.verification === "page_excerpt_verified"),
   );
-  const shortlist = medicines.filter((m) => m.disposition === "shortlisted");
+  const shortlist = medicines.filter(
+    (m) => m.disposition === "shortlisted" && m.shortlistCountry === country,
+  );
   const pending = medicines.filter((m) =>
     ["running", "queued"].includes(m.researchStatus),
   );
@@ -356,7 +399,7 @@ export function MedicineDiscoveryDashboard() {
     .filter(
       (m) =>
         (view === "shortlisted"
-          ? m.disposition === "shortlisted"
+          ? m.disposition === "shortlisted" && m.shortlistCountry === country
           : view === "parked"
             ? m.disposition === "parked"
             : m.disposition !== "parked") &&
@@ -411,8 +454,9 @@ export function MedicineDiscoveryDashboard() {
             route to market.
           </p>
           <p className="mt-2 text-sm text-zinc-400">
-            Research hypotheses come first. Registration, available rights and
-            commercial viability require confirmation.
+            Research candidates are unqualified. The actionable shortlist
+            requires completed checks and a recorded country-specific commercial
+            review.
           </p>
         </div>
         <Button
@@ -431,7 +475,7 @@ export function MedicineDiscoveryDashboard() {
           [medicines.length, "Medicine records"],
           [researched.length, "With research evidence"],
           [pending.length, "Research in progress"],
-          [shortlist.length, "Shortlisted for review"],
+          [shortlist.length, "Actionable shortlist"],
         ].map(([n, label]) => (
           <div
             key={label}
@@ -464,11 +508,11 @@ export function MedicineDiscoveryDashboard() {
               </p>
             ))}
             <p>
-              Weekly approval refresh. Six new medicines are researched daily;
-              individual research is available on every card. EU generics,
-              biosimilars and non-authorised products are excluded from this
-              discovery feed. FDA coverage follows the annual novel-drug lists,
-              not every FDA approval.
+              Weekly approval refresh. Individual research is available on every
+              card; automatic research expansion is paused while research
+              quality is evaluated. EU generics, biosimilars and non-authorised
+              products are excluded from this discovery feed. FDA coverage
+              follows the annual novel-drug lists, not every FDA approval.
             </p>
           </div>
         </details>
@@ -511,7 +555,7 @@ export function MedicineDiscoveryDashboard() {
           <option value="all">All discoveries</option>
           <option value="researched">With research evidence</option>
           <option value="need">With local need evidence</option>
-          <option value="shortlisted">Shortlisted</option>
+          <option value="shortlisted">Actionable shortlist</option>
           <option value="parked">Parked</option>
         </select>
       </div>

@@ -30,6 +30,7 @@ export interface ResearchResponse<T> {
   requestId: string | null | undefined;
   retryCount: number;
   sources: ResearchSource[];
+  citedSources?: ResearchSource[];
   text: string;
   provider: "openai" | "tavily_hybrid";
   requestIds: string[];
@@ -112,6 +113,7 @@ export async function createWebSearchTextResponse(
     requestId: response._request_id,
     retryCount,
     sources: extractSources(response),
+    citedSources: extractCitedSources(response),
     text,
     provider: "openai",
     requestIds: compactRequestIds([response._request_id]),
@@ -335,6 +337,18 @@ function getOutputText(response: {
     throw new Error("OpenAI response did not include output text");
   }
   return text;
+}
+
+export function extractCitedSources(response: {output?: unknown[]}): ResearchSource[] {
+  const urls = new Map<string, ResearchSource>();
+  for (const item of response.output ?? []) {
+    const content = (item as {content?: Array<{annotations?: Array<{type?: string; url?: string; title?: string}>}>})?.content ?? [];
+    for (const citation of content.flatMap(c => c.annotations ?? [])) {
+      const url = normalizeExternalUrl(citation.url);
+      if (citation.type === "url_citation" && url) urls.set(url, {url, title: citation.title ?? url});
+    }
+  }
+  return [...urls.values()];
 }
 
 export function extractSources(response: {

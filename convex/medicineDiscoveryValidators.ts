@@ -52,6 +52,7 @@ export const discoveryClaim = v.object({
   kind: v.union(
     v.literal("local_presence"),
     v.literal("partner"),
+    v.literal("possible_partner"),
     v.literal("demand"),
     v.literal("contact"),
     v.literal("owner"),
@@ -72,6 +73,33 @@ export const discoveryResearchStatus = v.union(
   v.literal("queued"),
   v.literal("running"),
   v.literal("completed"),
+  v.literal("partial"),
   v.literal("no_findings"),
   v.literal("error"),
 );
+
+export const discoveryResearchCheck = v.object({
+  key: v.string(),
+  label: v.string(),
+  query: v.string(),
+  status: v.union(
+    v.literal("completed"),
+    v.literal("unresolved"),
+    v.literal("failed"),
+  ),
+  sources: v.array(v.string()),
+  retrievedSources: v.array(v.string()),
+  checkedAt: v.number(),
+  detail: v.string(),
+});
+export const discoveryCommercialReview = v.object({
+  country: discoveryCountry,
+  basis: v.string(),
+  reviewedAt: v.number(),
+  reviewer: v.string(),
+  registrationNote: v.string(),
+  rightsNote: v.string(),
+  rationale: v.string(),
+  evidenceUrls: v.array(v.string()),
+  resolvedSignalUrls: v.array(v.string()),
+});

@@ -2,7 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { salesRowFields } from "./salesValidators";
 import { companyFitInput, studyInput, accessEntry } from "./commercialAssessmentValidators";
-import { discoveryReference, discoveryMarket, discoveryClaim, discoveryResearchStatus } from "./medicineDiscoveryValidators";
+import { discoveryReference, discoveryMarket, discoveryClaim, discoveryResearchStatus, discoveryResearchCheck, discoveryCommercialReview } from "./medicineDiscoveryValidators";
 
 const logEntry = v.object({
   timestamp: v.number(),
@@ -768,11 +768,23 @@ export default defineSchema({
     researchStatus: discoveryResearchStatus, researchStartedAt: v.optional(v.number()),
     researchedAt: v.optional(v.number()), researchError: v.optional(v.string()),
     researchAuditStorageId: v.optional(v.id("_storage")),
+    researchPolicyVersion: v.optional(v.number()),
+    researchChecks: v.optional(v.array(discoveryResearchCheck)),
+    reviewSignals: v.optional(v.array(discoveryClaim)),
+    commercialReview: v.optional(discoveryCommercialReview),
+    shortlistCountry: v.optional(v.string()),
     researchWarnings: v.optional(v.array(v.string())), claims: v.array(discoveryClaim),
     disposition: v.union(v.literal("new"), v.literal("shortlisted"), v.literal("parked")),
     checkedAt: v.number(), createdAt: v.number(), updatedAt: v.number(),
   }).index("by_key", ["key"]).index("by_priority", ["priority"])
     .index("by_research_status_and_priority", ["researchStatus", "priority"]),
+  medicineResearchCorrections: defineTable({
+    medicineId: v.id("medicineDiscoveries"), correctedAt: v.number(),
+    previousDisposition: v.string(), note: v.string(), sourceUrl: v.optional(v.string()),
+  }).index("by_medicineId", ["medicineId"]),
+  medicineCommercialReviews: defineTable({
+    medicineId: v.id("medicineDiscoveries"), review: discoveryCommercialReview,
+  }).index("by_medicineId", ["medicineId"]),
   medicineDiscoveryRuns: defineTable({
     status: v.union(v.literal("running"), v.literal("completed"), v.literal("partial"), v.literal("error")),
     sinceYear: v.number(), startedAt: v.number(), completedAt: v.optional(v.number()),

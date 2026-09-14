@@ -45,7 +45,7 @@ crons.cron(
   {},
 );
 
-crons.daily("Research next new-medicine batch", {hourUTC:9, minuteUTC:15}, internal.medicineDiscovery.researchNextBatch);
+// Automatic medicine research expansion is paused pending quality benchmark review.
 
 crons.interval("Process queued medicine research", {minutes:2}, internal.medicineDiscovery.processResearchQueue);
 

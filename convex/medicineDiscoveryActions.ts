@@ -298,9 +298,11 @@ export const research = internalAction({
       );
       if (!process.env.OPENAI_API_KEY)
         throw new Error("OpenAI research key is not configured.");
-      const client = createResearchClient(process.env.OPENAI_API_KEY);
+      const client = createResearchClient(
+        process.env.OPENAI_API_KEY,
+      ).withOptions({ maxRetries: 0, timeout: 45_000 });
       const rateLimitRetry = {
-        maxRetries: 3,
+        maxRetries: 1,
         onRetry: async () => {
           await new Promise((resolve) => setTimeout(resolve, 20_000));
         },
@@ -314,8 +316,13 @@ export const research = internalAction({
         maxToolCalls: 10,
         searchContextSize: "high" as const,
       };
+      const searchStartedAt = Date.now();
       // Separate, auditable passes. Sequential calls respect the provider token budget.
       for (const check of RESEARCH_CHECKS) {
+        if (Date.now() - searchStartedAt > 330_000)
+          throw new Error(
+            "Research time budget reached. Completed checks were retained; remaining coverage is unresolved.",
+          );
         try {
           const result = await createWebSearchTextResponse(client, {
             ...researchOptions,
@@ -369,7 +376,13 @@ export const research = internalAction({
             checkedAt: Date.now(),
             detail: `Search failed: ${String(error).slice(0, 250)}`,
           });
+          if (/401|403|429|quota|invalid_api_key/i.test(String(error)))
+            throw error;
         }
+        await ctx.runMutation(
+          internal.medicineDiscovery.recordResearchProgress,
+          { id, checks },
+        );
       }
       const retrieved = {
         text: reports.map((r) => r.text).join("\n\n"),

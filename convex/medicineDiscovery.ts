@@ -453,6 +453,24 @@ export const processResearchQueue = internalMutation({
   args: {},
   returns: v.null(),
   handler: async (ctx) => {
+    // Recover terminated actions even when there is no next queued medicine.
+    const running = await ctx.db
+      .query("medicineDiscoveries")
+      .withIndex("by_research_status_and_priority", (q) =>
+        q.eq("researchStatus", "running"),
+      )
+      .take(20);
+    for (const m of running) {
+      if (Date.now() - (m.researchStartedAt ?? 0) >= 10 * 60_000) {
+        await ctx.db.patch(m._id, {
+          researchStatus: "error",
+          researchError:
+            "Research reached its time limit. Completed checks and existing evidence were retained; retry the unresolved work.",
+          disposition: m.disposition === "shortlisted" ? "new" : m.disposition,
+          shortlistCountry: undefined,
+        });
+      }
+    }
     const next = await ctx.db
       .query("medicineDiscoveries")
       .withIndex("by_research_status_and_priority", (q) =>
@@ -548,6 +566,23 @@ export const recordCommercialReview = mutation({
       review: entry,
     });
     await ctx.db.patch(id, { commercialReview: entry, updatedAt: Date.now() });
+    return null;
+  },
+});
+
+export const recordResearchProgress = internalMutation({
+  args: {
+    id: v.id("medicineDiscoveries"),
+    checks: v.array(discoveryResearchCheck),
+  },
+  returns: v.null(),
+  handler: async (ctx, { id, checks }) => {
+    const m = await ctx.db.get(id);
+    if (m?.researchStatus === "running")
+      await ctx.db.patch(id, {
+        researchChecks: checks,
+        researchPolicyVersion: 2,
+      });
     return null;
   },
 });

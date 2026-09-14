@@ -180,19 +180,26 @@ export function ownerAgreementSignals(
             ),
         );
       if (!sentence) return [];
-      return [
-        {
-          country: "Regional" as const,
-          kind: "possible_partner" as const,
-          claim:
-            "An owner-level regional agreement may affect this medicine. Exact product, territory and rights scope require review.",
-          excerpt: sentence.split(/\s+/).slice(0, 25).join(" "),
-          url,
-          title: "Possible relevant commercial agreement",
-          observedAt: Date.now(),
-          verification: "page_excerpt_verified" as const,
-        },
-      ];
+      const scopes: Array<"Regional" | "UAE" | "Saudi Arabia" | "Egypt"> =
+        /\bMENA\b|Middle East|North Africa|\bGCC\b|\bGulf\b/i.test(sentence)
+          ? ["Regional"]
+          : [];
+      if (!scopes.length) {
+        if (/United Arab Emirates|\bUAE\b/i.test(sentence)) scopes.push("UAE");
+        if (/Saudi/i.test(sentence)) scopes.push("Saudi Arabia");
+        if (/Egypt/i.test(sentence)) scopes.push("Egypt");
+      }
+      return scopes.map((country) => ({
+        country,
+        kind: "possible_partner" as const,
+        claim:
+          "An owner-level commercial agreement may affect this medicine. Exact product, territory and rights scope require review.",
+        excerpt: sentence.split(/\s+/).slice(0, 25).join(" "),
+        url,
+        title: "Possible relevant commercial agreement",
+        observedAt: Date.now(),
+        verification: "page_excerpt_verified" as const,
+      }));
     })
     .slice(0, 12);
 }

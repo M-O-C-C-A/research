@@ -184,6 +184,50 @@ describe("commercial qualification benchmark", () => {
     expect(result[0].kind).toBe("possible_partner");
     expect(result[0].claim).not.toContain("exclusive");
   });
+  it("does not broaden an Egypt-only owner agreement to the whole region", () => {
+    const signals = ownerAgreementSignals(
+      candidate(),
+      new Map([
+        [
+          "https://example.org/deal",
+          "Madrigal signed a distribution agreement in Egypt for its portfolio.",
+        ],
+      ]),
+    );
+    expect(signals.map((s) => s.country)).toEqual(["Egypt"]);
+    expect(
+      commercialSignals({ ...candidate(), reviewSignals: signals }, "UAE"),
+    ).toEqual([]);
+  });
+  it("stores partial coverage as partial, never completed", async () => {
+    const { t, id } = await setup();
+    const m = candidate();
+    m.researchChecks![0].status = "failed";
+    await t.mutation(internal.medicineDiscovery.saveResearch, {
+      id,
+      claims: m.claims,
+      warnings: [],
+      checks: m.researchChecks,
+      policyVersion: 2,
+    });
+    expect(
+      (await t.query(internal.medicineDiscovery.getInternal, { id }))
+        .researchStatus,
+    ).toBe("partial");
+  });
+  it("recovers a timed-out research run even when the queue is empty", async () => {
+    const { t, id } = await setup();
+    await t.run((ctx) =>
+      ctx.db.patch(id, {
+        researchStatus: "running",
+        researchStartedAt: Date.now() - 11 * 60_000,
+      }),
+    );
+    await t.mutation(internal.medicineDiscovery.processResearchQueue, {});
+    const m = await t.query(internal.medicineDiscovery.getInternal, { id });
+    expect(m.researchStatus).toBe("error");
+    expect(m.claims).toHaveLength(2);
+  });
   it("does not turn a European deal with a separate MENA company footprint into a regional deal", () => {
     const page =
       "Madrigal entered into a distribution agreement for Europe. Swixx also operates in the Middle East.";

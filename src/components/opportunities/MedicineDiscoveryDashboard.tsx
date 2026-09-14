@@ -69,7 +69,12 @@ function MedicineCard({
         c.country === country && c.verification === "page_excerpt_verified",
     ),
   ].filter((x) => x.kind === "local_presence" || x.kind === "partner");
-  const regionalPresence = evidence.filter(
+  const regionalPresence = [
+    ...evidence,
+    ...(m.reviewSignals ?? []).filter(
+      (c) => c.verification === "page_excerpt_verified",
+    ),
+  ].filter(
     (x) =>
       x.country === "Regional" &&
       (x.kind === "partner" || x.kind === "local_presence"),
@@ -85,7 +90,9 @@ function MedicineCard({
       c.verification !== "page_excerpt_verified",
   );
   const title = possibleSignals.length
-    ? "Possible regional agreement — review required"
+    ? possibleSignals.some((c) => c.country === "Regional")
+      ? "Possible regional agreement — review required"
+      : "Possible commercial relationship — review required"
     : presence.length
       ? "Existing presence or partner to assess"
       : regionalPresence.length

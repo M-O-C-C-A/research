@@ -145,6 +145,19 @@ export default function GuidePage() {
         >
           How research works
         </h2>
+        <p className="mt-4 text-sm leading-relaxed text-zinc-300">
+          On the medicine discovery screen, registration comparisons,
+          representation and rights, and commercial qualification are separate.
+          A snapshot no-match is not proof of absent registration or available
+          rights. Eight research checks include owner and distributor
+          announcements plus a separate search for disqualifying evidence.
+          Failed or unresolved checks prevent shortlist promotion. An analyst
+          must record a country-specific commercial review, supporting sources
+          and the resolution of every relationship warning before adding a
+          medicine to the actionable shortlist. Refreshed evidence requires a
+          new review. Automatic research expansion is paused while research
+          quality is evaluated; individual research remains available.
+        </p>
         <div className="mt-4 grid gap-8 lg:grid-cols-2">
           <div>
             <h3 className="text-base font-semibold text-white">
@@ -239,8 +252,8 @@ export default function GuidePage() {
           <div className="grid gap-2 py-4 sm:grid-cols-[10rem_minmax(0,1fr)]">
             <dt className="font-semibold text-white">Opportunities</dt>
             <dd className="text-zinc-400">
-              The working queue, demand-validated top 20, and watchlist. Start here to choose and
-              verify a product-country pursuit.
+              The working queue, demand-validated top 20, and watchlist. Start
+              here to choose and verify a product-country pursuit.
             </dd>
           </div>
           <div className="grid gap-2 py-4 sm:grid-cols-[10rem_minmax(0,1fr)]">

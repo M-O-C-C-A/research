@@ -59,6 +59,47 @@ export function CommercialReviewPanel({ medicine: m, country }: Props) {
           ? `Review recorded by ${m.commercialReview!.reviewer}. Eligible for this country's shortlist.`
           : "Research candidate — not commercially qualified."}
       </p>
+      {m.commercialReview?.country === country && (
+        <details className="mt-3 rounded-lg bg-zinc-950/50 p-3">
+          <summary className="cursor-pointer text-sm text-sky-300">
+            {reviewed
+              ? "Recorded review"
+              : "Previous review — revalidation required"}{" "}
+            · {m.commercialReview.reviewer}
+          </summary>
+          <p className="mt-2 text-xs text-zinc-400">
+            Recorded{" "}
+            {new Date(m.commercialReview.reviewedAt).toLocaleDateString(
+              "en-GB",
+            )}
+          </p>
+          <dl className="mt-3 space-y-3 text-sm text-zinc-200">
+            {[
+              ["Registration", m.commercialReview.registrationNote],
+              ["Representation and rights", m.commercialReview.rightsNote],
+              ["Commercial rationale", m.commercialReview.rationale],
+            ].map(([label, note]) => (
+              <div key={label}>
+                <dt className="font-semibold text-white">{label}</dt>
+                <dd className="mt-1 whitespace-pre-wrap">{note}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="mt-3 space-y-1">
+            {m.commercialReview.evidenceUrls.map((url) => (
+              <a
+                key={url}
+                href={url}
+                target="_blank"
+                rel="noreferrer"
+                className="block break-all text-xs text-sky-300 underline"
+              >
+                {url}
+              </a>
+            ))}
+          </div>
+        </details>
+      )}
       <details className="mt-3">
         <summary className="cursor-pointer text-sm text-sky-300">
           Research checks (

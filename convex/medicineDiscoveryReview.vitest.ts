@@ -228,6 +228,25 @@ describe("commercial qualification benchmark", () => {
     expect(m.researchStatus).toBe("error");
     expect(m.claims).toHaveLength(2);
   });
+  it("shows a billing failure instead of the old temporary-busy message", async () => {
+    const { t, id } = await setup();
+    const m = candidate();
+    m.researchChecks![0].status = "failed";
+    m.researchChecks![0].detail =
+      "Search failed: Error: 429 You have no credits remaining.";
+    await t.run((ctx) =>
+      ctx.db.patch(id, {
+        researchStatus: "error",
+        researchError:
+          "Research provider is busy. Retry this medicine shortly.",
+        researchChecks: m.researchChecks,
+      }),
+    );
+    const dashboard = await t.query(api.medicineDiscovery.dashboard, {});
+    expect(dashboard.candidates[0].researchError).toContain(
+      "account owner must add API credits",
+    );
+  });
   it("does not turn a European deal with a separate MENA company footprint into a regional deal", () => {
     const page =
       "Madrigal entered into a distribution agreement for Europe. Swixx also operates in the Middle East.";

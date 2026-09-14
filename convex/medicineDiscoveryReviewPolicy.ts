@@ -203,3 +203,20 @@ export function ownerAgreementSignals(
     })
     .slice(0, 12);
 }
+
+export function researchFailureMessage(error: unknown) {
+  const message = String(error);
+  if (
+    /no credits remaining|insufficient.quota|billing.hard.limit|exceeded your current quota/i.test(
+      message,
+    )
+  )
+    return "Research is unavailable because the OpenAI API account has no credits remaining. The account owner must add API credits before research can resume. Existing evidence is retained.";
+  if (/401|403|invalid_api_key/i.test(message))
+    return "The research provider rejected access. The account owner must check the API credentials or permissions. Existing evidence is retained.";
+  if (/timeout|timed out/i.test(message))
+    return "The research provider did not respond within the request time limit. Coverage remains unresolved; existing evidence is retained.";
+  if (/429|rate.limit/i.test(message))
+    return "The research provider reached its rate limit. Retry later; coverage remains unresolved and existing evidence is retained.";
+  return message.slice(0, 1200);
+}

@@ -292,7 +292,7 @@ async function createWithRetry(
   }
 }
 
-function isRetryableRateLimit(error: unknown): boolean {
+export function isRetryableRateLimit(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
 
   const maybeError = error as {
@@ -300,6 +300,14 @@ function isRetryableRateLimit(error: unknown): boolean {
     code?: string;
     message?: string;
   };
+
+  if (
+    maybeError.code === "insufficient_quota" ||
+    /no credits remaining|insufficient.quota|billing.hard.limit|exceeded your current quota/i.test(
+      maybeError.message ?? "",
+    )
+  )
+    return false;
 
   return (
     maybeError.status === 429 ||
@@ -339,13 +347,27 @@ function getOutputText(response: {
   return text;
 }
 
-export function extractCitedSources(response: {output?: unknown[]}): ResearchSource[] {
+export function extractCitedSources(response: {
+  output?: unknown[];
+}): ResearchSource[] {
   const urls = new Map<string, ResearchSource>();
   for (const item of response.output ?? []) {
-    const content = (item as {content?: Array<{annotations?: Array<{type?: string; url?: string; title?: string}>}>})?.content ?? [];
-    for (const citation of content.flatMap(c => c.annotations ?? [])) {
+    const content =
+      (
+        item as {
+          content?: Array<{
+            annotations?: Array<{
+              type?: string;
+              url?: string;
+              title?: string;
+            }>;
+          }>;
+        }
+      )?.content ?? [];
+    for (const citation of content.flatMap((c) => c.annotations ?? [])) {
       const url = normalizeExternalUrl(citation.url);
-      if (citation.type === "url_citation" && url) urls.set(url, {url, title: citation.title ?? url});
+      if (citation.type === "url_citation" && url)
+        urls.set(url, { url, title: citation.title ?? url });
     }
   }
   return [...urls.values()];

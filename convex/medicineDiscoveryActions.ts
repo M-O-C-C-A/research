@@ -31,6 +31,7 @@ import {
   RESEARCH_CHECKS,
   RESEARCH_POLICY_VERSION,
   ownerAgreementSignals,
+  researchFailureMessage,
 } from "./medicineDiscoveryReviewPolicy";
 
 type Claim = Infer<typeof discoveryClaim>;
@@ -376,7 +377,11 @@ export const research = internalAction({
             checkedAt: Date.now(),
             detail: `Search failed: ${String(error).slice(0, 250)}`,
           });
-          if (/401|403|429|quota|invalid_api_key/i.test(String(error)))
+          if (
+            /401|403|429|quota|invalid_api_key|timeout|timed out/i.test(
+              String(error),
+            )
+          )
             throw error;
         }
         await ctx.runMutation(
@@ -536,9 +541,7 @@ export const research = internalAction({
             { type: "application/json" },
           ),
         ),
-        error: /429|rate.limit/i.test(String(e))
-          ? "Research provider is busy. Retry this medicine shortly."
-          : String(e).slice(0, 1200),
+        error: researchFailureMessage(e),
       });
     }
     return null;

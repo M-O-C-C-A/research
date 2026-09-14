@@ -24,6 +24,7 @@ import {
   shortlistBlockers,
   commercialSignals,
   validEvidenceUrl,
+  researchFailureMessage,
 } from "./medicineDiscoveryReviewPolicy";
 
 async function start(ctx: MutationCtx) {
@@ -437,12 +438,22 @@ export const dashboard = query({
       .order("desc")
       .first();
     return {
-      candidates: candidates.map((m) =>
-        m.disposition === "shortlisted" &&
-        shortlistBlockers(m, m.shortlistCountry ?? "UAE").length
-          ? { ...m, disposition: "new" as const }
-          : m,
-      ),
+      candidates: candidates.map((m) => {
+        const failedCheck = m.researchChecks?.find(
+          (c) => c.status === "failed",
+        );
+        const display =
+          m.researchError && failedCheck
+            ? {
+                ...m,
+                researchError: researchFailureMessage(failedCheck.detail),
+              }
+            : m;
+        return m.disposition === "shortlisted" &&
+          shortlistBlockers(m, m.shortlistCountry ?? "UAE").length
+          ? { ...display, disposition: "new" as const }
+          : display;
+      }),
       run,
       bounded: candidates.length === 1000,
     };

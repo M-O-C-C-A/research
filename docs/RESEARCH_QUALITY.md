@@ -34,3 +34,12 @@ Automatic research expansion is paused in `convex/crons.ts` and collection no lo
 ## Existing-record correction
 
 `medicineDiscoveryCorrections:correctPage` offers an admin-only, paginated preview/apply operation with an exact current fingerprint. It adds the reviewed NewBridge warning and the explicit Xolremdi country scope, and returns nonqualifying legacy shortlists to research candidates. It preserves correction history and is idempotent. Never use a local anonymous deployment as evidence of production state.
+
+
+## Live acceptance checkpoint — 14 September 2026
+
+The published safeguards and scoped record corrections were verified on production. A direct unreviewed shortlist request was rejected. Desktop/mobile checks showed Rezdiffra's NewBridge warning and Xolremdi's explicit Egypt coverage independently of registry status.
+
+The controlled live research retry stopped at the brand check with the provider response: “You have no credits remaining.” The provider's HTTP 429 was a billing failure, not transient traffic congestion. Billing/quota errors now stop without rate-limit retries and identify the required account-owner action. The initial unbounded request was recovered at its action time limit; it did not produce a fresh audit.
+
+Live search recall is **not measured**: no new source search completed. The manually inserted NewBridge correction is not credited as successful automated discovery. Emcitate and Xolremdi acceptance runs were not started after the provider failure. Automatic medicine research expansion remains paused. The API account owner must restore credits before the three-case live acceptance benchmark can be completed.
